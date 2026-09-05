@@ -30,4 +30,5 @@ export const EXEC = process.env.AK_EXEC
  * Whatever value ships here must also appear in the service's ALLOWED_ORIGINS,
  * or the browser blocks the POST before it leaves the phone.
  */
-export const AURA = process.env.AURA_BASE || '';
+export const AURA = process.env.AURA_BASE
+  || 'https://aura-chat-production-0711.up.railway.app';

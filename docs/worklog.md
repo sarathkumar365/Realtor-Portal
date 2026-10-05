@@ -13,6 +13,21 @@ formatting.
 
 ---
 
+## 2026-10-05 — docs/aura-chat tracked again; feat/pwa merged to main
+
+`4a39f8b` ("feat: final") had gitignored and untracked all of `docs/aura-chat/`,
+which left `AGENTS.md` linking to files a fresh clone does not have and took the
+docs out of version control. No reason was recorded, and nothing in them is new
+exposure: the sheet ids and the Railway URL they mention are already in tracked
+code (`Core.js`, `aura-chat/scripts/deploy.sh`). They are tracked again, along
+with `docs/feature/` (the Unbrander agent design notes).
+
+`main` had sat at `1f208d4` since 2026-08-22 because no PR was ever opened, not
+because anything was held back: `feat/pwa` was a clean 49-commit superset. It is
+merged, and new work branches from `main`.
+
+---
+
 ## 2026-08-27 — property tax rates reviewed and repaired after landing unlogged
 
 Sudhanshu pushed the property-tax feature (Tax.js, a `taxrates` action, the

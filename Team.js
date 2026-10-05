@@ -299,8 +299,13 @@ function rankingsSlim_() {
   cachePut_('rankings_slim', out); return out;
 }
 
+/* The most expensive build in the app (~60 city tabs), and the one both `focus`
+   and `citycounts` depend on — so it is the one that must never be built twice
+   at once. cachedBuild_ holds the lock; everything else here is unchanged. */
 function getSearchIndex_() {
-  var hit = cacheGet_('index_api'); if (hit) return hit.rows;
+  return cachedBuild_('index_api', buildSearchIndex_).rows;
+}
+function buildSearchIndex_() {
   var cities = getCities_().cities, out = [];
   /* Warm every city's cached payload in one round trip before the loop reads them one
      by one — same keys getProjects_ builds, so a hit here saves it the sheet read. */
@@ -319,7 +324,7 @@ function getSearchIndex_() {
         focus: /fo(cu|uc)s/i.test(p.status || ''), occupancy: p.occupancy });
     }
   }
-  cachePut_('index_api', { rows: out }); return out;
+  return { rows: out };   // cachedBuild_ owns the write
 }
 /* Both of these are small derivations of a very large index. Caching the derivation
    too saves parsing that index (300KB+) on every Home and Cities load — the Cities
@@ -536,8 +541,19 @@ function myTickets_(username) {
   return rows.filter(function (t) { return (t.username || '').toLowerCase() === u; })
     .map(function (t) { return { ticket_id: t.ticket_id, document: t.document, status: t.status || 'Open', raised: t.raised_date, closed: t.closed_date, notes: t.notes }; });
 }
+/* One of the four bottom tabs, so it is tapped constantly, and it reads six sheets
+   per call. The key is the token-derived username — never a client parameter — so
+   one realtor's payload can never be served to another. Short TTL: these are the
+   figures people refresh to check, and Refresh still forces a rebuild. */
 function getMyDealsPayload_(p) {
   var tok = (p && p.__tok) || checkToken_(p.auth || ''); if (!tok) return { ok: false, error: 'login required' };
+  var ck = 'mydeals_' + String(tok.user || '').toLowerCase();
+  var hit = cacheGet_(ck); if (hit) { hit.cached = true; return hit; }
+  var res = buildMyDealsPayload_(tok);
+  if (res && res.ok) cachePut_(ck, res, 300);
+  return res;
+}
+function buildMyDealsPayload_(tok) {
   var username = tok.user;
   var matchName = matchNameForUser_(username);
   if (!matchName) return { ok: false, error: 'no deal profile for this user' };

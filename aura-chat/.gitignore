@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+# Left behind by `pip wheel .` / `pip install .`. Not just clutter: ruff and
+# pytest both walk them, so a stale copy of every module gets linted and
+# collected alongside the real one -- 34 errors quietly became 56.
+build/
+dist/

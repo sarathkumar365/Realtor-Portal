@@ -44,10 +44,18 @@ function readTableSmart_(sh) {
 }
 
 /* ================= city projects (getProjects) ================= */
+/* Built once per execution. getSearchIndex_ resolves ~60 cities in a loop, and
+   rescanning every sheet name each time cost thousands of getName() calls for an
+   answer that cannot change mid-request. */
+var __CITY_TABS = null;
 function resolveCity_(city) {
-  var want = String(city || '').trim().toUpperCase(), sheets = sheetsFor_('main');
-  for (var i = 0; i < sheets.length; i++) if (sheets[i].getName().trim().toUpperCase() === want) return sheets[i];
-  return null;
+  var want = String(city || '').trim().toUpperCase();
+  if (!__CITY_TABS) {
+    __CITY_TABS = {};
+    var sheets = sheetsFor_('main');
+    for (var i = 0; i < sheets.length; i++) __CITY_TABS[sheets[i].getName().trim().toUpperCase()] = sheets[i];
+  }
+  return Object.prototype.hasOwnProperty.call(__CITY_TABS, want) ? __CITY_TABS[want] : null;
 }
 function buildColMap_(sh, lastCol) {
   var headers = sh.getRange(HEADER_ROW, 1, 1, lastCol || sh.getLastColumn()).getDisplayValues()[0], map = {};
@@ -87,6 +95,13 @@ function getProjects_(city) {
       occupancy: txt(d2, 'occupancy'), login: txt(d2, 'login'), office: txt(d2, 'office'),
       contact: txt(d2, 'contact'), fub: txt(d2, 'fub'), status: status, live: txt(d2, 'live'),
       hidden: /not\s*avail|unavailable/i.test(String(status).replace(/[-_]/g, ' ')),
+      /* Commercial columns, for Aura Chat. Empty on any tab that does not carry
+         them yet, which is every tab but BRAMPTON at the time of writing. The
+         portal's own screens ignore fields they do not read. */
+      id: txt(d2, 'id'), price: txt(d2, 'price'), maxprice: txt(d2, 'maxprice'),
+      beds: txt(d2, 'beds'), depositpct: txt(d2, 'depositpct'), depositsched: txt(d2, 'depositsched'),
+      incentives: txt(d2, 'incentives'), lastupdated: txt(d2, 'lastupdated'),
+      address: txt(d2, 'address'), sourceurl: txt(d2, 'sourceurl'),
       broker_url:  map.broker  ? cellUrl_(bR[r][0], bF[r][0], d2[map.broker - 1])  : '',
       drive_url:   map.drive   ? cellUrl_(dR[r][0], dF[r][0], d2[map.drive - 1])   : '',
       website_url: map.website ? cellUrl_(wR[r][0], wF[r][0], d2[map.website - 1]) : ''
@@ -97,8 +112,12 @@ function getProjects_(city) {
 }
 
 /* ================= builders ================= */
-function getBuilders_() {
-  var hit = cacheGet_('builders_api'); if (hit) { hit.cached = true; return hit; }
+/* The LOGIN/PASSWORD columns are credentials to other companies' portals. They
+   are admin-only, and the two roles get separate cache keys so a payload built
+   for an admin can never be served to — or cached on the phone of — a realtor. */
+function getBuilders_(isAdmin) {
+  var ck = 'builders_api' + (isAdmin ? '_admin' : '');
+  var hit = cacheGet_(ck); if (hit) { hit.cached = true; return hit; }
   var sh = findMainTab_('BUILDER');
   if (!sh) return { count: 0, rows: [] };
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
@@ -126,11 +145,11 @@ function getBuilders_() {
     var row = disp[r], name = g(row, iName), project = g(row, iProject), rep = g(row, iRep), phone = g(row, iPhone);
     if (!name && !rep && !project && !phone) continue;
     out.push({ _row: r + 2, name: name, project: project, rep: rep, phone: phone, email: g(row, iEmail),
-      login: g(row, iLogin), password: g(row, iPass), notes: g(row, iNotes),
+      login: isAdmin ? g(row, iLogin) : '', password: isAdmin ? g(row, iPass) : '', notes: g(row, iNotes),
       broker_url: iBroker >= 0 ? cellUrl_(bR[r][0], bF[r][0], row[iBroker]) : '' });
   }
   var res = { updated: new Date().toISOString(), count: out.length, rows: out };
-  cachePut_('builders_api', res); return res;
+  cachePut_(ck, res); return res;
 }
 
 /* ================= contractors ================= */
@@ -328,6 +347,11 @@ function loginRows_() {
    is never punished; a script grinding through a password list stalls out. Per
    username, and no lockout -- a lockout would let anyone freeze a colleague. */
 var LOGIN_BACKOFF_MS = [0, 1000, 2000, 4000, 8000];
+var LOGIN_FAIL_ALL = 'lf_all';
+/* Failed attempts across every account in the 15-minute window before sign-in
+   closes for everyone. Well clear of a whole team fat-fingering; nowhere near
+   enough for a spray. */
+var LOGIN_GLOBAL_MAX = 60;
 function loginFailKey_(user) { return 'lf_' + String(user || '').trim().toLowerCase(); }
 function loginDelay_(user) {
   try {
@@ -335,11 +359,23 @@ function loginDelay_(user) {
     return LOGIN_BACKOFF_MS[Math.min(n, LOGIN_BACKOFF_MS.length - 1)];
   } catch (e) { return 0; }
 }
+/* Apps Script serves requests concurrently, so an unlocked read-modify-write lets
+   30 simultaneous guesses all read the same count and all write n+1 — the counter
+   advances by one and the backoff never engages. The lock makes each attempt
+   actually count. A global tally runs alongside, because a per-user count does
+   nothing against someone spraying one guess across every username. */
 function loginFailed_(user) {
+  var lock = null;
+  try { lock = LockService.getScriptLock(); if (!lock.tryLock(3000)) lock = null; } catch (e) { lock = null; }
   try {
     var c = CacheService.getScriptCache(), k = loginFailKey_(user);
     c.put(k, String(Number(c.get(k) || 0) + 1), 900);   // 15 quiet minutes clears the count
+    c.put(LOGIN_FAIL_ALL, String(Number(c.get(LOGIN_FAIL_ALL) || 0) + 1), 900);
   } catch (e) {}
+  finally { if (lock) { try { lock.releaseLock(); } catch (e) {} } }
+}
+function loginLockedOut_() {
+  try { return Number(CacheService.getScriptCache().get(LOGIN_FAIL_ALL) || 0) >= LOGIN_GLOBAL_MAX; } catch (e) { return false; }
 }
 function loginOk_(user) { try { CacheService.getScriptCache().remove(loginFailKey_(user)); } catch (e) {} }
 
@@ -403,6 +439,7 @@ function migratePw_(username, pass) {
 function handleLogin_(p) {
   var user = String(p.user || p.id || p.username || '').trim(), pass = String(p.pass || p.password || '');
   if (!user || !pass) return { ok: false, error: 'missing id or password' };
+  if (loginLockedOut_()) return { ok: false, error: 'too many attempts — try again in a few minutes' };
   // Charged before the comparison, so the wait cannot be read as a hit or a miss.
   var wait = loginDelay_(user); if (wait) Utilities.sleep(wait);
   // IDs are matched case-insensitively, as usernames normally are. Passwords are not.
@@ -440,11 +477,43 @@ function activeUsers_() {
 function userStillActive_(user) {
   var u = String(user || '').trim().toLowerCase();
   if (!u) return false;
-  if (u === ADMIN_ID) return true;   // built-in admin is not a sheet row
-  return activeUsers_().indexOf(u) >= 0;
+  // The admin is not a sheet row, so its liveness is the passcode's: clear the
+  // Script Property and the account is gone, same as deleting a LOGIN row.
+  if (u === ADMIN_ID) return !!adminPass_();
+  return Object.prototype.hasOwnProperty.call(userGens_(), u);
+}
+/* A fingerprint of the credential a token was minted against. Change a password
+   (or rotate ADMIN_PASSCODE) and every token carrying the old fingerprint stops
+   verifying — the per-user revocation the app otherwise lacks, since renewal
+   would happily extend a stolen token forever. Derived from the stored hash, so
+   it costs no extra column and never exposes the hash itself. */
+function credGen_(secretish) {
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'gen:' + String(secretish || ''))
+  ).slice(0, 10);
+}
+/* username -> current fingerprint. Shares the 5-minute window activeUsers_ used,
+   so revocation bites just as fast and costs the same single sheet read. */
+function userGens_() {
+  var c = null, hit = null;
+  try { c = CacheService.getScriptCache(); hit = c.get('user_gens'); } catch (e) {}
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var rows = loginRows_(), out = {};
+  for (var i = 0; i < rows.length; i++) {
+    var u = String(rows[i].username || '').trim().toLowerCase();
+    if (u) out[u] = credGen_(String(rows[i].password || ''));
+  }
+  if (c) { try { c.put('user_gens', JSON.stringify(out), 300); } catch (e) {} }
+  return out;
+}
+function currentGen_(user) {
+  var u = String(user || '').trim().toLowerCase();
+  if (u === ADMIN_ID) { var ap = adminPass_(); return ap ? credGen_('admin:' + ap) : ''; }
+  var g = userGens_();
+  return Object.prototype.hasOwnProperty.call(g, u) ? g[u] : '';
 }
 function makeToken_(user, role) {
-  var raw = user + '|' + role + '|' + Date.now();
+  var raw = user + '|' + role + '|' + currentGen_(user) + '|' + Date.now();
   var sig = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(raw, tokenSecret_()));
   return Utilities.base64EncodeWebSafe(raw) + '.' + sig;
 }
@@ -456,11 +525,15 @@ function checkToken_(token) {
   // Parsed from the end: the username is the one field that can itself contain
   // a '|', so counting from the front would misread every other field.
   var b = raw.split('|');
-  if (b.length < 3) return null;
-  var issued = Number(b[b.length - 1]), role = b[b.length - 2], user = b.slice(0, b.length - 2).join('|');
+  if (b.length < 4) return null;
+  var issued = Number(b[b.length - 1]), gen = b[b.length - 2], role = b[b.length - 3], user = b.slice(0, b.length - 3).join('|');
   // A good signature is not enough: past the window the token is dead, which is
   // what stops a copied token from working forever.
   if (!issued || Date.now() - issued > SESSION_MS) return null;
+  // Nor is the window enough on its own — renewal would slide it indefinitely.
+  // The credential that minted this token must still be the current one, so a
+  // password change or a passcode rotation ends every session it issued.
+  if (!gen || gen !== currentGen_(user)) return null;
   return { user: user, role: role, issued: issued };
 }
 /* Called once per app launch: confirms the stored token is still good AND that

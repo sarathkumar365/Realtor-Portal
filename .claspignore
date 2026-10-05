@@ -14,6 +14,13 @@
 dev/**
 www/**
 assets/**
+design_handoff_aura_key/**
 netlify.toml
 package.json
 package-lock.json
+docs/**
+aura-chat/**
+# Markdown cannot be pushed at all -- .clasp.json declares only .js/.gs, .html
+# and .json as push candidates -- so this glob is belt-and-braces, and no
+# per-file entry below it is ever needed.
+*.md

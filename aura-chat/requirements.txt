@@ -1,0 +1,17 @@
+# Generated from pyproject.toml -- do NOT hand-edit.
+#
+# Railway's builder copies this file and runs pip install BEFORE copying the
+# source, so it cannot install the project itself ("." fails with "package
+# directory 'app' does not exist"). The list therefore has to be spelled out
+# here as well as in pyproject.toml.
+#
+# tests/test_requirements_match.py fails if the two drift apart, so this is a
+# duplicate that cannot rot quietly. Regenerate with:
+#     python3 -c "import tomllib,pathlib;print('\n'.join(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['dependencies']))"
+fastapi>=0.115
+uvicorn[standard]>=0.32
+httpx>=0.27
+pydantic>=2.9
+pydantic-settings>=2.6
+pydantic-ai-slim[openai]>=2.33
+asyncpg>=0.30

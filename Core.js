@@ -71,10 +71,25 @@ var HEADER_ROW = 2, DATA_START = 3;       // city / school tabs: headers row 2, 
 var HEADER_ROWS = { 'main:School Rankings': 2 };
 
 // City-tab column keywords (from the portal's FIELD_KEYS)
+/* buildColMap_ binds each field to the FIRST header containing any of its
+   keywords, so a keyword that is a substring of another header steals the wrong
+   column. Two traps live here:
+     - 'PRICE' would match ONTARIO's 'PRICE RANGE', so the keyword is the whole
+       'STARTING PRICE'.
+     - 'PROJECT ID' contains 'PROJECT', which is harmless only because the ID
+       column is appended to the RIGHT of the project name. Added at column A it
+       would make every project render as an id -- and would stop getCities_
+       recognising the tab at all. */
 var FIELD_KEYS = {
   project:['PROJECT'], builder:['BUILDER'], type:['TYPE'], occupancy:['OCCUPANCY','OCCUPAN'],
   broker:['BROKER'], drive:['UNBRANDED'], login:['LOGIN'], office:['OFFICE'], contact:['CONTACT'], fub:['FUB'],
-  status:['STATUS'], live:['LIVE ON','ON WEBSITE'], website:['LIVE LINK','LINK']
+  status:['STATUS'], live:['LIVE ON','ON WEBSITE'], website:['LIVE LINK','LINK'],
+  /* Added for Aura Chat. Absent from most tabs today: Sudhanshu is filling them
+     for the priority projects, starting with BRAMPTON. An unmapped column reads
+     as empty, so a tab without them behaves exactly as before. */
+  id:['PROJECT ID'], price:['STARTING PRICE'], maxprice:['MAXIMUM PRICE','MAX PRICE'],
+  beds:['BEDROOM'], depositpct:['DEPOSIT %','DEPOSIT PERCENT'], depositsched:['DEPOSIT SCHEDULE'],
+  incentives:['INCENTIVE'], lastupdated:['LAST UPDATED'], address:['ADDRESS'], sourceurl:['SOURCE URL']
 };
 
 var ALLOW = {
@@ -106,6 +121,7 @@ function ssFor_(key) { var k = ssKey_(key); return __SS[k] || (__SS[k] = Spreads
 function sheetsFor_(key) { var k = ssKey_(key); return __SS_TABS[k] || (__SS_TABS[k] = ssFor_(k).getSheets()); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function isAllowed_(k, t) { return (ALLOW[k] || []).indexOf(t) !== -1; }
+function allowedTabs_() { var o = {}; Object.keys(ALLOW).forEach(function (k) { o[k] = ALLOW[k].slice(); }); return o; }
 function headerRowFor_(k, t, o) { if (o) return Math.max(1, parseInt(o, 10) || 1); return HEADER_ROWS[k + ':' + t] || 1; }
 var __FRESH = false;
 
@@ -119,7 +135,14 @@ var __FRESH = false;
    without its parts. Values that fit are still stored whole, so the common case stays
    a single round trip. A missing part reads as a miss -- parts expire together, but a
    torn payload would be worse than a rebuild. */
-var CACHE_TTL = 900;               // seconds a cached payload stays valid
+/* Six hours -- the CacheService maximum -- not fifteen minutes. Home transitively
+   needs the 60-tab search index, so whoever arrives after the cache lapses pays a
+   ~60s rebuild that the client abandons long before it lands. At 900s that was
+   every realtor, every morning, and again after any quiet quarter of an hour.
+   Paired with warmCache() below, which rebuilds on a timer inside this window, a
+   cold cache stops being something a person ever meets. Refresh still forces a
+   rebuild for anyone who has just edited a sheet and wants it now. */
+var CACHE_TTL = 21600;             // seconds a cached payload stays valid
 /* Chunk size is in CHARACTERS while the service's cap is in BYTES, so this leaves room
    for multi-byte content rather than sizing right up to the limit. */
 var CHUNK_CHARS = 45000;
@@ -174,6 +197,55 @@ function cacheGet_(k) {
   try { var h = cacheGetStr_(k); return h ? JSON.parse(h) : null; } catch (e) { return null; }
 }
 function cachePut_(k, v, ttl) { try { delete __CMEMO[k]; cachePutStr_(k, JSON.stringify(v), ttl); } catch (e) {} }
+/* Read-through with a stampede guard. Without it, everyone who arrives during a
+   long rebuild starts their own: five realtors opening at 9am on a cold cache
+   meant five concurrent 60-second rebuilds, and ~90 of those exhaust a consumer
+   account's whole daily runtime. The first caller builds; the rest wait briefly
+   and take the fresh value. Whoever still misses builds anyway — a slow answer
+   beats none, and correctness never depends on holding the lock. */
+function cachedBuild_(key, build, ttl) {
+  var hit = cacheGet_(key); if (hit) return hit;
+  var lock = null;
+  try { lock = LockService.getScriptLock(); if (!lock.tryLock(0)) lock = null; } catch (e) { lock = null; }
+  if (!lock) {
+    try { Utilities.sleep(1500); } catch (e) {}
+    var second = cacheGet_(key); if (second) return second;
+  }
+  try {
+    var built = build();
+    /* An error payload must not be cached: a tab renamed for a minute during a
+       rebuild would otherwise serve "tab missing" for the full TTL after the
+       sheet is back. Let the next caller rebuild. */
+    if (!(built && built.ok === false)) cachePut_(key, built, ttl);
+    return built;
+  } finally { if (lock) { try { lock.releaseLock(); } catch (e) {} } }
+}
+/* ---- scheduled warm-up ---------------------------------------------------
+   The expensive build happens on the script's own time instead of in front of
+   somebody waiting for Home. __FRESH is set deliberately: re-reading a cache
+   that is about to expire would warm nothing, so this forces the rebuild and
+   overwrites the entry with a full TTL ahead of it.
+
+   Run installWarmTrigger() once from the editor to schedule it. Every four
+   hours against a six-hour TTL leaves two hours of margin for a skipped or
+   failed run, at roughly six minutes of runtime a day. */
+function warmCache() {
+  __FRESH = true;
+  try { getHome_(); } catch (e) {}          // pulls the search index, focus and contacts
+  try { getCities_(); } catch (e) {}
+  try { getCityCounts_(); } catch (e) {}
+  try { getTaxRates_(); } catch (e) {}       // Property Tax + the Expenses rate table
+  __FRESH = false;
+}
+function installWarmTrigger() {
+  var existing = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < existing.length; i++) {
+    if (existing[i].getHandlerFunction() === 'warmCache') ScriptApp.deleteTrigger(existing[i]);
+  }
+  ScriptApp.newTrigger('warmCache').timeBased().everyHours(4).create();
+  return 'warmCache scheduled every 4 hours';
+}
+
 /* The web app is anonymous, so `fresh` must not let a caller force unlimited full-sheet
    reads: at most one cache-busting rebuild per action per 30s. A user tapping Refresh
    still gets a rebuild; a loop cannot exhaust the script's quota. */
@@ -263,13 +335,14 @@ function doGet(e) {
   // A password or a live token in a query string is written to the execution log
   // and every proxy on the way. These two are POST-only; doPost carries them.
   if (a === 'login' || a === 'session') return json_({ ok: false, error: 'use POST for ' + a });
+  // Same rule, same reason, for every other action: a live token in a query string
+  // lands in the execution log, browser history and the Referer of any outbound
+  // link. The client only ever POSTs, so nothing legitimate is turned away.
+  if (p.auth) return json_({ ok: false, error: 'use POST when sending auth' });
 
-  // doGet-only actions — gated like everything else (see requireAuth_).
-  // (bootcampreview now lives in app()'s switch so an admin token never rides a GET.)
-  if (a === 'tabs') { if (!requireAuth_(p)) return json_({ ok: false, error: 'login required' }); var o = {}; Object.keys(ALLOW).forEach(function (k) { o[k] = ALLOW[k].slice(); }); return json_({ sheets: o }); }
-  if (a === 'tab')   { if (!requireAuth_(p)) return json_({ ok: false, error: 'login required' }); return json_(readTab_(p.name || '', p.sheet || '', p.headerRow || '')); }
-
-  // Everything else goes through app()'s switch — ONE dispatch table, no drift.
+  // Everything goes through app()'s switch — ONE dispatch table, no drift, and
+  // the same set of actions whether the caller used GET, POST or the HtmlService
+  // bridge. (tabs/tab/bootcampreview used to be doGet-only; they live there now.)
   // Every action there requires a valid token except login/session.
   return json_(app(a, p));
 }
@@ -302,7 +375,9 @@ function requireAuth_(p) {
 }
 function app(action, p) {
   p = p || {}; action = String(action || '');
-  if (!PUBLIC_ACTIONS[action]) {
+  // hasOwnProperty, not a bare lookup: 'constructor', 'toString' and friends are
+  // truthy on any plain object and would walk straight past the gate.
+  if (!Object.prototype.hasOwnProperty.call(PUBLIC_ACTIONS, action)) {
     var tok = requireAuth_(p);
     if (!tok) return { ok: false, error: 'login required' };
     p.__tok = tok;   // handlers reuse the already-verified token instead of re-checking
@@ -315,7 +390,7 @@ function app(action, p) {
     case 'city':          return getProjects_(p.name);
     case 'focus':         return getFocus_();
     case 'listings':      return getListings_();
-    case 'builders':      return getBuilders_();
+    case 'builders':      return getBuilders_(p.__tok && p.__tok.role === 'admin');
     case 'contractors':   return getContractors_();
     case 'contacts':      return getContacts_();
     case 'resources':     return getResources_();
@@ -329,17 +404,26 @@ function app(action, p) {
     case 'getRankings':
     case 'getSchools':    return rankingsSlim_();
     case 'schoolfinder':  return getSchoolFinder_();
-    case 'basement':      return getBasement_(p.addr || p.address);
+    // Stripped at the boundary rather than at each of the six return points inside.
+    case 'basement':      return (p.__tok && p.__tok.role === 'admin')
+                            ? getBasement_(p.addr || p.address)
+                            : stripDbg_(getBasement_(p.addr || p.address));
     case 'basementcoverage': return getBasementCoverage_();
     case 'ltb':           return getLTB_(p.q || p.query, p.offset);
     case 'crime':         return getCrimeCity_(p.slug || p.city);
     case 'crimecities':   return getCrimeCities_();
+    case 'taxrates':      return getTaxRates_();
     case 'fsboards':      return { ok: true, boards: fsBoards_() };
     case 'fssuggest':     return { ok: true, items: fsSuggest_(p.board, p.q || p.text) };
     case 'fslookup':      return fsLookup_(p.board, p.addr || p.address, p.num || p.houseNumber);
     case 'fsschools':     return fsSchools_(p.board, p.id || p.addressId, p.label || p.addressLabel, p.num || p.houseNumber);
     case 'login':         return handleLogin_(p);
     case 'session':       return handleSession_(p);
+    /* Aura Chat's only read. Token-gated like everything else, so the AI
+       service sees exactly what the realtor whose token it forwards would. */
+    case 'aiindex':       return getAiIndex_();
+    case 'tabs':          return { sheets: allowedTabs_() };
+    case 'tab':           return readTab_(p.name || '', p.sheet || '', p.headerRow || '');
     case 'mydeals':       return getMyDealsPayload_(p);
     case 'bootcamp':      return getBootcampPayload_(p);
     case 'bootcampreview':return bootcampReview_(p);                  // admin token only (checked inside)

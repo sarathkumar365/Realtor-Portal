@@ -14,17 +14,20 @@ var NAV=[
   {v:'tenants',    t:'LTB',             ic:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h5'},
   {v:'basement',   t:'Basement Check',  ic:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'},
   {v:'expenses',   t:'Home Expenses',   ic:'M4 4h16v16H4zM8 8h8M8 12h4'},
+  {v:'propertytax',t:'Property Tax',    ic:'M4 4h16v16H4zM8 8h8M8 12h8M8 16h5'},
+  {v:'insurance',  t:'Auto Insurance',  ic:'M5 17h14l-1.5-5.5A2 2 0 0 0 15.6 10H8.4a2 2 0 0 0-1.9 1.5zM7 17v2M17 17v2'},
   {g:'Team'},
   {v:'callnight',  t:'Call Night',      ic:'M4 4h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2z'},
   {v:'leaderboard',t:'Leaderboard',     ic:'M6 21V10M12 21V4M18 21v-7'},
   {v:'resources',  t:'Resources',       ic:'M4 5h16v14H4zM4 9h16M9 5v14'},
   {v:'mydeals',    t:'My Deals',        ic:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'},
-  {v:'onboarding', t:'Bootcamp',        ic:'M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.8 6.5 19.5l1-6.3L3 8.9 9 8z'},
+  {v:'onboarding', t:'Bootcamp',        ic:'M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.8 6.5 19.5l1-6.3L3 8.9 9 8z', off:1},
   {v:'vacations',  t:'Vacation Tracker',ic:'M2 22l20-8-8-8-4 4-8 4zM11 10l3 3'},
   {v:'websites',   t:'Websites',        ic:'M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20'},
+  {v:'reports',    t:'Aura Reports',    ic:'M4 4h16v16H4zM8 9h8M8 13h5M8 17h3', admin:1},
   {v:'faqs',       t:'FAQs',            ic:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .8-1 1.7M12 17h.01'}
 ];
-var SUB={home:'Your team hub, contacts and events.',cities:'Projects and builders by city.',listings:'Current active listings.',builders:'Builder reps and projects.',contractors:'Trusted concierge contacts.',schools:'Rankings by school.',findschool:'Find the school for an address.',crime:'Crime records by city.',tenants:'Search LTB orders.',basement:"Check a city's registration record.",expenses:'Estimate monthly carrying costs.',callnight:'Call-night attendance.',leaderboard:'Team call leaderboard.',resources:'Guides and tools.',mydeals:'Your deals and follow-ups.',onboarding:'The onboarding bootcamp.',vacations:'Who is away and when.',websites:'Handy website links.',faqs:'Common questions.'};
+var SUB={home:'Your team hub, contacts and events.',cities:'Projects and builders by city.',listings:'Current active listings.',builders:'Builder reps and projects.',contractors:'Trusted concierge contacts.',schools:'Rankings by school.',findschool:'Find the school for an address.',crime:'Crime records by city.',tenants:'Search LTB orders.',basement:"Check a city's registration record.",expenses:'Estimate monthly carrying costs.',propertytax:'Residential tax rates by city.',insurance:'What a car costs to insure at an address.',callnight:'Call-night attendance.',leaderboard:'Team call leaderboard.',resources:'Guides and tools.',mydeals:'Your deals and follow-ups.',onboarding:'The onboarding bootcamp.',vacations:'Who is away and when.',websites:'Handy website links.',faqs:'Common questions.',reports:'What realtors reported about Aura\u2019s answers.'};
 
 var ICO={star:'M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.8 6.5 19.5l1-6.3L3 8.9 9 8z',back:'M19 12H5M12 19l-7-7 7-7',chev:'M9 18l6-6-6-6',x:'M18 6L6 18M6 6l12 12'};
 function ico(name,sz){ sz=sz||15; return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none"><path d="'+ICO[name]+'"/></svg>'; }
@@ -37,42 +40,124 @@ function $(id){return document.getElementById(id);}
 function isAuthErr(d){ return !!(d&&d.ok===false&&/\b(login|token|auth)\b/i.test(String(d.error||''))); }
 /* Every server action requires a token except login/session. Attach it here so
    no call site can forget it — login ignores the field, session sets its own. */
-function call(action,params){
+function call(action,params,opts){
   var p=params||{};
   if(action!=='login'&&TOKEN&&p.auth==null){ var q={}; for(var k in p) q[k]=p[k]; q.auth=TOKEN; p=q; }
+  function onData(d){ if(action!=='login'&&isAuthErr(d)) sessionLost(); return d; }   // central re-gate
+  if(window.AK_EXEC) return callHttp(action,p,opts).then(onData);
   return new Promise(function(res,rej){
-    google.script.run.withSuccessHandler(function(d){
-      if(action!=='login'&&isAuthErr(d)) sessionLost();   // central re-gate
-      res(d);
-    }).withFailureHandler(rej).app(action,p);
+    google.script.run.withSuccessHandler(function(d){ res(onData(d)); }).withFailureHandler(rej).app(action,p);
   });
+}
+/* The same app() dispatcher over HTTP, for the installed app. Everything is a POST
+   with a text/plain body: that is a CORS "simple request", so there is no preflight
+   (Apps Script cannot answer one), and neither the password nor the session token
+   ever rides a query string into the execution log.
+
+   fetch resolves on far more than google.script.run does, and the cache layer
+   below treats a rejection as "offline" and a resolution as data worth keeping.
+   So anything that is not a JSON reply from our server -- an HTTP error, the HTML
+   sign-in page Google serves when a deployment is re-scoped, a body that will not
+   parse -- is rejected here, and the offline path stays the offline path. */
+function callHttp(action,p,opts){
+  var body={}; for(var k in p) body[k]=p[k]; body.action=action;
+  /* A request that never settles is the one failure the cache cannot help with: the
+     saved copy is only read on rejection, so a stalled socket (a phone waking from
+     the background onto a dead connection) would hold a full cache behind skeletons
+     for as long as the OS lets it hang. Cut it off and let the offline path run. */
+  var ac=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=ac?setTimeout(function(){ ac.abort(); },(opts&&opts.timeout)||QUICK_MS):null;
+  function settle(){ if(timer) clearTimeout(timer); }
+  return fetch(window.AK_EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ac?ac.signal:undefined})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      if(!/json/i.test(r.headers.get('content-type')||'')) throw new Error('not JSON');
+      return r.json();
+    })
+    .then(function(d){ settle(); return d; }, function(e){ settle(); throw (e&&e.name==='AbortError')?new Error('timed out'):e; });
+}
+/* Nothing evicted these before, so a few weeks of browsing cities filled the origin's
+   quota — and the first casualty was the token write, which is a bare try/catch, so
+   sign-in silently stopped persisting and every launch showed the gate again. Oldest
+   entries go first; the caller's write is retried once room is made. */
+function cacheEvictOldest(n){
+  try{
+    var keys=Object.keys(localStorage).filter(function(k){ return k.indexOf('akc_')===0; });
+    var aged=keys.map(function(k){
+      var at=0; try{ at=(JSON.parse(localStorage.getItem(k))||{}).at||0; }catch(e){}
+      return {k:k,at:at};
+    }).sort(function(a,b){ return a.at-b.at; });
+    for(var i=0;i<Math.min(n,aged.length);i++) localStorage.removeItem(aged[i].k);
+    return aged.length>0;
+  }catch(e){ return false; }
+}
+function cachePersist(key,val){
+  try{ localStorage.setItem(key,val); return true; }
+  catch(e){ return cacheEvictOldest(8) ? (function(){ try{ localStorage.setItem(key,val); return true; }catch(e2){ return false; } })() : false; }
 }
 /* read-through cache: instant back-navigation, offline fallback, manual refresh */
 var MEM={}, FRESH=false, RENDER_FRESH=false, CACHE_TTL=600000, RENDER_SEQ=0;
+/* Cutting a request off early is only worth doing when there is a saved copy to
+   fall back to. With nothing cached the fallback shows an error, so a short
+   budget buys a failure a longer one would not have had -- and Home, the first
+   screen anyone opens, is exactly that case on a cold server cache. */
+var QUICK_MS=15000, SLOW_MS=75000;
+function hasFallback_(k){
+  if(MEM[k]) return true;
+  try{ return !!localStorage.getItem('akc_'+k); }catch(e){ return false; }
+}
+/* Only ever attached to a screen still showing skeletons, so a background
+   prefetch cannot drop this on top of data that is already on screen. */
+var SLOW_T=null;
+function slowNote(on){
+  clearTimeout(SLOW_T);
+  var cur=$('slowNote'); if(cur&&cur.parentNode) cur.parentNode.removeChild(cur);
+  if(!on) return;
+  SLOW_T=setTimeout(function(){
+    var c=$('content'); if(!c||!c.querySelector('.skel')||$('slowNote')) return;
+    var d=document.createElement('div');
+    d.id='slowNote'; d.className='warn'; d.style.margin='0 0 12px';
+    d.textContent='Still loading — the first open after a quiet spell can take up to a minute.';
+    c.insertBefore(d,c.firstChild);
+  },12000);
+}
 var STALE_ERR={stale:true};
 function freshOnly(pr){ var seq=RENDER_SEQ; return pr.then(function(d){ if(seq!==RENDER_SEQ) throw STALE_ERR; return d; }); }
 function ckey(a,p){ return a+':'+JSON.stringify(p||{}); }
 /* shallow copy so the offline flag never sticks to the cached object */
 function offlineCopy(d,at){ var c={}; for(var ck in d) c[ck]=d[ck]; c.__offline=at; return c; }
 function cachedCall(action,params){ return freshOnly(cachedCallRaw(action,params)); }
+/* Identical calls in flight at the same moment share one request. Cities asks for
+   citycounts and focus together and both rebuild the same 60-tab index server-side,
+   so without this a single tap could start two 60-second builds that cannot see
+   each other's cache write. */
+var INFLIGHT={};
 function cachedCallRaw(action,params){
   var k=ckey(action,params), fresh=RENDER_FRESH;
   if(!fresh){
     var m=MEM[k];
     if(m && Date.now()-m.at<CACHE_TTL) return Promise.resolve(m.data);
+    if(INFLIGHT[k]) return INFLIGHT[k];
   }
   var p=params||{};
   if(fresh){ p={}; for(var kk in params) p[kk]=params[kk]; p.fresh=1; }
-  return call(action,p).then(function(d){
+  var slow=!hasFallback_(k);
+  if(slow) slowNote(true);
+  var pr=call(action,p,{timeout:slow?SLOW_MS:QUICK_MS}).then(function(d){
     if(isAuthErr(d)) return d;   // never cache a 'login required' refusal
     MEM[k]={data:d,at:Date.now()};
-    try{ var sj=JSON.stringify({data:d,at:Date.now()}); if(sj.length<200000) localStorage.setItem('akc_'+k,sj); }catch(e){}
+    try{ var sj=JSON.stringify({data:d,at:Date.now()}); if(sj.length<200000) cachePersist('akc_'+k,sj); }catch(e){}
     return d;
   }).catch(function(err){
     var m2=MEM[k]; if(m2) return offlineCopy(m2.data,m2.at);
     try{ var raw=localStorage.getItem('akc_'+k); if(raw){ var o=JSON.parse(raw); return offlineCopy(o.data,o.at); } }catch(e2){}
     throw err;
   });
+  INFLIGHT[k]=pr;
+  // Cleared however it settles, so a failure never pins a rejected promise here.
+  pr.then(function(){ delete INFLIGHT[k]; if(slow) slowNote(false); },
+          function(){ delete INFLIGHT[k]; if(slow) slowNote(false); });
+  return pr;
 }
 function refreshView(){ FRESH=true; route(); }
 function ago(t){ var ms=Date.now()-(typeof t==='number'?t:new Date(t).getTime()); if(isNaN(ms)||ms<0||ms>2592000000) return ''; var m=Math.round(ms/60000); if(m<1) return 'just now'; if(m<60) return m+'m ago'; var h=Math.round(m/60); return h<24?h+'h ago':Math.round(h/24)+'d ago'; }
@@ -92,6 +177,18 @@ function isUrl(v){return /^https?:\/\//i.test(String(v||''));}
 function host(u){try{return String(u).replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];}catch(e){return u;}}
 /* website-parity helpers */
 function money(v){ var s=String(v==null?'':v).trim(); if(!s) return ''; var n=s.replace(/[^0-9.]/g,''); if(!n) return s; var f=parseFloat(n); return isNaN(f)?s:'$'+f.toLocaleString('en-US',{maximumFractionDigits:0}); }
+/* A number from the Aura payload (10.0), raw text from the portal ("10%", or a
+   whole sentence). Only a bare number gets a % appended -- a schedule in that
+   cell must not be rewritten into a percentage it never claimed. */
+function pct(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='number') return isFinite(v)?(Math.round(v*10)/10)+'%':'';
+  var t=String(v).trim();
+  return /^[0-9]+(\.[0-9]+)?%?$/.test(t)?t.replace(/%?$/,'%'):t;
+}
+/* Sheet cells run long, and a card is read on a phone. The full text is always
+   one tap away on the builder's page. */
+function clip(s,n){ s=String(s==null?'':s).trim(); return s.length>n?s.slice(0,n-1).replace(/[\s,;.·-]+$/,'')+'…':s; }
 function pick(o,names){ if(!o) return ''; for(var i=0;i<names.length;i++){ for(var k in o){ if(k.toLowerCase()===names[i].toLowerCase() && o[k]!=null && o[k]!=='') return o[k]; } } return ''; }
 function scoreNum(s){ var f=parseFloat(s); return isNaN(f)?-1:f; }
 function scoreTier(s){ var f=scoreNum(s); if(f>=7.6)return'high'; if(f>=6)return'good'; if(f>=4.1)return'fair'; if(f>=0)return'low'; return''; }
@@ -120,7 +217,10 @@ function skel(n){
   for(var i=0;i<(n||3);i++) h+=one; return h;
 }
 function buildNav(){
-  $('navlist').innerHTML=NAV.map(function(n){
+  /* `off` hides a screen from the menu without unbuilding it: the entry, the
+     loader, the route and the screen itself all stay, so deleting the flag
+     puts it straight back. */
+  $('navlist').innerHTML=NAV.filter(function(n){ return !n.off&&(!n.admin||AURA_ADMIN); }).map(function(n){
     if(n.g) return '<div class="dr-grp">'+esc(n.g)+'</div>';
     return '<button class="dr-item'+(n.sub?' sub':'')+'" data-v="'+n.v+'"><svg class="dr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+n.ic+'"/></svg>'+esc(n.t)+'</button>';
   }).join('');
@@ -130,7 +230,7 @@ function openDrawer(){$('drawer').classList.add('on');$('scrim').classList.add('
 function closeDrawer(){$('drawer').classList.remove('on');$('scrim').classList.remove('on');}
 
 var LOAD={home:loadHome,cities:loadCities,city:loadCityDetail,listings:loadListings,builders:loadBuilders,contractors:loadContractors,
-  schools:loadSchools,findschool:loadFindSchool,crime:loadCrime,tenants:loadLTB,basement:loadBasement,expenses:loadExpenses,
+  schools:loadSchools,findschool:loadFindSchool,crime:loadCrime,tenants:loadLTB,basement:loadBasement,expenses:loadExpenses,propertytax:loadPropertyTax,insurance:loadInsurance,
   callnight:loadCallnight,leaderboard:loadLeaderboard,resources:loadResources,
   mydeals:loadMyDeals,onboarding:loadBootcamp,vacations:loadVacations,websites:loadWebsites,faqs:loadFaqs};
 function go(v,arg){
@@ -140,13 +240,30 @@ function go(v,arg){
 }
 var SCROLLPOS={};
 function route(){
+  try{ routeInner(); }
+  catch(err){
+    /* The skeleton is already painted by this point, so a throw here used to leave
+       the placeholder cards up for good — the blank screen with no way out but a
+       reload. Whatever went wrong, the user gets a way forward. */
+    logErr('route: '+((err&&err.message)||err));
+    try{ $('content').innerHTML='<div class="err">Could not open that screen.<br><span style="color:var(--mute)">Try Home from the menu.</span></div>'; }catch(e2){}
+  }
+}
+function routeInner(){
   if(!TOKEN){ showGate(); return; }      // hash changes must not slip past the gate
   closeDrawer();
   RENDER_SEQ++;
   RENDER_FRESH=FRESH; FRESH=false;
   var h=(location.hash||'').replace(/^#/,''), parts=h.split('/');
-  var v=parts[0]||'home', arg=parts.length>1?decodeURIComponent(parts.slice(1).join('/')):null;
+  var raw=parts.length>1?parts.slice(1).join('/'):null, arg=raw;
+  // A lone % is not valid percent-encoding, and a shared or truncated link can
+  // carry one. The raw segment is a better answer than an aborted render.
+  if(raw!=null){ try{ arg=decodeURIComponent(raw); }catch(e){ arg=raw; } }
+  var v=parts[0]||'home';
   if(!LOAD[v]){ v='home'; arg=null; }
+  /* Leaving #chat by any route — the header arrow, Android's back button, a tab —
+     takes the overlay down and hands the shell its screen back. */
+  if(v!=='chat') closeChat();
   var item=NAV.filter(function(n){return n.v===v;})[0];
   $('scr-title').textContent=item?item.t:(arg||v); $('scr-sub').textContent=item?(SUB[v]||''):'';
   var navKey=(v==='city')?'cities':v;
@@ -211,15 +328,71 @@ function restoreScroll(y){
     tries++; setTimeout(attempt,50);
   })();
 }
-function fail(e){ if(e===STALE_ERR) return; $('content').innerHTML='<div class="err">Could not load — try again.<br><span style="color:var(--mute)">'+esc((e&&e.message)||e||'')+'</span></div>'; }
+/* A small ring of recent failures. The app has no logging of its own, so every
+   silent path used to be undiagnosable after the fact — while the user was shown
+   raw JS internals instead. Now the reverse: a plain sentence on screen, the
+   detail kept here for `akErrors()` in the console. */
+var ERRLOG=[];
+function logErr(msg){
+  try{ ERRLOG.push({at:new Date().toISOString(),msg:String(msg)}); if(ERRLOG.length>25) ERRLOG.shift(); }catch(e){}
+}
+window.akErrors=function(){ return ERRLOG.slice(); };
+function fail(e){
+  if(e===STALE_ERR) return;
+  logErr('load: '+((e&&e.message)||e||''));
+  $('content').innerHTML=/timed out/i.test((e&&e.message)||'')
+    ? '<div class="err">This screen is still being built.<br><span style="color:var(--mute)">The first open after a quiet spell takes a minute. Tap Refresh above to try again.</span></div>'
+    : '<div class="err">Could not load — try again.<br><span style="color:var(--mute)">Check your connection, or pull the Refresh button above.</span></div>';
+}
 
-function kv(k,v){ if(v==null||v===''||typeof v==='object')return''; if(isUrl(v))return '<div class="kv"><span class="kk">'+esc(k)+'</span><a class="vv" href="'+esc(v)+'" target="_blank">'+esc(host(v))+'</a></div>'; return '<div class="kv"><span class="kk">'+esc(k)+'</span><span class="vv">'+esc(v)+'</span></div>'; }
+function kv(k,v){ if(v==null||v===''||typeof v==='object')return''; if(isUrl(v))return '<div class="kv"><span class="kk">'+esc(k)+'</span><a class="vv" href="'+esc(v)+'" target="_blank" rel="noopener noreferrer">'+esc(host(v))+'</a></div>'; return '<div class="kv"><span class="kk">'+esc(k)+'</span><span class="vv">'+esc(v)+'</span></div>'; }
 /* a spreadsheet cell is untrusted input: esc() stops it breaking out of the
    attribute but leaves "javascript:..." intact, so only http(s) may become an
    href — the token in localStorage is the whole app's key now */
 function safeUrl(u){ return isUrl(u)?String(u):''; }
-function linkBtn(label,url){ var u=safeUrl(url); return u?'<a class="lnk" href="'+esc(u)+'" target="_blank">'+esc(label)+'</a>':''; }
+function linkBtn(label,url){ var u=safeUrl(url); return u?'<a class="lnk" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>':''; }
 function telBtn(p){ p=String(p||'').trim(); return p?'<a class="lnk" href="tel:'+esc(p.replace(/[^0-9+]/g,''))+'">Call '+esc(p)+'</a>':''; }
+/* One project card, for the three screens that show one: the home screen's focus
+   list, a city's project list, and an Aura chat answer. Home and city had drifted
+   into two near-identical inline strings and the chat would have made a third, so
+   they all come through here now. The options exist only to preserve what those
+   two already rendered — nothing about their output changed when they moved.
+
+   o.focus   force the pill on (the home list is all focus projects and carries
+             no status column to derive it from)
+   o.bits    which fields make the subtitle, in order
+   o.project prefer p.project over p.name for the title, as the home rows do
+   o.price   show the starting price, which only the chat payload carries
+   o.deposit show the deposit percentage and schedule (chat only)
+   o.incentive show the current incentive (chat only)
+
+   Deposit and incentives are deliberately NOT gated on the mode: AUR-55 names
+   what Client Mode strips and neither is on it.
+
+   The pill is derived from `status`, never from an `is_focus` flag: status is a
+   confidential field, so in Client Mode it arrives blank and the pill disappears
+   on its own. "Focus" is an internal designation and no buyer should read it. */
+function projectCard(p,o){
+  o=o||{};
+  var foc=!!o.focus||/focus/i.test(p.status||'');
+  var keys=o.bits||['city','builder','type','occupancy'];
+  if(foc) keys=keys.filter(function(k){ return k!=='status'; });   // the pill already said it
+  var bits=keys.map(function(k){ return p[k]; }).filter(Boolean);
+  var price=(o.price&&p.starting_price)?money(p.starting_price):'';
+  var dep=o.deposit?pct(p.depositpct):'', sched=o.deposit?clip(p.depositsched,64):'';
+  /* A schedule with no percentage still says something ("$50k on signing"). */
+  var depLine=dep?(dep+' deposit'+(sched?' · '+sched:'')):sched;
+  var inc=o.incentive?clip(p.incentives,110):'';
+  return '<div class="card">'
+    +(foc?'<span class="pill focus">Focus</span>':'')
+    +'<div class="card-t">'+esc((o.project?(p.project||p.name):(p.name||p.project))||'Project')+'</div>'
+    +(bits.length?'<div class="card-s">'+esc(bits.join(' · '))+'</div>':'')
+    +(price?'<div class="card-s" style="color:var(--ink2);font-weight:600">From '+esc(price)+'</div>':'')
+    +(depLine?'<div class="card-s">'+esc(depLine)+'</div>':'')
+    +(inc?'<div class="card-s card-inc">'+esc(inc)+'</div>':'')
+    +'<div class="lnkrow">'+linkBtn('Builder',p.broker_url)+linkBtn('Drive',p.drive_url)+linkBtn('Website',p.website_url)+'</div>'
+  +'</div>';
+}
 /* a sheet cell can hold several addresses ("a@x.com, b@y.com"); a raw comma in
    a mailto is malformed, so link each address on its own */
 function mailAddrs(e){ return String(e||'').split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean); }
@@ -239,8 +412,7 @@ function loadHome(){
     if(groups.order.length) jumps.push({id:'sec-contacts',label:'Contacts ('+(HOME.contacts||[]).length+')'});
     if(jumps.length>1) h+='<div class="chips" style="margin-bottom:16px">'+jumps.map(function(j){ return '<button class="citychip" data-j="'+j.id+'">'+(j.ic?'<span style="color:var(--ochre)">'+ico('star',13)+'</span> ':'')+esc(j.label)+'</button>'; }).join('')+'</div>';
     if(focus.length){ h+='<div class="sec-h" id="sec-focus"><span style="color:var(--ochre)">'+ico('star',13)+'</span> Focus projects · '+focus.length+'</div>'; h+=focus.map(function(p){
-      var meta=[p.builder,p.type,p.occupancy].filter(Boolean).join(' · ');
-      return '<div class="card"><span class="pill focus">Focus</span><div class="card-t">'+esc(p.project||p.name||'Project')+'</div>'+(p.city?'<div class="card-s">'+esc(p.city)+(meta?' · '+esc(meta):'')+'</div>':(meta?'<div class="card-s">'+esc(meta)+'</div>':''))+'<div class="lnkrow">'+linkBtn('Builder',p.broker_url)+linkBtn('Drive',p.drive_url)+linkBtn('Website',p.website_url)+'</div></div>';
+      return projectCard(p,{focus:true,project:true});
     }).join(''); }
     if(events.length){ h+='<div class="sec-h" id="sec-events">Upcoming</div>'; h+=events.map(function(ev){
       /* the server sends details/time/location/link — the old card read
@@ -349,7 +521,10 @@ var CITY_DATA=[], CITY_FOCUS={}, cityFocusOnly=false, cityQ='';
 function loadCities(){
   Promise.all([cachedCall('citycounts'),cachedCall('focus')]).then(function(r){
     var cc=r[0]||{}, fo=r[1]||{};
-    CITY_DATA=(cc.cities||[]).map(function(c){ return (typeof c==='string')?{city:c,count:0}:{city:c.city||c.name||c.tab, count:c.count||c.projects||0}; });
+    /* Staff edit these tabs daily. One row without a usable name used to throw in
+       the sort comparator and take all forty cities down with it. */
+    CITY_DATA=(cc.cities||[]).map(function(c){ return (typeof c==='string')?{city:c,count:0}:{city:c.city||c.name||c.tab||'', count:c.count||c.projects||0}; })
+      .filter(function(c){ return !!String(c.city||'').trim(); });
     CITY_FOCUS={}; ((fo.rows)||[]).forEach(function(p){ var c=(p.city||'').toUpperCase(); if(c) CITY_FOCUS[c]=(CITY_FOCUS[c]||0)+1; });
     $('content').innerHTML=stamp(cc)+'<div class="fbar"><input id="citySearch" placeholder="Search a city…" value="'+esc(cityQ)+'"></div>'
       +'<div class="seg"><button id="cAll" class="'+(cityFocusOnly?'':'on')+'">All</button><button id="cFocus" class="'+(cityFocusOnly?'on':'')+'">'+ico('star',13)+' Focus only</button></div>'
@@ -366,9 +541,9 @@ function renderCities(){
   var q=cityQ.trim().toLowerCase();
   var rows=CITY_DATA.filter(function(c){
     if(cityFocusOnly && focusCount(c.city)<=0) return false;
-    if(q && c.city.toLowerCase().indexOf(q)<0) return false;
+    if(q && String(c.city||'').toLowerCase().indexOf(q)<0) return false;
     return true;
-  }).sort(function(a,b){return a.city.toLowerCase()<b.city.toLowerCase()?-1:1;});
+  }).sort(function(a,b){return String(a.city||'').toLowerCase()<String(b.city||'').toLowerCase()?-1:1;});
   var tot=0; rows.forEach(function(c){tot+=(c.count||0);});
   $('cityCount').textContent=rows.length+(rows.length===1?' city':' cities')+' · '+tot+(tot===1?' project':' projects');
   $('cityGrid').innerHTML=rows.length?'<div class="rowlist">'+rows.map(function(c){
@@ -386,8 +561,7 @@ function loadCityDetail(name){
     var focus=rows.filter(function(p){return /focus/i.test(p.status||'');}), rest=rows.filter(function(p){return !/focus/i.test(p.status||'');});
     var ordered=focus.concat(rest);
     $('content').innerHTML=stamp(d)+'<div class="sec-h">'+esc(name)+' — '+rows.length+' projects</div>'+ordered.map(function(p){
-      var foc=/focus/i.test(p.status||'');
-      return '<div class="card">'+(foc?'<span class="pill focus">Focus</span>':'')+'<div class="card-t">'+esc(p.name||p.project||'Project')+'</div>'+(p.status&&!foc?'<div class="card-s">'+esc(p.status)+'</div>':'')+'<div class="lnkrow">'+linkBtn('Builder',p.broker_url)+linkBtn('Drive',p.drive_url)+linkBtn('Website',p.website_url)+'</div></div>';
+      return projectCard(p,{bits:['status']});
     }).join('');
   }).catch(function(e){ if(e===STALE_ERR) return; $('content').innerHTML='<div class="err">Could not load '+esc(name)+'.</div>'; });
 }
@@ -445,8 +619,9 @@ function qHit(q,rec,keys){
   return false;
 }
 function pageCount(page,n,total,one,many){
-  var el=$('n_'+page); if(!el) return;
-  el.textContent=n+' '+(n===1?one:many)+(n!==total?' of '+total:'');
+  var t=n+' '+(n===1?one:many)+(n!==total?' of '+total:'');
+  var el=$('n_'+page); if(el) el.textContent=t;
+  return t;
 }
 
 function loadBuilders(){ rowsPage('builders','Filter builders or projects',['name','project','rep','phone','email'],['builder','builders'], function(r){
@@ -694,18 +869,131 @@ function runLTB(){
   }).catch(fail);
 }
 
+/* How to verify a second unit, city by city. Reference text rather than data, so
+   it sits here beside the screen that shows it: the backend already says whether
+   a registry exists, and this says what to actually do about it. A city missing
+   from here simply shows no panel. */
+var BC_HOW={
+  brampton:{name:'Brampton',status:'Live ARU registry',
+    steps:['Search the address in the Registered Additional Residential Units map.','Confirm whether it is a two-unit, three-unit or garden suite.','Save the registry result for the file.'],
+    dept:'Building Division',phone:'905-874-2401',email:'twounit.zoning@brampton.ca',
+    src:'Brampton Registered Additional Residential Units Registry',
+    url:'https://www.brampton.ca/EN/residents/Building-Permits/second-dwelling/Pages/Registered-Additional-Residential-Units.aspx',urlT:'Open the registry'},
+  oshawa:{name:'Oshawa',status:'Live two-unit registry',
+    steps:['Search the Registered Two Unit Apartments dataset.','Match the address exactly.','Save the registration information for the file.'],
+    dept:'Service Oshawa',phone:'905-436-3311',email:'service@oshawa.ca',
+    src:'Oshawa Registered Two Unit Apartments open data',
+    url:'https://city-oshawa.opendata.arcgis.com/datasets/97d92126eeae4430885d6225df0ff2a0/explore',urlT:'Open the dataset'},
+  mississauga:{name:'Mississauga',status:'Registry list, then municipal confirmation',
+    steps:['Search the Second Units Registry List PDF.','If the address is not in the list, contact the City.','Confirm the registration or building permit status.'],
+    dept:'Second Unit Registration',phone:'311 / 905-615-4311',email:'secondunits@mississauga.ca',
+    src:'Mississauga Second Units Registry List',
+    url:'https://www.mississauga.ca/publication/second-units-registry-list/',urlT:'Open the list'},
+  toronto:{name:'Toronto',status:'Manual permit verification',
+    steps:['Search Toronto Building permits.','Check for secondary suite or basement apartment permits.','Request a building record confirmation.'],
+    dept:'Toronto Building',phone:'416-338-5600',email:'buildingpermits@toronto.ca',src:'Toronto building permit records'},
+  vaughan:{name:'Vaughan',status:'Manual verification',
+    steps:['Search the building permit records.','Check for secondary suite or ADU approvals.','Contact Building Standards if anything is unclear.'],
+    dept:'Building Standards',phone:'905-832-8510',email:'buildingstandards@vaughan.ca',src:'Vaughan secondary suites / ADU information'},
+  barrie:{name:'Barrie',status:'Manual verification plus a permit records request',
+    steps:['Open the Barrie APLI portal and search the property address.','Check for secondary suite, basement apartment, additional residential unit and interior alteration permits, and their final inspections.','If it is still unclear, request the Building Permit Records or a Building Compliance Letter from the City.'],
+    dept:'Building Services / Service Barrie',phone:'705-739-4242',email:'ServiceBarrie@barrie.ca',
+    src:'Barrie APLI portal \u2014 applications, permits, inspections and property records',
+    url:'https://eservices.barrie.ca/',urlT:'Open the APLI portal',
+    url2:'https://www.barrie.ca/services-payments/permits-licences-applications/building-permit-records-request',url2T:'Request permit records'},
+  milton:{name:'Milton',status:'ARU registration process',
+    steps:['Search the permit history.','Confirm the ARU registration.','Verify the compliance certificate.'],
+    dept:'Building Division',phone:'905-878-7252 ext. 2397',email:'',src:'Milton Additional Residential Units program'},
+  'halton hills':{name:'Halton Hills',status:'Manual verification',
+    steps:['Search the building permits.','Request ARU confirmation from Building Services.'],
+    dept:'Building Services',phone:'905-873-2600',email:'building@haltonhills.ca',src:'Halton Hills Building Services'},
+  pickering:{name:'Pickering',status:'Manual verification',
+    steps:['Search the building permit records.','Check for accessory apartment or secondary suite approvals.'],
+    dept:'Building Services',phone:'905-420-4631',email:'buildingservices@pickering.ca',src:'Pickering Building Services'},
+  whitby:{name:'Whitby',status:'Manual verification',
+    steps:['Search the permit records.','Confirm the registered second unit approval.'],
+    dept:'Building Services',phone:'905-430-4305',email:'building@whitby.ca',src:'Whitby Building Services'},
+  markham:{name:'Markham',status:'Manual verification',
+    steps:['Search the building records.','Check for secondary suite permits.','Request written confirmation.'],
+    dept:'Building Standards',phone:'905-475-4858',email:'buildingstandards@markham.ca',src:'Markham Building Standards'},
+  'richmond hill':{name:'Richmond Hill',status:'Manual verification',
+    steps:['Search the building permits.','Confirm the secondary unit approval.'],
+    dept:'Building Services',phone:'905-771-8810',email:'building@richmondhill.ca',src:'Richmond Hill Building Services'},
+  burlington:{name:'Burlington',status:'Manual verification',
+    steps:['Search the building permit records.','Confirm the accessory apartment approval.'],
+    dept:'Building Services',phone:'905-335-7731',email:'building@burlington.ca',src:'Burlington Building Services'},
+  caledon:{name:'Caledon',status:'Manual verification',
+    steps:['Search the ARU and building permits.','Confirm the additional residential unit approval.'],
+    dept:'Building Services',phone:'905-584-2272',email:'building@caledon.ca',src:'Caledon Building Services'},
+  oakville:{name:'Oakville',status:'Manual verification',
+    steps:['Search the building permits.','Check for secondary suite approvals.','Request written confirmation.'],
+    dept:'Building Services',phone:'905-845-6601',email:'buildingrequests@oakville.ca',src:'Oakville Building Services'},
+  ajax:{name:'Ajax',status:'Manual verification',
+    steps:['Search the permit records.','Confirm the legal second unit status.'],
+    dept:'Building Services',phone:'905-619-2529',email:'building@ajax.ca',src:'Ajax Building Services'},
+  kitchener:{name:'Kitchener',status:'Manual verification',
+    steps:['Search the building permits.','Check the additional dwelling unit approval.'],
+    dept:'Building Division',phone:'519-741-2426',email:'building@kitchener.ca',src:'Kitchener Building Division'},
+  waterloo:{name:'Waterloo',status:'Manual verification',
+    steps:['Search the building permits.','Confirm the secondary suite approval.'],
+    dept:'Building Services',phone:'519-747-8712',email:'building@waterloo.ca',src:'Waterloo Building Services'},
+  cambridge:{name:'Cambridge',status:'Manual verification',
+    steps:['Search the building permits.','Confirm the additional residential unit approval.'],
+    dept:'Building Division',phone:'519-740-4517',email:'building@cambridge.ca',src:'Cambridge Building Division'}
+};
+function bcHow(city){
+  var k=String(city||'').toLowerCase().trim();
+  if(BC_HOW[k]) return BC_HOW[k];
+  for(var n in BC_HOW){ if(k.indexOf(n)>=0) return BC_HOW[n]; }
+  return null;
+}
+/* One card, used both under a result and on its own when a coverage chip is
+   tapped. The copy button carries the whole thing, because the realtor is
+   usually pasting it to someone rather than reading it. */
+function bcHowCard(h){
+  if(!h) return '';
+  var steps=(h.steps||[]).map(function(x,i){ return kv('Step '+(i+1),x); }).join('');
+  var links=(h.url?linkBtn(h.urlT||'Open the registry',h.url):'')+(h.url2?linkBtn(h.url2T||'More',h.url2):'')
+    +(h.phone?telBtn(h.phone):'')+(h.email?mailBtn(h.email):'');
+  return '<div class="card"><div class="card-t">How to verify \u2014 '+esc(h.name)+'</div>'
+    +'<div class="card-s">'+esc(h.status)+'</div>'
+    +'<p class="seclbl">How to search it</p>'+steps
+    +'<p class="seclbl">Who to contact</p>'+kv('Department',h.dept)+kv('Phone',h.phone)+kv('Email',h.email)
+    +kv('Source',h.src)
+    +(links?'<div class="lnkrow">'+links+'</div>':'')
+    +'<button class="copy" id="bchowcp"><span>Copy steps</span></button></div>';
+}
+function bcHowText(h){
+  return h.name+' \u2014 '+h.status+'\n'
+    +(h.steps||[]).map(function(x,i){ return (i+1)+'. '+x; }).join('\n')
+    +'\n'+(h.dept||'')+(h.phone?' | '+h.phone:'')+(h.email?' | '+h.email:'')+(h.url?'\n'+h.url:'');
+}
+/* Paints into a given container and wires its copy button. The result screen and
+   the coverage list both use it, so the wiring lives in one place. */
+function bcPaintHow(id,city){
+  var el=$(id); if(!el) return;
+  var h=bcHow(city);
+  if(!h){ el.innerHTML=''; return; }
+  el.innerHTML=bcHowCard(h);
+  var b=el.querySelector('#bchowcp');
+  if(b) b.addEventListener('click',function(){ copyText(bcHowText(h)); var s=this.querySelector('span'),o=s.textContent; s.textContent='Copied'; setTimeout(function(){s.textContent=o;},1400); });
+}
 function loadBasement(){
-  $('content').innerHTML='<div class="fbar"><input id="bcaddr" placeholder="41 Fanshawe Cres, Brampton"><button class="gobtn" onclick="runBC()">Check</button></div><div class="chips" id="bcchips"></div><div id="bcHint" style="font-size:var(--fs-sm);color:var(--mute);margin:10px 2px"></div><div id="bcRes"></div><div id="bcCov" style="margin-top:22px"></div>';
+  $('content').innerHTML='<div class="fbar"><input id="bcaddr" placeholder="41 Fanshawe Cres, Brampton"><button class="gobtn" onclick="runBC()">Check</button></div><div class="chips" id="bcchips"></div><div id="bcHint" style="font-size:var(--fs-sm);color:var(--mute);margin:10px 2px"></div><div id="bcRes"></div><div id="bcHow"></div><div id="bcCov" style="margin-top:22px"></div>';
   var chips=['64 Abbey Rd, Brampton','55 Aberdeen St, Oshawa','606 Abana Rd, Mississauga'];
   $('bcchips').innerHTML=chips.map(function(c){return '<button class="citychip" data-a="'+esc(c)+'">'+esc(c)+'</button>';}).join('');
   $('bcchips').querySelectorAll('.citychip').forEach(function(b){ b.addEventListener('click',function(){ $('bcaddr').value=b.dataset.a; runBC(); }); });
   $('bcaddr').addEventListener('keydown',function(e){if(e.key==='Enter')runBC();});
-  call('basementcoverage').then(function(r){ if(!r||!r.tiers)return; $('bcCov').innerHTML='<div class="sec-h">What\u2019s covered</div>'+r.tiers.map(function(t){ return '<div class="card"><div class="card-s" style="font-weight:600;color:var(--ink2)">'+esc(t.label)+'</div><div class="lnkrow">'+(t.cities||[]).map(function(c){return '<span class="tagchip">'+esc(c)+'</span>';}).join('')+'</div></div>'; }).join(''); });
+  call('basementcoverage').then(function(r){ if(!r||!r.tiers)return; $('bcCov').innerHTML='<div class="sec-h">What\u2019s covered</div><div class="card-s" style="margin:0 2px 10px">Tap a city to see how to search it manually, and who to call.</div>'+r.tiers.map(function(t){ return '<div class="card"><div class="card-s" style="font-weight:600;color:var(--ink2)">'+esc(t.label)+'</div><div class="lnkrow">'+(t.cities||[]).map(function(c){return '<button class="tagchip" data-c="'+esc(String(c).toLowerCase())+'">'+esc(c)+'</button>';}).join('')+'</div></div>'; }).join('');
+    /* the same panel the search fills, so a city with no registry still tells
+       the realtor what to do about it */
+    $('bcCov').querySelectorAll('.tagchip[data-c]').forEach(function(b){ b.addEventListener('click',function(){ bcPaintHow('bcHow',b.dataset.c); window.scrollTo(0,0); }); });
+  });
 }
 var BCC={pine:'c-pine',ochre:'c-ochre',grey:'c-grey',blue:'c-blue',rust:'c-rust'};
 function runBC(){
   var v=($('bcaddr').value||'').trim(); if(v.length<4){ $('bcHint').textContent='Enter a full address including the city.'; return; }
-  $('bcHint').textContent='Checking the municipal record…'; $('bcRes').innerHTML='';
+  $('bcHint').textContent='Checking the municipal record…'; $('bcRes').innerHTML=''; if($('bcHow')) $('bcHow').innerHTML='';
   call('basement',{addr:v}).then(function(r){
     if(!r||!r.ok){ $('bcHint').textContent=(r&&r.error)||'Could not check that address.'; return; }
     $('bcHint').textContent='';
@@ -714,7 +1002,152 @@ function runBC(){
     var sayPlain=String(r.say||'').replace(/<\/?em>/g,'');
     $('bcRes').innerHTML='<div class="card"><span class="stamp '+cls+'"><b>'+esc(r.statusLabel||'')+'</b></span><div class="card-t" style="margin-top:11px">'+esc(v)+'</div><p class="seclbl">Say this to your client</p><div class="say">'+(r.say||'')+'</div><button class="copy" id="bccp"><span>Copy wording</span></button>'+(nexts?'<p class="seclbl">Your next step</p><ul class="next">'+nexts+'</ul>':'')+(rows?'<details class="ev"><summary>Where this came from '+ico('chev',12)+'</summary>'+rows+'</details>':'')+'<div class="warn"><b>Never describe a unit as legal off this screen.</b> This reports a municipal record on the date shown — not a legal ruling.</div></div>';
     $('bccp').addEventListener('click',function(){ copyText(sayPlain); var s=this.querySelector('span'),o=s.textContent; s.textContent='Copied'; setTimeout(function(){s.textContent=o;},1400); });
+    bcPaintHow('bcHow', r.city||v);
   }).catch(fail);
+}
+
+/* ===================== AUTO INSURANCE =====================
+   A postal code changes what a car costs to insure, and nobody thinks about it
+   until after they have moved. Asking the question next to the property is the
+   whole feature.
+
+   This links out and nothing more. No rates are worked out here, nothing is
+   scraped, and the client is never asked for a licence, a claim or an email —
+   that is a licensed business and we are not in it. rates.ca takes a postal code
+   and shows what the area costs, with no account, which is the right depth for
+   something a realtor holds up on a phone.
+
+   It does not pre-fill their form. Their site refuses anything that is not a
+   browser, so a URL parameter could not be confirmed, and a guessed one would
+   break silently the day they change it. The code goes to the clipboard instead —
+   one paste, and nothing to rot. */
+
+var INS_URL='https://rates.ca/insuramap/auto';
+
+function loadInsurance(){
+  $('content').innerHTML=
+     '<div class="fbar"><input id="insPc" placeholder="L6R 2K1" maxlength="7" autocomplete="postal-code"'
+   + ' autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go">'
+   + '<button class="gobtn" onclick="runIns()">Check</button></div>'
+   + '<div id="insHint" style="font-size:var(--fs-sm);color:var(--mute);margin:10px 2px"></div>'
+   + '<div class="card">'
+   +   '<div class="card-t">What this shows</div>'
+   +   '<div style="font-size:var(--fs-md);color:var(--mute);line-height:1.55">'
+   +     'Insurance is priced partly on where the car is parked overnight, so moving '
+   +     'changes the premium before anything else about the policy does. This opens a '
+   +     'map of estimated yearly premiums by area \u2014 an average, not a quote, and '
+   +     'nothing is asked of the client.'
+   +   '</div>'
+   + '</div>'
+   + '<div class="sec-h">Common areas</div>'
+   + '<div class="chips" id="insChips"></div>'
+   + '<div style="font-size:var(--fs-sm);color:var(--mute);margin:1rem 0.125rem;line-height:1.5">'
+   +   'Estimates come from a third-party provider. Aura Key Realty does not give '
+   +   'insurance advice or quotes.'
+   + '</div>';
+
+  /* The areas the team sells in most. Typing a postal code on a phone in front of
+     a client is slower than tapping one, and these cover most of what gets asked. */
+  var chips=[['L6P','Brampton East'],['L6X','Brampton West'],['L5M','Mississauga'],
+             ['L4H','Vaughan'],['L6H','Oakville'],['L1X','Pickering']];
+  $('insChips').innerHTML=chips.map(function(c){
+    return '<button class="citychip" data-pc="'+esc(c[0])+'">'+esc(c[1])+' \u00b7 '+esc(c[0])+'</button>';
+  }).join('');
+  $('insChips').querySelectorAll('.citychip').forEach(function(b){
+    b.addEventListener('click',function(){ $('insPc').value=b.dataset.pc; runIns(); });
+  });
+  $('insPc').addEventListener('keydown',function(e){ if(e.key==='Enter') runIns(); });
+}
+
+function runIns(){
+  var raw=($('insPc').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  /* Three characters is enough. Their map prices by area, not by address \u2014 enter
+     L6P and it answers for the whole of L6P \u2014 so a partial code is as useful as a
+     full one, and refusing it would be refusing a working answer. */
+  var pc = raw.length>=6 ? raw.slice(0,3)+' '+raw.slice(3,6)
+         : raw.length>=3 ? raw.slice(0,3) : '';
+  if(!pc){ $('insHint').textContent='Enter at least the first three characters, like L6R.'; return; }
+
+  copyText(pc);
+  /* Said on the screen as well as in the toast: a toast is gone by the time the new
+     tab has loaded, and the code is what they need in front of them at that point. */
+  $('insHint').innerHTML='<b style="color:var(--ink)">'+esc(pc)+'</b> copied \u2014 paste it into '
+    + 'the Postal Code box and press Search.';
+  toast(pc+' copied');
+  window.open(INS_URL,'_blank','noopener');
+}
+
+/* ===================== PROPERTY TAX =====================
+   The rate table behind Home Expenses, on its own screen. Reads `taxrates`,
+   which resolves 2026 with a 2025 fallback in the sheet itself, so nothing here
+   decides which year to serve. One rate per city: the community-level areas
+   Hamilton and Chatham-Kent carry are real, but a realtor standing in a kitchen
+   wants the number, not a menu. Painting this also corrects the calculator's
+   table, so opening either screen warms the other. */
+var PT_ROWS=[], ptQ='', ptScope='all';
+/* The 25 GTA municipalities plus Hamilton — the ones the team is asked about
+   daily. Everything else is one tap away behind All. */
+var PT_GTA=['Toronto','Mississauga','Brampton','Caledon','Vaughan','Markham','Richmond Hill','Newmarket','Aurora','King','East Gwillimbury','Whitchurch-Stouffville','Georgina','Oshawa','Whitby','Ajax','Pickering','Clarington','Uxbridge','Scugog','Brock','Oakville','Burlington','Milton','Halton Hills','Hamilton'];
+/* The sheet's Municipality cell is hand-typed; compare with case and punctuation
+   stripped so "TORONTO" or an en-dash hyphen does not drop a city from the tab. */
+function ptKey(n){ return String(n||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+var PT_GTA_KEYS=PT_GTA.map(ptKey);
+function ptPct(n){ return (n==null||!isFinite(n))?'\u2014':Number(n).toFixed(4)+'%'; }
+function ptTone(r){ return !r.quotable?'grey':((r.status==='VERIFIED'&&!r.fallback)?'pine':'ochre'); }
+function loadPropertyTax(){
+  cachedCall('taxrates').then(function(d){
+    if(!d||d.ok===false){ $('content').innerHTML='<div class="err">'+esc((d&&d.error)||'Could not read the rate table.')+' <button class="linklike" onclick="refreshView()">Retry</button></div>'; return; }
+    PT_ROWS=d.rows||[];
+    if(AKX.applyLiveRates) AKX.applyLiveRates(d);
+    $('content').innerHTML=stamp(d)
+      +'<div class="card wide"><div class="card-s">Ontario residential rates, read from the rate workbook. Where a city has not published a 2026 rate the 2025 one is shown and labelled. The 0.153% education levy is province-wide and is already inside every combined rate.</div></div>'
+      +'<div class="seg" id="ptScope"><button class="on" data-s="all">All</button><button data-s="gta">GTA</button><button data-s="check">Needs checking</button></div>'
+      +'<div class="fbar"><input id="ptq" type="search" placeholder="Filter cities\u2026" autocomplete="off" value="'+esc(ptQ)+'"></div>'
+      +'<div id="ptCount" class="card-s" style="margin:0 2px 10px"></div>'
+      +'<div id="ptList"></div>';
+    $('ptScope').querySelectorAll('button').forEach(function(b){ b.addEventListener('click',function(){
+      if(b.dataset.s===ptScope) return;
+      ptScope=b.dataset.s;
+      $('ptScope').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on',x===b); });
+      paintPropertyTax();
+    }); });
+    $('ptq').addEventListener('input',function(){ ptQ=this.value; paintPropertyTax(); });
+    paintPropertyTax();
+  }).catch(fail);
+}
+/* The combined rate sits on the card because it is the billed number. The split
+   is behind the details, because it is context and — since every by-law decides
+   for itself which components sit on the municipal line — it is not comparable
+   between cities. */
+function paintPropertyTax(){
+  var q=String(ptQ||'').trim().toLowerCase();
+  var rows=PT_ROWS.filter(function(r){
+    if(ptScope==='gta'&&PT_GTA_KEYS.indexOf(ptKey(r.mun))<0) return false;
+    if(ptScope==='check'&&r.quotable&&r.status==='VERIFIED'&&!r.fallback) return false;
+    if(q&&(r.mun+' '+(r.region||'')).toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  $('ptCount').textContent=pageCount('propertytax',rows.length,PT_ROWS.length,'city','cities');
+  if(!rows.length){ $('ptList').innerHTML='<div class="empty">No city matches that.</div>'; return; }
+  $('ptList').innerHTML=rows.map(function(r){
+    var label=!r.quotable?'No published rate':(r.status+(r.fallback?' \u00b7 '+r.year:''));
+    return '<div class="card"><div class="card-t">'+esc(r.mun)+'</div>'
+      +'<div class="card-s">'+esc(r.region||'Single tier')+(r.area?' \u00b7 '+esc(r.area):'')+'</div>'
+      +'<div class="lnkrow" style="margin-top:0.5rem"><span class="pill '+ptTone(r)+'">'+ptPct(r.rate)+'</span>'
+        +'<span class="tagchip">'+esc(label)+'</span>'
+        +(r.per1m==null?'':'<span class="tagchip">$'+Number(r.per1m).toLocaleString('en-CA')+' on $1M</span>')+'</div>'
+      +(r.fallback?'<div class="warn" style="background:var(--ochre-soft);border-color:var(--ochre);color:var(--ochre)">No 2026 rate published yet, so this is the '+esc(String(r.year))+' rate. Say so if you quote it.</div>':'')
+      +(!r.quotable?'<div class="warn" style="background:var(--rust-soft);border-color:var(--rust);color:var(--rust)">No official rate exists for either year. Don\u2019t quote a figure for this city.</div>':'')
+      +'<details class="ev"><summary>The breakdown '+ico('chev',12)+'</summary>'
+        +kv('Municipal',ptPct(r.munRate))
+        +(r.utRate==null?'':kv('Regional',ptPct(r.utRate)))
+        +(r.edu==null?'':kv('Education',ptPct(r.edu)))
+        +(r.levy==null?'':kv('Special levy',ptPct(r.levy)))
+        +kv('2026',ptPct(r.r26))+kv('2025',ptPct(r.r25))
+        +kv('Last verified',r.verified)+kv('Source',r.srcType)
+        +(r.url?'<div class="lnkrow">'+linkBtn('Municipal source',r.url)+'</div>':'')
+      +'</details></div>';
+  }).join('');
 }
 
 /* ===================== HOME EXPENSES =====================
@@ -951,6 +1384,65 @@ const MUNICIPALITIES = [
 const BY_NAME = MUNICIPALITIES.reduce((m, x) => { m[x.name] = x; return m; }, {});
 
  
+
+/* ---- live rates ---------------------------------------------------------
+   The table above is the offline fallback, kept so the calculator still works
+   when the sheet is unreachable. `taxrates` is the source of truth, and this
+   overwrites each record in place with the published figure, adding any city
+   the list does not carry. Nothing here removes a city, a rate or an
+   effectiveOnPrice figure — a failed fetch leaves the table exactly as it was.
+
+   The regional split is deliberately taken per municipality rather than from
+   UPPER_TIER: every by-law decides for itself which components sit on the
+   municipal line, so Peel reads 0.562449 in Brampton and 0.346430 in Caledon.
+   The combined rate is the billed number; the split is display only. */
+const REGION_KEY = { Peel:"peel", Halton:"halton", York:"york", Durham:"durham",
+  Niagara:"niagara", Waterloo:"waterloo", Simcoe:"simcoe" };
+const LIVE_ALIAS = { "Greater Sudbury":"Sudbury" };
+let RATE_STAMP = "";
+
+function applyLiveRates(payload) {
+  if (!payload || payload.ok === false || !payload.rows) return false;
+  let n = 0;
+  payload.rows.forEach((r) => {
+    const name = LIVE_ALIAS[r.mun] || r.mun;
+    let m = BY_NAME[name];
+    if (!m) {
+      /* A workbook city the offline table never had, with no combined rate to
+         bill with, would compute 0 + 0 + education in the calculator — the
+         exact figure its own card says not to quote. Keep it off the picker. */
+      if (r.rate == null) return;
+      m = { name, region: REGION_KEY[r.region] || "none", lowerTier: 0, total: null,
+            effectiveOnPrice: 0, confidence: "estimate", source: null, verifyAt: null };
+      MUNICIPALITIES.push(m);
+      BY_NAME[name] = m;
+    }
+    if (r.munRate != null) m.lowerTier = r.munRate;
+    /* null means the history join found no split — leave the field unset so
+       municipalRate falls back to the shared regional constants; stamping 0
+       would drop the whole upper-tier share from the sum. */
+    if (r.utRate != null) m.upperTierRate = r.utRate;
+    m.regionLabel = r.region || "Single tier";
+    if (r.rate != null) m.total = r.rate;
+    m.educationRate = r.edu == null ? EDUCATION_RATE : r.edu;
+    m.specialLevy = r.levy == null ? 0 : r.levy;
+    m.year = r.year; m.fallback = !!r.fallback; m.quotable = !!r.quotable;
+    m.status = r.status; m.verified = r.verified || ""; m.rateArea = r.area || "";
+    m.confidence = (r.quotable && r.status === "VERIFIED" && !r.fallback) ? "confirmed" : "estimate";
+    if (r.srcType) m.source = r.srcType;
+    if (r.url) m.verifyAt = r.url;
+    /* Only for a city the offline table never had: this is a share of the
+       PURCHASE price for the pre-construction estimate, not a tax rate, and the
+       tuned figures above are better than any formula. 0.6 is roughly the GTA
+       assessment-to-price ratio. */
+    if (!m.effectiveOnPrice && r.rate != null) m.effectiveOnPrice = Number((r.rate * 0.6).toFixed(2));
+    n++;
+  });
+  MUNICIPALITIES.sort((a, b) => (a.name < b.name ? -1 : 1));
+  RATE_STAMP = payload.updated || "";
+  return n > 0;
+}
+
 const municipalityNames = () =>
   MUNICIPALITIES.filter((x) => !x.hidden).map((x) => x.name);
 
@@ -960,19 +1452,29 @@ function municipalRate(name) {
   const m = BY_NAME[name];
   if (!m) return null;
   const region = UPPER_TIER[m.region] || UPPER_TIER.none;
-  const summed = m.lowerTier + region.rate + EDUCATION_RATE;
+  // the workbook's own figures win; the shared constants are the fallback
+  const utRate = typeof m.upperTierRate === "number" ? m.upperTierRate : region.rate;
+  const eduRate = typeof m.educationRate === "number" ? m.educationRate : EDUCATION_RATE;
+  const summed = m.lowerTier + utRate + eduRate + (m.specialLevy || 0);
   const usePublished = typeof m.total === "number";
 
   
   let confidence = m.confidence;
-  if (!usePublished && region.confidence === "estimate") confidence = "estimate";
+  if (!usePublished && typeof m.upperTierRate !== "number"
+      && region.confidence === "estimate") confidence = "estimate";
 
   return {
     rate: usePublished ? m.total : summed,
     lowerTier: m.lowerTier,
-    upperTier: region.rate,
-    education: EDUCATION_RATE,
-    regionName: region.name,
+    upperTier: utRate,
+    education: eduRate,
+    specialLevy: m.specialLevy || 0,
+    regionName: m.regionLabel || region.name,
+    year: m.year || null,
+    fallback: !!m.fallback,
+    quotable: m.quotable !== false,
+    status: m.status || "",
+    verified: m.verified || "",
     effectiveOnPrice: m.effectiveOnPrice,
     confidence,
     source: m.source,
@@ -1278,7 +1780,8 @@ function exportRateTableCsv() {
   const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
   return [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
 }
-return { EDUCATION_RATE, UPPER_TIER, MUNICIPALITIES, INSURABLE_CAP,
+return { EDUCATION_RATE, UPPER_TIER, MUNICIPALITIES, INSURABLE_CAP, applyLiveRates,
+  rateStamp: () => RATE_STAMP,
   municipalityNames, municipalRate, minDownPayment, insurancePremiumRate,
   monthlyRate, mortgagePayment, buildMortgage, amortizationSchedule,
   propertyTaxAnnual, computeCarryingCost, DEFAULT_INPUT, cad, summaryText,
@@ -1308,16 +1811,25 @@ function exField(key,label,unit,val){
   return '<label class="exrow"><span class="exlbl">'+esc(label)+(unit?' <i>'+esc(unit)+'</i>':'')+'</span>'
     +'<input id="ex_'+key+'" inputmode="decimal" autocomplete="off" value="'+esc(String(val))+'"></label>';
 }
+/* The form opens empty. AKX.DEFAULT_INPUT still carries the sample figures the
+   calculation core needs for any caller that omits a field, but seeding the
+   screen from them put $900,000, $180,000 down and a set of invented utility
+   costs in front of the realtor — numbers that look like a quote and are not.
+   Every money field starts blank, so what shows is only what was typed.
+
+   Two are not zeroed on purpose: amortization, because it is a term the realtor
+   picks rather than a cost and a 0-year mortgage has no answer; and the
+   municipality, because the tax rate has to resolve against something. */
+var EX_BLANK={
+  price:'',downPayment:'',ratePct:'',amortYears:25,
+  municipality:'Brampton',taxMode:'price',taxAmount:'',assessedValue:'',
+  firstTimeBuyer:false,newBuild:false,maintenanceReservePct:'',
+  insurance:'',hydro:'',gas:'',water:'',internet:'',
+  waterHeaterRental:'',hvacRental:'',condoFee:'',
+  potl:'',alarm:'',lawnSnow:'',other:''
+};
 function loadExpenses(){
-  var d=AKX.DEFAULT_INPUT;
-  EX_STATE=EX_STATE||{
-    price:d.price,downPayment:d.downPayment,ratePct:d.ratePct,amortYears:d.amortYears,
-    municipality:d.municipality,taxMode:'price',taxAmount:d.taxAmount,assessedValue:d.assessedValue,
-    firstTimeBuyer:false,newBuild:false,maintenanceReservePct:d.maintenanceReservePct,
-    insurance:d.insurance,hydro:d.hydro,gas:d.gas,water:d.water,internet:d.internet,
-    waterHeaterRental:d.waterHeaterRental,hvacRental:d.hvacRental,condoFee:d.condoFee,
-    potl:d.potl,alarm:d.alarm,lawnSnow:d.lawnSnow,other:d.other
-  };
+  EX_STATE=EX_STATE||(function(){ var o={}; for(var k in EX_BLANK) o[k]=EX_BLANK[k]; return o; })();
   var s=EX_STATE;
   $('content').innerHTML=
      '<div class="card wide"><div class="card-s">A full monthly carrying cost — mortgage with CMHC insurance, property tax, utilities and a maintenance reserve. Same calculation as the web version.</div></div>'
@@ -1340,6 +1852,7 @@ function loadExpenses(){
     +'</div></details>'
     +'<div id="exOut"></div>';
   paintTaxExtra();
+  exLoadRates();
   /* #ex_taxExtra is re-rendered on every mode change and wires its own field,
      so skip it here — otherwise that input ends up with two input listeners */
   $('content').querySelectorAll('#content input, #content select').forEach(function(el){
@@ -1350,6 +1863,20 @@ function loadExpenses(){
     });
   });
   calcEx();
+}
+/* The rates come from the workbook, not from the table inside AKX. The screen
+   is painted first and corrected when the fetch lands, so a slow sheet never
+   holds up the calculator and an unreachable one changes nothing. */
+function exLoadRates(){
+  cachedCall('taxrates').then(function(d){
+    if(!d||d.ok===false||!AKX.applyLiveRates(d)) return;
+    var sel=$('ex_muni'); if(!sel) return;                 // screen left before it landed
+    var keep=sel.value;
+    sel.innerHTML=AKX.municipalityNames().map(function(n){ return '<option'+(n===keep?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+    sel.value=keep||EX_STATE.municipality;
+    if(!sel.value){ sel.value='Brampton'; EX_STATE.municipality='Brampton'; }
+    calcEx();
+  }).catch(function(){});
 }
 function paintTaxExtra(){
   var s=EX_STATE, h='';
@@ -1394,7 +1921,9 @@ function calcEx(){
   var t=r.tax, info=t.info;
   h+='<div class="sec-h">Property tax</div><div class="card">'
     +kv('Annual',exMoney(t.annual))+kv('Basis',t.basis)
-    +(info?kv('Combined rate',info.rate.toFixed(4)+'%'):'')
+    +(info?kv('Combined rate',info.rate.toFixed(4)+'%'+(info.year?' \u00b7 '+info.year:'')):'')
+    +(info&&info.fallback?kv('Note','No 2026 rate published yet, so the '+info.year+' rate is used.'):'')
+    +(info&&info.verified?kv('Last verified',info.verified):'')
     +(info&&info.confidence!=='confirmed'
         ? '<div class="warn" style="background:var(--ochre-soft);border-color:var(--ochre);color:var(--ochre)">This '+esc(s.municipality)+' rate is an estimate, not a confirmed by-law figure. Verify it before showing a client.'
           +(info.verifyAt?' '+linkBtn('Check the city',info.verifyAt):'')+'</div>'
@@ -1558,7 +2087,7 @@ function paintWebsites(){
     });
     shown+=items.length;
     if(!items.length) return;
-    h+='<div class="sec-h">'+esc(s.section)+'</div><div class="card">'+items.map(function(it){ return '<div class="kv"><a class="vv" href="'+esc(safeUrl(it.url))+'" target="_blank">'+esc(it.name||host(it.url))+'</a></div>'; }).join('')+'</div>';
+    h+='<div class="sec-h">'+esc(s.section)+'</div><div class="card">'+items.map(function(it){ return '<div class="kv"><a class="vv" href="'+esc(safeUrl(it.url))+'" target="_blank" rel="noopener noreferrer">'+esc(it.name||host(it.url))+'</a></div>'; }).join('')+'</div>';
   });
   pageCount('websites',shown,total,'site','sites');
   $('webOut').innerHTML=h||'<div class="empty">Nothing matches.</div>';
@@ -1593,20 +2122,49 @@ function loadVacations(){ rowsPage('vacations','Filter by name',['name','from','
    can swap localStorage for Capacitor Preferences without touching the gate. */
 var TOKEN=null, WHO=null;
 var SESSION_MS=7*24*60*60*1000;      // must match SESSION_MS in Core.js
-function tokenGet(){ try{ return localStorage.getItem('ak_token')||null; }catch(e){ return null; } }
-function whoGet(){ try{ return localStorage.getItem('ak_who')||null; }catch(e){ return null; } }
-function tokenSet(t,who){ try{ localStorage.setItem('ak_token',t); if(who!=null) localStorage.setItem('ak_who',who); }catch(e){} }
-function tokenClear(){ try{ localStorage.removeItem('ak_token'); localStorage.removeItem('ak_who'); }catch(e){} }
+/* "Remember me" chooses which store the session lives in: localStorage survives a
+   relaunch, sessionStorage dies with the app — the answer for a shared office iPad.
+   The choice itself is remembered so a renewal keeps the store the sign-in picked.
+   Reads look in both, and clearing wipes both, so a session can never be half-gone. */
+function tokenStore(){ try{ return localStorage.getItem('ak_remember')==='0'?sessionStorage:localStorage; }catch(e){ return localStorage; } }
+function tokenGet(){ try{ return sessionStorage.getItem('ak_token')||localStorage.getItem('ak_token')||null; }catch(e){ return null; } }
+function whoGet(){ try{ return sessionStorage.getItem('ak_who')||localStorage.getItem('ak_who')||null; }catch(e){ return null; } }
+/* Returns false when the session could not be persisted — a full store used to be
+   swallowed here, and the user only found out by being re-gated on every launch
+   with no way to fix it. Callers surface it; evicting cached screens is the cheap
+   fix, and losing them costs a refetch, not a session. */
+function tokenSet(t,who,remember){
+  try{
+    if(remember!=null) localStorage.setItem('ak_remember',remember?'1':'0');
+    var s=tokenStore();
+    s.setItem('ak_token',t); if(who!=null) s.setItem('ak_who',who);
+    return true;
+  }catch(e){
+    cacheEvictOldest(24);
+    try{ var s2=tokenStore(); s2.setItem('ak_token',t); if(who!=null) s2.setItem('ak_who',who); return true; }
+    catch(e2){ logErr('token could not be saved: '+((e2&&e2.name)||'storage full')); return false; }
+  }
+}
+function tokenClear(){ try{ [localStorage,sessionStorage].forEach(function(s){ s.removeItem('ak_token'); s.removeItem('ak_who'); }); }catch(e){} }
 
 /* The token is "user|role|issued" base64url'd, plus the server's signature. We
    read only the timestamp, and only to skip a pointless round trip on a token
    that is already dead — the signature is the server's business, and it checks
    it on every call. Nothing here decides who you are. */
+/* The timestamp is the LAST field, not the third. The payload gained a
+   credential generation between the deployed server and this one --
+   user|role|issued became user|role|gen|issued -- and a fixed index [2] reads
+   the generation on the newer format. A gen is a ten-character base64 digest,
+   so Number() gives NaN, tokenAlive() is false for every token, and an offline
+   launch shows the sign-in screen instead of the cached app. Counting from the
+   end is right for both shapes, so the client does not have to be deployed in
+   lockstep with the server. */
 function tokenIssued(t){
   try{
     var b=String(t||'').split('.')[0].replace(/-/g,'+').replace(/_/g,'/');
     while(b.length%4) b+='=';
-    var n=Number(atob(b).split('|')[2]);
+    var f=atob(b).split('|');
+    var n=Number(f[f.length-1]);
     return isFinite(n)?n:0;
   }catch(e){ return 0; }
 }
@@ -1627,7 +2185,8 @@ function showGate(msg){
   if(msg!=null) $('gate_err').textContent=msg;
   if(!opening) return;                        // never wipe what is being typed
   if(msg==null) $('gate_err').textContent='';
-  var pw=$('gate_pw'); if(pw) pw.value='';
+  gateBusy(false);
+  var pw=$('gate_pw'); if(pw){ pw.value=''; pw.type='password'; paintEye(false); }   // never reopen revealed
   try{ $('gate_id').focus(); }catch(e){}
 }
 function hideGate(){ document.body.classList.remove('gated'); $('gate').hidden=true; }
@@ -1635,21 +2194,28 @@ function hideGate(){ document.body.classList.remove('gated'); $('gate').hidden=t
 function doLogin(){
   var id=($('gate_id').value||'').trim(), pw=$('gate_pw').value||'';
   if(!id||!pw){ $('gate_err').textContent='Enter your ID and password.'; return; }
-  var btn=$('gate_go');
-  btn.disabled=true; btn.textContent='Signing in…'; $('gate_err').textContent='';
+  gateBusy(true); $('gate_err').textContent='';
   call('login',{id:id,pw:pw,user:id,pass:pw}).then(function(r){
-    btn.disabled=false; btn.textContent='Sign in';
+    gateBusy(false);
     if(!r||!r.ok||!r.token){ $('gate_err').textContent=sentence(r&&r.error)||'Invalid ID or password.'; return; }
-    TOKEN=r.token; WHO=r.name||id; tokenSet(TOKEN,WHO);
+    var rem=$('gate_remember'); TOKEN=r.token; WHO=r.name||id;
+    var kept=tokenSet(TOKEN,WHO,!rem||rem.checked);
     $('gate_pw').value='';
-    hideGate(); paintNavUser(); route();
+    hideGate(); paintNavUser(); route(); auraWhoAmI();
     /* only on a real sign-in — a renewed session on launch is not an event
        anyone needs told about */
-    toast('Welcome, '+firstName(WHO));
+    toast(kept?('Welcome, '+firstName(WHO)):'Signed in, but this device could not save the session — you may need to sign in again next launch.');
   }).catch(function(){
-    btn.disabled=false; btn.textContent='Sign in';
+    gateBusy(false);
     $('gate_err').textContent='Could not reach the server — check your connection.';
   });
+}
+/* Loading state: the spinner replaces the label rather than the label being
+   rewritten, and the fields lock so a second submit cannot race the first. */
+function gateBusy(on){
+  var btn=$('gate_go'); if(!btn) return;
+  btn.disabled=on; btn.classList[on?'add':'remove']('busy');
+  $('gate_id').disabled=on; $('gate_pw').disabled=on;
 }
 /* the server's errors are lowercase fragments ("invalid id or password"); this
    screen is the one place a realtor reads them raw */
@@ -1675,8 +2241,11 @@ function toast(msg,ms){
 }
 function loadMyDeals(){
   if(!TOKEN){ showGate(); return; }
-  freshOnly(call('mydeals',{auth:TOKEN})).then(function(d){
-    if(!d||d.ok===false){ if(/login|token|auth/i.test((d&&d.error)||'')){ sessionLost(); return; } $('content').innerHTML='<div class="err">'+esc((d&&d.error)||'Could not load.')+'</div>'; return; }
+  /* Cached like every other screen: instant on back-navigation and readable
+     offline. No auth in the params — call() attaches the token itself, and a
+     renewed token in the key would miss the cache on every launch. */
+  cachedCall('mydeals').then(function(d){
+    if(!d||d.ok===false){ if(isAuthErr(d)){ sessionLost(); return; } $('content').innerHTML='<div class="err">'+esc((d&&d.error)||'Could not load.')+'</div>'; return; }
     renderMyDeals(d);
   }).catch(fail);
 }
@@ -1819,7 +2388,7 @@ function loadBootcamp(){
 function drawWeek(w){
   $('wkRes').innerHTML=skel(3);
   freshOnly(call('bootcamp',{auth:TOKEN,week:w})).then(function(d){
-    if(!d||d.ok===false){ if(/login|token|auth/i.test((d&&d.error)||'')){ sessionLost(); return; } $('wkRes').innerHTML='<div class="empty">'+esc((d&&d.error)||'No content.')+'</div>'; return; }
+    if(!d||d.ok===false){ if(isAuthErr(d)){ sessionLost(); return; } $('wkRes').innerHTML='<div class="empty">'+esc((d&&d.error)||'No content.')+'</div>'; return; }
     var plan=d.plan||{}, days=plan.days||[];
     if(!days.length){ $('wkRes').innerHTML='<div class="empty">'+esc(plan.empty?'No content for this week yet.':'No content for this week.')+'</div>'; return; }
     $('wkRes').innerHTML=days.map(function(day){
@@ -1831,28 +2400,827 @@ function drawWeek(w){
   }).catch(fail);
 }
 function signOut(){
-  TOKEN=null; WHO=null; tokenClear(); paintNavUser();
-  MEM={};                              // nothing personal is cached today (My Deals
-                                       // and Bootcamp bypass the cache) — this keeps
-                                       // it true if that ever changes
+  TOKEN=null; WHO=null; AURA_ADMIN=false; tokenClear(); paintNavUser(); buildNav();
+  forgetData();
   $('content').innerHTML='';
   showGate();
+}
+/* Drop every cached payload with the session. Nothing personal is cached today (My
+   Deals and Bootcamp bypass the cache), but an installed app's storage outlives a
+   browser tab by months, and the next person to sign in on this phone must not
+   see the last one's screens while offline. */
+function forgetData(){
+  MEM={};
+  try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('akc_')===0) localStorage.removeItem(k); }); }catch(e){}
+  /* The chat thread goes with the session too. It is the one thing here that is
+     genuinely personal — a realtor's own questions, and answers that may carry
+     commission and builder contacts — and the next person to sign in on this
+     phone must not find it waiting. */
+  AURA_TURNS=[]; AURA_MODE='realtor'; AURA_CID=null;
+  if($('aura')) auraPaintMode();
+  try{ localStorage.removeItem('ak_aura'); localStorage.removeItem('ak_aura_fb'); }catch(e){}
 }
 /* the server refused a token we thought was good: expired, revoked, or the
    signing key changed under us */
 function sessionLost(){
-  tokenClear(); TOKEN=null; WHO=null; paintNavUser();
-  MEM={}; $('content').innerHTML='';        // body.gated only hides the shell in CSS
+  tokenClear(); TOKEN=null; WHO=null; AURA_ADMIN=false; paintNavUser(); buildNav();
+  forgetData(); $('content').innerHTML='';  // body.gated only hides the shell in CSS
   showGate('Your session expired — please sign in again.');
 }
 
 function copyText(t){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);return;} }catch(e){} var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta); }
 function installHtml(){
   try{ var st=window.navigator.standalone||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches); if(st) return ''; if(localStorage.getItem('ak_install')==='1') return ''; }catch(e){}
-  var ua=navigator.userAgent||'', tip=/iPhone|iPad|iPod/i.test(ua)?'Tap Share, then “Add to Home Screen”.':(/Android/i.test(ua)?'Tap the ⋮ menu, then “Add to Home screen” — it opens in your browser.':'Open on your phone to add it to your home screen.');
+  var ua=navigator.userAgent||'', tip=/iPhone|iPad|iPod/i.test(ua)?'Tap Share, then “Add to Home Screen”.':(/Android/i.test(ua)?'Tap the ⋮ menu, then “Install app” or “Add to Home screen”.':'Open on your phone to add it to your home screen.');
   return '<div class="install" id="inst"><button class="x" onclick="dismissInstall()" aria-label="Dismiss">'+ico('x',15)+'</button><b>Add to your home screen.</b> '+tip+'</div>';
 }
 function dismissInstall(){ try{localStorage.setItem('ak_install','1');}catch(e){} var el=$('inst'); if(el)el.style.display='none'; }
+
+/* ---- Aura chat ---------------------------------------------------------
+   Talks to the Aura Chat service, which is a separate deployment from the
+   portal's Apps Script endpoint — window.AURA_BASE, set by dev/build.mjs in the
+   generated index.html. The Apps Script host does not set it and never can: its
+   pages are served from a googleusercontent.com subdomain whose hash varies, so
+   the service cannot allowlist it, and Apps Script cannot stream at all. There,
+   auraReady() is false, the button never appears, and #chat falls back to home.
+
+   Streaming is fetch + ReadableStream rather than EventSource, which is GET-only
+   (our question and its history do not belong in a URL) and cannot set an
+   Authorization header (which would put the bearer token in one). EventSource
+   also reconnects on close and cannot tell a finished stream from a dropped one,
+   so every answered question would immediately ask itself again. */
+var AURA_MODE='realtor', AURA_TURNS=[], AURA_ABORT=null, AURA_SEQ=0, AURA_HOME='', AURA_CID=null;
+var AURA_MAX_TURNS=20;    /* matches MAX_HISTORY_TURNS on the server; over it is a 422, not a trim */
+/* What localStorage keeps, which is not what the model is sent: a reopened
+   thread can be 200 turns and must not shrink to 20 on the next launch. */
+var AURA_MAX_KEEP=200;
+/* The first thing a realtor sees, so every one of these has to work. "What changed
+   this week?" was here and came out: dates in the sheet are month-first and parsed
+   day-first, and future dates count as recent (known-issues 1 and 2), so it is the
+   one question that reliably answers wrong. Put it back when those are fixed. */
+var AURA_SEEDS=[
+  'Detached homes under $1M in Brampton',
+  'How many projects do we have, and in which cities?',
+  'What is our cheapest project right now?',
+  'Which builders do we work with the most?'
+];
+function auraReady(){ return !!window.AURA_BASE; }
+function auraBottom(){ var l=$('auraList'); if(l) l.scrollTop=l.scrollHeight; }
+
+function loadChat(){
+  /* routeInner has already painted a skeleton into #content behind us; the
+     overlay covers it and closeChat() hands the screen back. */
+  if(!auraReady()){ go('home'); return; }
+  $('content').innerHTML='';
+  document.body.classList.add('chat');
+  $('aura').hidden=false;
+  /* Size the composer before the realtor touches it. Left to the first input
+     event, the opening frame keeps whatever height rows="1" produced, which is
+     the one state the growth maths never got to correct. */
+  auraGrow($('auraInput'));
+  auraPaint();
+}
+function closeChat(){
+  if(!$('aura')||$('aura').hidden) return;
+  auraStop();
+  auraHistClose();
+  $('aura').hidden=true;
+  document.body.classList.remove('chat');
+}
+/* Client Mode repaints the whole header, not one word inside it: a realtor has to
+   be able to see which mode they are in from arm's length, before turning the
+   phone around, not by reading it. */
+function auraPaintMode(){
+  $('aura').classList.toggle('client',AURA_MODE==='client');
+  $('auraChipT').textContent=AURA_MODE==='client'?'Client':'Realtor';
+  $('auraChip').setAttribute('aria-pressed',AURA_MODE==='client'?'true':'false');
+  $('auraSub').textContent=AURA_MODE==='client'?'Client mode':'Aura Key projects';
+}
+function auraPaint(){
+  var l=$('auraList'); if(!l) return;
+  auraPaintMode();
+  if(!AURA_TURNS.length){
+    l.innerHTML='<div class="aura-empty"><h2>Ask Aura</h2><p>Our projects, in plain English.</p>'
+      +AURA_SEEDS.map(function(s){ return '<button class="aura-seed" data-q="'+esc(s)+'">'+esc(s)+'</button>'; }).join('')
+      +'</div>';
+    l.querySelectorAll('.aura-seed').forEach(function(b){
+      b.addEventListener('click',function(){ auraAsk(b.dataset.q); });
+    });
+    return;
+  }
+  /* Rebuilt node by node rather than as one innerHTML string, because the
+     answers have to go through the same renderer the live stream uses. When
+     only the streaming path formatted markdown, a reopened chat showed the
+     asterisks the fresh answer had just hidden. */
+  l.replaceChildren();
+  AURA_TURNS.forEach(function(t,i){
+    var wrap=document.createElement('div');
+    wrap.className='aura-msg'+(t.role==='user'?' aura-me':'');
+    if(t.role==='user'){
+      var span=document.createElement('span');
+      span.textContent=t.content;
+      wrap.appendChild(span);
+    } else {
+      var ai=document.createElement('div');
+      ai.className='aura-ai';
+      auraMd(ai,t.content);
+      wrap.appendChild(ai);
+      /* Answers stored before the feedback row existed have no id, and
+         auraFeedbackRow returns null rather than offer an unattributable vote. */
+      var prev=AURA_TURNS[i-1];
+      var fb=auraFeedbackRow(t,(prev&&prev.role==='user')?prev.content:'',i);
+      if(fb) wrap.appendChild(fb);
+    }
+    l.appendChild(wrap);
+  });
+  auraBottom();
+}
+/* Flipping the mode clears the thread on purpose: a realtor-only answer must not
+   be one scroll away while a buyer is holding the phone.
+
+   auraStop() is the load-bearing line. Clearing AURA_TURNS does nothing to a
+   request already in flight -- its `done` handler pushed the finished
+   Realtor-Mode answer into the freshly-cleared Client-Mode thread, and the next
+   repaint showed it to the buyer. */
+function auraMode(m){
+  if(m===AURA_MODE) return;
+  auraStop();
+  AURA_MODE=m; AURA_TURNS=[]; AURA_CID=null; auraSave(); auraHistClose(); auraPaint();
+}
+function auraNewChat(){ auraStop(); AURA_TURNS=[]; AURA_CID=null; auraSave(); auraHistClose(); auraPaint(); }
+
+/* ---- the chats panel (AUR-38, AUR-50) ---- */
+var AURA_HIST_BUSY=false;
+function auraBase(){ return window.AURA_BASE.replace(/\/+$/,''); }
+function auraWhen(iso){
+  var a=ago(iso); if(a) return a;
+  var d=new Date(iso);
+  return isNaN(d.getTime())?'':d.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+}
+function auraHistMsg(text,bad){
+  var d=document.createElement('div');
+  d.className='aura-hist-msg'+(bad?' bad':'');
+  d.textContent=text;
+  $('auraHistList').replaceChildren(d);
+}
+function auraHistOpen(){
+  var h=$('auraHist'); if(!h) return;
+  h.hidden=false;
+  requestAnimationFrame(function(){ h.classList.add('on'); });
+  $('auraNew').setAttribute('aria-expanded','true');
+  $('auraHistX').focus();
+  auraHistLoad();
+}
+function auraHistClose(){
+  var h=$('auraHist'); if(!h||h.hidden) return;
+  h.classList.remove('on');
+  $('auraNew').setAttribute('aria-expanded','false');
+  setTimeout(function(){ if(!h.classList.contains('on')) h.hidden=true; },220);
+}
+function auraHistLoad(){
+  if(AURA_HIST_BUSY) return;
+  AURA_HIST_BUSY=true;
+  auraHistMsg('Loading…');
+  fetch(auraBase()+'/conversations',{headers:{'Authorization':'Bearer '+TOKEN}})
+  .then(function(r){
+    if(r.status===401||r.status===403){ closeChat(); sessionLost(); return null; }
+    if(r.status===503) throw new Error('unavailable');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){ if(d) auraHistPaint(d.conversations||[]); })
+  .catch(function(e){
+    auraHistMsg(navigator.onLine===false
+      ? 'You are offline. Earlier chats need a connection.'
+      : (String(e.message)==='unavailable'
+        ? 'Earlier chats are unavailable right now. Asking still works.'
+        : 'Could not load your chats.'),true);
+  }).then(function(){ AURA_HIST_BUSY=false; });
+}
+function auraHistPaint(list){
+  if(!list.length){ auraHistMsg('No earlier chats yet.'); return; }
+  var box=$('auraHistList');
+  box.replaceChildren();
+  list.forEach(function(c){
+    var b=document.createElement('button');
+    b.type='button';
+    b.className='aura-hist-row'+(c.id===AURA_CID?' on':'');
+    if(c.id===AURA_CID) b.setAttribute('aria-current','true');
+    var t=document.createElement('div'); t.className='aura-hist-ttl';
+    t.textContent=c.title||'Untitled chat';
+    b.appendChild(t);
+    var m=document.createElement('div'); m.className='aura-hist-meta';
+    if(c.mode==='client'){
+      var dot=document.createElement('span');
+      dot.className='aura-hist-dot'; dot.setAttribute('aria-hidden','true');
+      var lbl=document.createElement('span'); lbl.textContent='Client';
+      m.appendChild(dot); m.appendChild(lbl);
+    }
+    var w=document.createElement('span'); w.textContent=auraWhen(c.updated_at);
+    m.appendChild(w);
+    b.appendChild(m);
+    b.addEventListener('click',function(){ auraOpenThread(c.id); });
+    box.appendChild(b);
+  });
+}
+/* The header is repainted from the STORED mode before a single turn renders. */
+function auraOpenThread(cid){
+  if(cid===AURA_CID){ auraHistClose(); return; }
+  auraStop();
+  auraHistMsg('Opening…');
+  fetch(auraBase()+'/conversations/'+encodeURIComponent(cid),{
+    headers:{'Authorization':'Bearer '+TOKEN}
+  }).then(function(r){
+    if(r.status===401||r.status===403){ closeChat(); sessionLost(); return null; }
+    if(r.status===404) throw new Error('gone');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    if(!d) return;
+    AURA_MODE=d.mode==='client'?'client':'realtor';
+    AURA_CID=d.conversation_id;
+    /* Cards are deliberately NOT rebuilt -- see known-issues 5. */
+    AURA_TURNS=(d.messages||[]).map(function(m){
+      return {
+        role:m.role==='user'?'user':'assistant',
+        content:m.message||'',
+        id:m.id,
+        pids:(m.sources||[]).map(function(x){ return x.id; }).filter(Boolean)
+      };
+    }).filter(function(t){ return t.content; });
+    auraSave();
+    auraHistClose();
+    auraPaint();
+  }).catch(function(e){
+    auraHistMsg(String(e.message)==='gone'
+      ? 'That chat is no longer there.'
+      : 'Could not open that chat.',true);
+  });
+}
+
+function auraSave(){
+  try{ localStorage.setItem('ak_aura',JSON.stringify({m:AURA_MODE,c:AURA_CID,t:AURA_TURNS.slice(-AURA_MAX_KEEP)})); }catch(e){}
+}
+function auraLoad(){
+  try{
+    var o=JSON.parse(localStorage.getItem('ak_aura')||'null');
+    if(o&&o.t&&o.t.length){ AURA_MODE=o.m==='client'?'client':'realtor'; AURA_TURNS=o.t.slice(-AURA_MAX_KEEP); AURA_CID=o.c||null; }
+  }catch(e){}
+}
+
+/* Reads the SSE framing off the body stream: frames are separated by a blank
+   line, and every line we care about starts with `data:`.
+
+   Resolves with true only if a terminating event (`done` or `error`) actually
+   arrived. A stream can end without one -- iOS suspends fetch when the app is
+   backgrounded, a proxy times out, the container is recycled mid-answer -- and
+   that used to resolve silently: the caret kept blinking, the send button stayed
+   in its stop state, and because AURA_ABORT was never cleared every later
+   question was dropped on the floor with no indication why. Ending without a
+   terminator is a failure and has to be reported as one. */
+function auraStream(body,on){
+  var reader=body.getReader(), dec=new TextDecoder(), buf='', ended=false;
+  return (function pump(){
+    return reader.read().then(function(r){
+      if(r.done){
+        // A frame with no trailing blank line is still a frame worth reading.
+        if(buf) frames(buf);
+        return ended;
+      }
+      buf+=dec.decode(r.value,{stream:true});
+      var i;
+      while((i=buf.indexOf('\n\n'))>=0){ frames(buf.slice(0,i)); buf=buf.slice(i+2); }
+      return pump();
+    });
+  })();
+  function frames(chunk){
+    chunk.split('\n').forEach(function(line){
+      if(line.slice(0,5)!=='data:') return;
+      var ev; try{ ev=JSON.parse(line.slice(5)); }catch(e){ return; }
+      if(ev&&(ev.type==='done'||ev.type==='error')) ended=true;
+      on(ev);
+    });
+  }
+}
+/* What the model is doing, in words a realtor recognises. This is the whole
+   point of streaming tool events: it fills the seconds before the first token
+   with something truer than a spinner. */
+function auraStep(ev){
+  var a=ev.args||{};
+  if(ev.tool==='search_projects') return 'Searching'+(a.city?' '+a.city:' our projects')+'…';
+  if(ev.tool==='inventory_summary') return 'Counting the inventory…';
+  if(ev.tool==='get_project') return 'Looking up '+(a.project_id_or_name||'a project')+'…';
+  if(ev.tool==='compare_projects') return 'Comparing…';
+  if(ev.tool==='get_recent_projects') return 'Checking what changed…';
+  return 'Working…';
+}
+/* The server sends `TypeName: message`, which is the right shape for the CLI's
+   --dev output and the wrong one for a realtor: "PortalError" is not a sentence.
+   The raw text still goes to the console, where it is worth having. */
+function auraSay(detail){
+  var raw=String(detail||'');
+  try{ console.warn('[aura]',raw); }catch(e){}
+  var m=raw.replace(/^[A-Za-z_]*Error:\s*/,'');
+  if(/login required|unauthor/i.test(m)) return 'Aura could not read our records with your session. Sign out and back in.';
+  if(/not configured/i.test(m)) return 'Aura is not finished being set up. Tell whoever runs the portal.';
+  if(/timeout|timed out/i.test(m)) return 'That took too long. Try again in a moment.';
+  if(/too many requests/i.test(m)) return 'You have asked Aura a lot in the last hour. Try again shortly.';
+  return m||'Something went wrong.';
+}
+/* ---- the answer, rendered -------------------------------------------------
+   The model writes markdown whether we ask for it or not -- there is no API flag
+   that turns it off, and the prompt asking for plain prose is a request, not a
+   guarantee. So the client handles what leaks through.
+
+   Deliberately split in two. auraMdParse is pure: text in, plain objects out,
+   no DOM, which is what lets dev/verify.mjs run it against real captured model
+   output. auraMdRender is the only part that touches the page, and it builds
+   nodes -- never innerHTML, and never an attribute of any kind. That matters
+   more than the formatting: it means there is no code path where a project
+   name or an incentive field becomes markup. An allowlist by construction
+   beats sanitising a tree after the fact, because there is nothing to strip.
+
+   Supported, and nothing else: blank-line paragraphs, `*`/`-` list items, and
+   **bold**. Anything else stays literal -- a heading or a table showing up as
+   text is a signal the prompt needs fixing, not the renderer. */
+function auraMdSpans(line){
+  var out=[], i=0, n=line.length;
+  while(i<n){
+    var at=line.indexOf('**',i);
+    if(at<0){ out.push({b:false,s:line.slice(i)}); break; }
+    var end=line.indexOf('**',at+2);
+    /* No closing marker yet -- we are mid-stream, part way through the token.
+       Drop the dangling ** rather than showing it: the word arrives unbolded
+       and then bolds, instead of flashing as punctuation. */
+    if(end<0){
+      if(at>i) out.push({b:false,s:line.slice(i,at)});
+      out.push({b:false,s:line.slice(at+2)});
+      break;
+    }
+    if(at>i) out.push({b:false,s:line.slice(i,at)});
+    out.push({b:true,s:line.slice(at+2,end)});
+    i=end+2;
+  }
+  return out.filter(function(x){ return x.s!==''; });
+}
+function auraMdParse(text){
+  var blocks=[], list=null;
+  String(text==null?'':text).split('\n').forEach(function(raw){
+    var line=raw.replace(/\s+$/,'');
+    var item=line.match(/^\s*[*-]\s+(.*)$/);
+    if(item){
+      if(!list){ list={t:'ul',items:[]}; blocks.push(list); }
+      list.items.push(auraMdSpans(item[1]));
+      return;
+    }
+    list=null;
+    if(!line.trim()){ blocks.push({t:'gap'}); return; }
+    var last=blocks[blocks.length-1];
+    /* A single newline inside a paragraph is a space, as markdown has it. */
+    if(last&&last.t==='p'){ last.spans=last.spans.concat(auraMdSpans(' '+line.trim())); return; }
+    blocks.push({t:'p',spans:auraMdSpans(line.trim())});
+  });
+  return blocks.filter(function(b){ return b.t!=='gap'; });
+}
+function auraMdRender(blocks){
+  var frag=document.createDocumentFragment();
+  function spans(into,list){
+    list.forEach(function(sp){
+      var node=document.createTextNode(sp.s);
+      if(sp.b){ var b=document.createElement('strong'); b.appendChild(node); node=b; }
+      into.appendChild(node);
+    });
+  }
+  blocks.forEach(function(b){
+    if(b.t==='ul'){
+      var ul=document.createElement('ul');
+      b.items.forEach(function(it){ var li=document.createElement('li'); spans(li,it); ul.appendChild(li); });
+      frag.appendChild(ul);
+    } else {
+      var p=document.createElement('p'); spans(p,b.spans); frag.appendChild(p);
+    }
+  });
+  return frag;
+}
+function auraMd(el,text){ el.replaceChildren(auraMdRender(auraMdParse(text))); }
+
+function auraBusy(on){
+  var s=$('auraSend');
+  s.classList.toggle('stop',on);
+  s.setAttribute('aria-label',on?'Stop':'Send');
+  $('auraInput').disabled=false;   // a realtor may type the next question while this one runs
+  /* The answer node is rebuilt on every delta, and it lives inside a polite live
+     region -- so without this a screen reader re-reads the whole growing answer
+     once per token. aria-busy holds the announcement until the stream finishes,
+     and then it is read once. */
+  var l=$('auraList'); if(l) l.setAttribute('aria-busy',on?'true':'false');
+}
+function auraStop(){
+  if(AURA_ABORT){ try{ AURA_ABORT.abort(); }catch(e){} AURA_ABORT=null; }
+  auraBusy(false);
+}
+
+/* ---- Feedback (AUR-59, AUR-60) ----
+   Never rendered in Client Mode: the phone is turned toward a buyer, and a
+   tappable "Report data issue" invites them to press it. Checked at render time,
+   so a mode flip repaints it away. */
+
+/* Value is the server's enum, label is what a realtor reads. */
+var AURA_ISSUES=[
+  ['price_incorrect','Price incorrect'],
+  ['deposit_incorrect','Deposit incorrect'],
+  ['incentive_outdated','Incentive outdated'],
+  ['occupancy_incorrect','Occupancy incorrect'],
+  ['missing_project','Missing project'],
+  ['source_outdated','Source outdated'],
+  ['other','Other']
+];
+/* Client-minted because until Phase 4 there is no server-side message to key
+   on; it becomes the ai_messages id then. */
+function auraUid(){
+  try{ return crypto.randomUUID(); }catch(e){}
+  return 'a-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+}
+function auraIco(d){
+  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    +'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+d+'"/></svg>';
+}
+var AURA_UP='M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zM7 11l4.2-8a2.2 2.2 0 0 1 3 2.9L13 9h5.4a2 2 0 0 1 2 2.4l-1.4 6.4a2 2 0 0 1-2 1.6H7';
+var AURA_DOWN='M7 13V4h-3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1zM7 13l4.2 8a2.2 2.2 0 0 0 3-2.9L13 15h5.4a2 2 0 0 0 2-2.4l-1.4-6.4a2 2 0 0 0-2-1.6H7';
+
+function auraPostFeedback(payload){
+  if(!auraReady()||!TOKEN) return Promise.reject(new Error('no session'));
+  return fetch(window.AURA_BASE.replace(/\/+$/,'')+'/feedback',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+    body:JSON.stringify(payload)
+  }).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return true; });
+}
+
+/* Votes are remembered per conversation and position, not per turn.id: the id a
+   live answer carries is client-minted and the one a reopened answer carries
+   comes from the server, so the two never match and a reopened thread offered
+   fresh thumbs on an answer already judged. */
+function auraVoted(){
+  try{ return JSON.parse(localStorage.getItem('ak_aura_fb')||'{}')||{}; }catch(e){ return {}; }
+}
+function auraVoteKey(idx){ return AURA_CID?(AURA_CID+':'+idx):''; }
+function auraMarkVoted(idx,verdict){
+  var k=auraVoteKey(idx); if(!k) return;
+  try{ var v=auraVoted(); v[k]=verdict; localStorage.setItem('ak_aura_fb',JSON.stringify(v)); }catch(e){}
+}
+
+function auraFeedbackRow(turn,question,idx){
+  if(AURA_MODE==='client'||!turn||!turn.id||!String(question||'').trim()) return null;
+  if(!turn.fb){
+    var seen=auraVoted()[auraVoteKey(idx)];
+    if(seen) turn.fb=seen;
+  }
+  var row=document.createElement('div');
+  row.className='aura-fb';
+
+  function settled(msg){ row.replaceChildren(); row.className='aura-fb fb-done'; row.textContent=msg; }
+  function thanks(verdict){ settled(verdict==='up'?'Thanks — noted.':'Thanks — reported.'); }
+
+  if(turn.fb){ thanks(turn.fb); return row; }
+
+  /* turn.fb is written only after the POST resolves -- otherwise a reopened
+     chat says "Thanks" for a report that never left the phone.
+
+     `verdict` may be null: a data issue is a claim about the sheet, not a
+     judgement of the answer, and filing it as a thumbs-down corrupts AUR-59. */
+  function send(verdict,category,note){
+    row.replaceChildren();
+    row.className='aura-fb fb-done';
+    row.textContent='Sending…';
+    auraPostFeedback({
+      answer_id:turn.id, question:clip(question,500), verdict:verdict||null,
+      category:category||null, note:clip(note,200), project_ids:(turn.pids||[]).slice(0,12)
+    }).then(function(){
+      turn.fb=verdict||'report'; auraMarkVoted(idx,turn.fb); auraSave();
+      thanks(verdict);
+    }).catch(function(){
+      row.replaceChildren();
+      row.className='aura-fb fb-fail';
+      var t=document.createElement('span'); t.textContent='Could not send that.';
+      var again=document.createElement('button'); again.type='button'; again.textContent='Try again';
+      again.addEventListener('click',function(){ send(verdict,category,note); });
+      row.appendChild(t); row.appendChild(again);
+    });
+  }
+
+  function vote(v){
+    var b=document.createElement('button');
+    b.type='button'; b.className='aura-fbv';
+    b.setAttribute('aria-label',v==='up'?'Helpful':'Not helpful');
+    b.innerHTML=auraIco(v==='up'?AURA_UP:AURA_DOWN);
+    /* Thumbs-down carries its vote into the sheet, so the vote survives even
+       if the realtor skips the detail. */
+    b.addEventListener('click',function(){ v==='up'?send('up',null,''):sheet('down'); });
+    return b;
+  }
+
+  /* verdict: 'down' from the thumb, null from "Report data issue". Decides what
+     gets filed and whether the left button is Skip or Cancel. */
+  function sheet(verdict){
+    row.replaceChildren();
+    row.className='aura-fb fb-open';
+    var h=document.createElement('div'); h.className='aura-fb-h'; h.textContent="What's wrong with it?";
+    row.appendChild(h);
+    var grid=document.createElement('div'); grid.className='aura-fb-cats';
+    var chosen='';
+    AURA_ISSUES.forEach(function(c){
+      var b=document.createElement('button');
+      b.type='button'; b.className='aura-fb-cat'; b.textContent=c[1];
+      b.setAttribute('aria-pressed','false');
+      b.addEventListener('click',function(){
+        chosen=c[0];
+        grid.querySelectorAll('.aura-fb-cat').forEach(function(x){
+          var on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',on?'true':'false');
+        });
+        sync();
+      });
+      grid.appendChild(b);
+    });
+    row.appendChild(grid);
+    var note=document.createElement('input');
+    note.className='aura-fb-note'; note.type='text'; note.maxLength=200;
+    note.placeholder='Anything else? (optional)';
+    note.setAttribute('aria-label','Extra detail');
+    row.appendChild(note);
+    var acts=document.createElement('div'); acts.className='aura-fb-acts';
+    var left=document.createElement('button');
+    left.type='button'; left.className='aura-fb-skip';
+    left.textContent=verdict?'Skip':'Cancel';
+    /* Skip carries the note -- it sits under the note field and reads as "skip
+       the category", not "discard what I typed". */
+    left.addEventListener('click',function(){
+      if(verdict) send(verdict,null,note.value); else buttons();
+    });
+    var go=document.createElement('button');
+    go.type='button'; go.className='aura-fb-go'; go.textContent='Send report'; go.disabled=true;
+    go.addEventListener('click',function(){ send(verdict,chosen,note.value); });
+    /* A note with no category is still a report, so it enables Send too. */
+    function sync(){ go.disabled=!chosen&&!note.value.trim(); }
+    note.addEventListener('input',sync);
+    acts.appendChild(left); acts.appendChild(go);
+    row.appendChild(acts);
+    auraBottom();
+  }
+
+  /* A function because Cancel comes back to it. */
+  function buttons(){
+    row.replaceChildren();
+    row.className='aura-fb';
+    row.appendChild(vote('up'));
+    row.appendChild(vote('down'));
+    var rep=document.createElement('button');
+    rep.type='button'; rep.className='aura-fb-rep'; rep.textContent='Report data issue';
+    rep.addEventListener('click',function(){ sheet(null); });
+    row.appendChild(rep);
+  }
+
+  buttons();
+  return row;
+}
+
+/* last_updated reaches the client and is deliberately NOT rendered: 10 of the
+   23 dated projects parse wrong today (known-issues 1), so a freshness line
+   would be a confident wrong date on nearly half. Render it with the fix. */
+function auraCards(list){
+  return (list||[]).map(function(p){
+    return projectCard(p,{price:true,deposit:true,incentive:true});
+  }).join('');
+}
+
+function auraAsk(q){
+  q=String(q||'').trim();
+  if(!q||AURA_ABORT) return;
+  if(!TOKEN){ closeChat(); showGate(); return; }
+  /* Sent only until the server owns the thread. With a conversation id the
+     server has the real turns and ignores these, so shipping them is just
+     tokens and a claim the client is not entitled to make. Kept for phones that
+     have not updated, and for the first question of a new chat. */
+  var history=AURA_CID?[]:AURA_TURNS.slice(-AURA_MAX_TURNS).map(function(t){ return {role:t.role,content:t.content}; });
+  var l=$('auraList');
+  if(!AURA_TURNS.length) l.innerHTML='';          // clear the starter prompts
+  /* Kept by reference, not by position. Retry used to pop() the last turn on the
+     assumption it was this question's -- but an error bubble stays on screen, so
+     a realtor who gives up, asks something else, then scrolls back and taps
+     "Try again" would have popped the NEWER answer instead. */
+  var myTurn={role:'user',content:q};
+  AURA_TURNS.push(myTurn);
+  var id='aura'+(++AURA_SEQ);
+  l.insertAdjacentHTML('beforeend',
+    '<div class="aura-msg aura-me"><span>'+esc(q)+'</span></div>'
+    +'<div class="aura-msg" id="'+id+'"><div class="aura-step">Thinking…</div><div class="aura-ai on"></div><div class="aura-cards"></div></div>');
+  auraBottom(); auraBusy(true);
+  var wrap=$(id), step=wrap.querySelector('.aura-step'),
+      body=wrap.querySelector('.aura-ai'), cards=wrap.querySelector('.aura-cards'), text='', pids=[];
+  function finish(){ AURA_ABORT=null; auraBusy(false); if(step&&step.parentNode) step.remove(); body.classList.remove('on'); }
+  function failed(msg){
+    finish();
+    /* Replaces the answer rather than appending under it: half an answer that
+       reads like a whole one is worse than no answer. */
+    wrap.innerHTML='<div class="aura-err">'+esc(msg)+'<br><button type="button">Try again</button></div>';
+    wrap.querySelector('button').addEventListener('click',function(){
+      wrap.remove();
+      var ix=AURA_TURNS.indexOf(myTurn);       // this question's turn, wherever it now sits
+      if(ix>=0) AURA_TURNS.splice(ix,1);
+      auraAsk(q);
+    });
+    auraBottom();
+  }
+  AURA_ABORT=new AbortController();
+  fetch(window.AURA_BASE.replace(/\/+$/,'')+'/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+    body:JSON.stringify({question:q,mode:AURA_MODE,history:history,conversation_id:AURA_CID}),
+    signal:AURA_ABORT.signal
+  }).then(function(r){
+    if(r.status===401||r.status===403){ closeChat(); sessionLost(); return null; }
+    if(r.status===429){
+      var wait=parseInt(r.headers.get('Retry-After')||'0',10);
+      failed(wait>90
+        ? 'You have asked Aura a lot in the last hour. Try again in about '+Math.ceil(wait/60)+' minutes.'
+        : 'You have asked Aura a lot in the last hour. Try again in a moment.');
+      return null;
+    }
+    if(!r.ok||!r.body) throw new Error('HTTP '+r.status);
+    return auraStream(r.body,function(ev){
+      if(ev.type==='start'){
+        /* The mode the server actually applied, not the one we believe we sent. */
+        AURA_MODE=ev.mode==='client'?'client':'realtor'; auraPaintMode();
+        /* Assigned unconditionally, including back to null. Only setting it
+           when truthy made a stale id permanent: the server refuses one it does
+           not own and answers null, and the old code kept the refused id -- so
+           every later question sent it again with an empty history, and the
+           thread was never stored and never had context. Null here means the
+           server has no store; we go back to sending our own turns. */
+        AURA_CID=ev.conversation_id||null;
+      } else if(ev.type==='tool'){ if(step) step.textContent=auraStep(ev); }
+      else if(ev.type==='tool_result'){ if(step&&ev.count) step.textContent+=' found '+ev.count; }
+      else if(ev.type==='text'){
+        if(step&&step.parentNode) step.remove();
+        text+=ev.text;
+        auraMd(body,text);          /* nodes, never innerHTML: model output is data, not markup */
+        auraBottom();
+      }
+      else if(ev.type==='projects'){
+        cards.innerHTML=auraCards(ev.projects);
+        /* Ids only: feedback needs to say which project a report is about. */
+        pids=(ev.projects||[]).map(function(p){ return p.id; }).filter(Boolean);
+        auraBottom();
+      }
+      else if(ev.type==='done'){
+        finish();
+        var ansTurn={role:'assistant',content:text,id:auraUid(),pids:pids};
+        AURA_TURNS.push(ansTurn);
+        auraSave();
+        var fb=auraFeedbackRow(ansTurn,q,AURA_TURNS.length-1);
+        if(fb) wrap.appendChild(fb);
+        auraBottom();
+      }
+      else if(ev.type==='error'){ failed(auraSay(ev.detail)); }
+    }).then(function(ended){
+      /* The stream closed without saying how it finished. Nothing above ran, so
+         say so rather than leaving a caret blinking under a half-answer. */
+      if(ended===false) failed(text
+        ? 'The answer was cut off. Try again.'
+        : 'The connection dropped before Aura could answer. Try again.');
+    });
+  }).catch(function(e){
+    if(e&&e.name==='AbortError'){ finish(); return; }
+    failed(navigator.onLine===false?'You are offline.':'Could not reach Aura.');
+  });
+}
+
+/* ---- the reports queue (AUR-62) ---- */
+var AURA_ADMIN=false;
+function auraWhoAmI(){
+  if(!auraReady()||!TOKEN) return;
+  fetch(auraBase()+'/me',{headers:{'Authorization':'Bearer '+TOKEN}})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){
+      if(!d||!d.admin||AURA_ADMIN) return;
+      AURA_ADMIN=true;
+      buildNav();                       // the row was filtered out a moment ago
+      var here=(location.hash||'#home').replace(/^#/,'').split('/')[0];
+      $('navlist').querySelectorAll('.dr-item').forEach(function(b){
+        b.classList.toggle('on',b.dataset.v===here);
+      });
+    }).catch(function(){ /* the drawer is simply one row shorter */ });
+}
+function auraIssueLabel(v){
+  var hit=AURA_ISSUES.filter(function(c){ return c[0]===v; })[0];
+  return hit?hit[1]:(v||'');
+}
+function reportCard(r){
+  var cls=r.verdict==='up'?'pine':(r.verdict==='down'?'rust':'ochre');
+  var badge=r.verdict==='up'?'Helpful':(r.verdict==='down'?'Not helpful':'Data issue');
+  return '<div class="card">'
+    +'<span class="pill '+cls+'">'+esc(badge)+'</span>'
+    +(r.category?'<span class="pill">'+esc(auraIssueLabel(r.category))+'</span>':'')
+    +'<div class="card-t" style="margin-top:9px">'+esc(r.question||'(no question recorded)')+'</div>'
+    +(r.note?'<div class="card-s">'+esc(r.note)+'</div>':'')
+    +kv('Projects',(r.project_ids||[]).join(', '))
+    +kv('Reported by',r.user_id)
+    +kv('When',auraWhen(r.created_at))
+    +'</div>';
+}
+function loadReports(){
+  if(!auraReady()){ $('content').innerHTML='<div class="empty">Aura is not set up here.</div>'; return; }
+  $('content').innerHTML=skel(3);
+  fetch(auraBase()+'/feedback?limit=200',{headers:{'Authorization':'Bearer '+TOKEN}})
+  .then(function(r){
+    if(r.status===401){ sessionLost(); return null; }
+    if(r.status===403) throw new Error('admin only');
+    if(r.status===503) throw new Error('unavailable');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    if(!d) return;
+    var rows=d.feedback||[];
+    if(!rows.length){ $('content').innerHTML='<div class="empty">No reports yet. That is the good outcome.</div>'; return; }
+    $('content').innerHTML='<div class="lnkrow" style="margin-bottom:12px">'
+      +'<button class="lnk" id="repCsv" type="button">Download CSV</button></div>'
+      +'<p class="sec-h">'+rows.length+(rows.length===1?' report':' reports')+'</p>'
+      +rows.map(reportCard).join('');
+    $('repCsv').addEventListener('click',reportsCsv);
+  }).catch(function(e){
+    var m=String(e.message);
+    $('content').innerHTML='<div class="err">'+esc(
+      m==='admin only' ? 'This screen is for the data owner.'
+      : m==='unavailable' ? 'The report queue is unavailable right now.'
+      : 'Could not load the reports.')+'</div>';
+  });
+}
+function reportsCsv(){
+  fetch(auraBase()+'/feedback.csv?limit=500',{headers:{'Authorization':'Bearer '+TOKEN}})
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+  .then(function(b){
+    var url=URL.createObjectURL(b), a=document.createElement('a');
+    a.href=url; a.download='aura-reports.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+  }).catch(function(){ toast('Could not download the reports.'); });
+}
+
+(function auraWire(){
+  if(!auraReady()) return;
+  LOAD.chat=loadChat;
+  LOAD.reports=loadReports;
+  $('askFab').hidden=false;
+  document.body.classList.add('fab');
+  auraLoad();
+  /* Remember the screen we came from, so ← puts the realtor back where they were
+     rather than dumping them on Home. On Android the hardware back does the same
+     thing for free, because #chat is a real route. */
+  $('askFab').addEventListener('click',function(){
+    AURA_HOME=(location.hash||'#home').replace(/^#/,'')||'home';
+    go('chat');
+  });
+  $('auraBack').addEventListener('click',function(){ go(AURA_HOME||'home'); });
+  $('auraNew').addEventListener('click',auraHistOpen);
+  $('auraHistX').addEventListener('click',auraHistClose);
+  $('auraHistScrim').addEventListener('click',auraHistClose);
+  $('auraHistNew').addEventListener('click',auraNewChat);
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&!$('auraHist').hidden) auraHistClose();
+  });
+  $('auraChip').addEventListener('click',function(){ auraMode(AURA_MODE==='client'?'realtor':'client'); });
+  $('auraForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    if(AURA_ABORT){ auraStop(); return; }
+    var t=$('auraInput'), q=t.value;
+    t.value=''; auraGrow(t);
+    auraAsk(q);
+  });
+  var input=$('auraInput');
+  input.addEventListener('input',function(){ auraGrow(input); });
+  /* Enter sends on a hardware keyboard; shift+Enter is a newline. On a phone the
+     enterkeyhint="send" key fires this too. */
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('auraForm').dispatchEvent(new Event('submit',{cancelable:true})); }
+  });
+})();
+/* Grow with the text, stop at max-height, and only then show a scrollbar.
+   The border has to be added back: the box is border-box, so setting height to
+   scrollHeight -- which counts content and padding but NOT border -- leaves the
+   content 2px short of its own box. The textarea then reports itself as
+   overflowing while holding one short line, and the browser paints a scrollbar
+   on an empty composer. Reading max-height rather than hardcoding it keeps the
+   cap in the stylesheet, where its value can be seen next to the layout. */
+function auraGrow(t){
+  if(!t) return;
+  t.style.height='auto';
+  t.style.overflowY='hidden';           // measure unconstrained
+  var cs=getComputedStyle(t);
+  var border=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+  var max=parseFloat(cs.maxHeight)||Infinity;
+  var want=t.scrollHeight+border;
+  t.style.height=Math.min(want,max)+'px';
+  t.style.overflowY=want>max?'auto':'hidden';
+}
 
 /* back-to-top: appears past ~30% of the page (capped at 1500px so very long
    lists don't hide it), one shared component for every screen */
@@ -1884,13 +3252,34 @@ window.addEventListener('hashchange', route);
    With a live token, render immediately and verify behind it. Blocking on a
    round trip would put a spinner in front of an app built to work offline, and
    a token the server refuses is torn down a moment later anyway. */
+/* Two eyes: open when the password is hidden (tap to reveal), struck through when
+   it is showing. Drawn here rather than in the markup so both states stay together. */
+var EYE={ show:'M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+          hide:'M3 3l18 18|M10.6 6.1A7.9 7.9 0 0 1 12 6c7 0 10.5 6 10.5 6a17 17 0 0 1-3.4 3.9M6.2 8.2A17 17 0 0 0 1.5 12S5 18 12 18a9 9 0 0 0 3.4-.6' };
+function paintEye(on){
+  var b=$('gate_eye'); if(!b) return;
+  b.innerHTML='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + EYE[on?'hide':'show'].split('|').map(function(d){ return '<path d="'+d+'"/>'; }).join('') + '</svg>';
+  b.setAttribute('aria-label',on?'Hide password':'Show password');
+  b.setAttribute('aria-pressed',on?'true':'false');
+}
+function toggleEye(){
+  var pw=$('gate_pw'); if(!pw) return;
+  var on=pw.type==='password';
+  pw.type=on?'text':'password';
+  paintEye(on);
+  try{ pw.focus(); pw.setSelectionRange(pw.value.length,pw.value.length); }catch(e){}
+}
 function boot(){
   $('gateForm').addEventListener('submit',function(e){ e.preventDefault(); doLogin(); });
+  paintEye(false);
+  $('gate_eye').addEventListener('click',toggleEye);
+  var rem=$('gate_remember'); try{ if(rem) rem.checked=localStorage.getItem('ak_remember')!=='0'; }catch(e){}
   var stored=tokenGet(); WHO=whoGet(); paintNavUser();
   if(!stored){ tokenClear(); showGate(); return; }
 
   if(tokenAlive(stored)){
-    TOKEN=stored; hideGate(); route(); verifySession(stored);
+    TOKEN=stored; hideGate(); route(); auraWhoAmI(); verifySession(stored);
     return;
   }
   /* The device clock puts this past the window — but a phone with a wrong clock
@@ -1898,9 +3287,9 @@ function boot(){
      offline there is no ruling to be had, and gated is the safe answer. */
   showGate();
   call('session',{auth:stored}).then(function(r){
-    if(r&&r.ok&&r.token){ TOKEN=r.token; tokenSet(TOKEN,WHO); hideGate(); paintNavUser(); route(); return; }
+    if(r&&r.ok&&r.token){ TOKEN=r.token; tokenSet(TOKEN,WHO); hideGate(); paintNavUser(); route(); auraWhoAmI(); return; }
     tokenClear();
-  }).catch(function(){});
+  }).catch(function(){ showGate('You’re offline — sign in once you’re connected.'); });
 }
 /* Verified behind the render, not in front of it: blocking would put a spinner
    over an app built to work offline, and a refused token is torn down a moment
@@ -1911,7 +3300,10 @@ function verifySession(tok){
       if(r.token){ TOKEN=r.token; tokenSet(TOKEN,WHO); }   // sliding: the clock restarts
       return;
     }
-    sessionLost();
+    /* Only a refusal of the token itself ends the session. Any other non-ok reply
+       means the server is unwell, not that the token is -- signing the whole team
+       out over that would be the worse failure. */
+    if(isAuthErr(r)) sessionLost();
   }).catch(function(){ /* offline — stay in; the cached screens still work */ });
 }
 boot();

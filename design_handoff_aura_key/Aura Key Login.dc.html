@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-101b0497-2b43-4e11-b681-4050a470993e/styles.css">
+  <script src="_ds/modernist-101b0497-2b43-4e11-b681-4050a470993e/_ds_bundle.js"></script>
+  <style>
+    a { color: #1F4E6B; } a:hover { color: #163A50; }
+    .ak-screen input::placeholder { color: #93A6B3; }
+    .ak-screen input:focus { outline: none; }
+  </style>
+</helmet>
+<div style="min-height: 100vh; background: var(--color-bg); display: flex; align-items: flex-start; justify-content: center; padding: 40px 24px; font-family: var(--font-body);">
+  <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="430px,880px">
+    <div class="ak-screen" style="height: 100%; overflow: hidden; position: relative; background: #12222E; font-family: -apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;">
+      <img src="assets/skyline-dusk.jpg" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 52% 30%;">
+      <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(9,19,26,0.58) 0%, rgba(9,19,26,0.30) 18%, rgba(9,19,26,0.34) 34%, rgba(9,19,26,0.52) 62%, rgba(9,19,26,0.84) 100%);"></div>
+
+      <div style="position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 58px 16px 46px; box-sizing: border-box;">
+        <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex-shrink: 0;">
+          <svg viewBox="70 30 905 640" style="width: 74px; height: 52px;" aria-label="Aura Key monogram">
+            <defs><linearGradient id="akgold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0DCA9"></stop><stop offset="0.45" stop-color="#D3AE60"></stop><stop offset="1" stop-color="#9A7A3B"></stop></linearGradient></defs>
+            <path fill="url(#akgold)" d="M270 95L150 660L70 660ZM300 50L555 660L445 660L262 118ZM244 428L280 428L280 464L244 464ZM292 428L328 428L328 464L292 464ZM244 476L280 476L280 512L244 512ZM292 476L328 476L328 512L292 512ZM600 40L710 40L710 660L600 660ZM710 250L880 40L965 40L710 375ZM710 455L782 278L975 660L860 660Z"></path>
+          </svg>
+          <div style="margin-top: 8px; font-size: 21px; font-weight: 600; letter-spacing: 0.3em; color: #FFFFFF; text-indent: 0.3em; text-shadow: 0 2px 10px rgba(9,19,26,0.6);">AURA KEY</div>
+          <div style="display: flex; align-items: center; gap: 9px; margin-top: 5px;">
+            <span style="width: 30px; height: 1px; background: rgba(211,174,96,0.85);"></span>
+            <span style="font-size: 10px; letter-spacing: 0.4em; color: #E0C387; text-indent: 0.4em;">REALTY</span>
+            <span style="width: 30px; height: 1px; background: rgba(211,174,96,0.85);"></span>
+          </div>
+          <div style="margin-top: 18px; font-size: 27px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.01em; text-shadow: 0 2px 14px rgba(9,19,26,0.65);">Welcome back</div>
+          <div style="margin-top: 5px; font-size: 14px; line-height: 1.4; color: rgba(233,237,238,0.9); max-width: 250px; text-shadow: 0 1px 10px rgba(9,19,26,0.7);">Sign in to your realtor toolkit.</div>
+        </div>
+
+        <div style="background: {{ cardBg }}; backdrop-filter: {{ cardBlur }}; -webkit-backdrop-filter: {{ cardBlur }}; border: 1px solid {{ cardBorder }}; border-radius: 22px; box-shadow: 0 18px 44px rgba(6,15,21,0.34); padding: 15px 15px 13px; flex-shrink: 0;">
+          <label style="display: block; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: {{ labelColor }}; margin-bottom: 6px;">Portal ID</label>
+          <div style="display: flex; align-items: center; gap: 10px; border: 1.5px solid {{ fieldBorder }}; background: {{ fieldBg }}; border-radius: 12px; padding: 0 13px; height: 46px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a7 7 0 0 1 14 0v1"></path></svg>
+            <input value="{{ portalId }}" onChange="{{ onPortalId }}" placeholder="Enter your portal ID" style="flex: 1; min-width: 0; border: none; font-size: 15px; color: {{ inputColor }}; background: transparent;">
+          </div>
+          <label style="display: block; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: {{ labelColor }}; margin: 11px 0 6px;">Password</label>
+          <div style="display: flex; align-items: center; gap: 10px; border: 1.5px solid {{ fieldBorder }}; background: {{ fieldBg }}; border-radius: 12px; padding: 0 13px; height: 46px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+            <input type="{{ pwType }}" value="{{ password }}" onChange="{{ onPassword }}" placeholder="Enter your password" style="flex: 1; min-width: 0; border: none; font-size: 15px; color: {{ inputColor }}; background: transparent;">
+            <button onClick="{{ togglePw }}" aria-label="Toggle password visibility" style="border: none; background: none; padding: 13px; margin: -13px -9px -13px 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+              <sc-if value="{{ showPw }}" hint-placeholder-val="{{ false }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ muted }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </sc-if>
+              <sc-if value="{{ hidePw }}" hint-placeholder-val="{{ true }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ muted }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+              </sc-if>
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 13px;">
+            <button onClick="{{ toggleRemember }}" style="display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 12px 8px 12px 0; margin: -12px 0; cursor: pointer;">
+              <span style="width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid {{ cbBorder }}; background: {{ cbBg }}; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <sc-if value="{{ remember }}" hint-placeholder-val="{{ true }}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                </sc-if>
+              </span>
+              <span style="font-size: 13.5px; font-weight: 600; color: {{ labelColor }};">Remember me</span>
+            </button>
+          </div>
+          <button style="width: 100%; margin-top: 14px; height: 50px; border: none; border-radius: 13px; background: #1F4E6B; color: #FFFFFF; font-size: 16.5px; font-weight: 700; letter-spacing: 0.01em; cursor: pointer; box-shadow: 0 8px 18px rgba(31,78,107,0.32);" style-hover="background: #26597A" style-active="background: #163A50; box-shadow: none">Sign in</button>
+          <div style="text-align: center; font-size: 12px; font-weight: 500; color: {{ muted }}; margin-top: 13px;">Need access? Contact your admin for support.</div>
+        </div>
+
+        <div style="flex-shrink: 0;">
+          <sc-if value="{{ showTrust }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 4px;">
+              <sc-for list="{{ trust }}" as="tr" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                  <span dangerouslySetInnerHTML="{{ tr.icon }}" style="display: flex; flex-shrink: 0;"></span>
+                  <span style="font-size: 11px; font-weight: 600; color: rgba(233,237,238,0.9); white-space: nowrap; text-shadow: 0 1px 6px rgba(9,19,26,0.8);">{{ tr.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="text-align: center; font-size: 10.5px; color: rgba(233,237,238,0.55); margin-top: 10px;">© 2026 Aura Key Realty</div>
+        </div>
+      </div>
+    </div>
+  </x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 520, &quot;height&quot;: 940}, &quot;cardTreatment&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Frosted glass&quot;, &quot;Solid white&quot;], &quot;default&quot;: &quot;Frosted glass&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Login card&quot;}, &quot;showTrustStrip&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Login card&quot;}}">
+class Component extends DCLogic {
+  state = { showPw: false, remember: true, portalId: '', password: '' };
+  renderVals() {
+    const s = this.state;
+    const frosted = (this.props.cardTreatment ?? 'Frosted glass') === 'Frosted glass';
+    const gold = '#D3AE60';
+    const ic = (svg) => ({ __html: svg });
+    return {
+      showPw: s.showPw, hidePw: !s.showPw,
+      pwType: s.showPw ? 'text' : 'password',
+      togglePw: () => this.setState({ showPw: !s.showPw }),
+      remember: s.remember,
+      toggleRemember: () => this.setState({ remember: !s.remember }),
+      portalId: s.portalId, onPortalId: (e) => this.setState({ portalId: e.target.value }),
+      password: s.password, onPassword: (e) => this.setState({ password: e.target.value }),
+      showTrust: this.props.showTrustStrip ?? true,
+
+      cardBg: frosted ? 'rgba(255,255,255,0.14)' : '#FFFFFF',
+      cardBlur: frosted ? 'blur(24px) saturate(140%)' : 'none',
+      cardBorder: frosted ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.9)',
+      labelColor: frosted ? '#FFFFFF' : '#17364B',
+      inputColor: frosted ? '#FFFFFF' : '#17364B',
+      fieldBg: frosted ? 'rgba(9,19,26,0.26)' : '#FFFFFF',
+      fieldBorder: frosted ? 'rgba(255,255,255,0.28)' : '#D4DCE2',
+      iconColor: frosted ? gold : '#1F4E6B',
+      muted: frosted ? 'rgba(233,237,238,0.7)' : '#5B7284',
+      linkColor: frosted ? '#E0C387' : '#1F4E6B',
+      ruleColor: frosted ? 'rgba(255,255,255,0.3)' : '#E2E8ED',
+      cbBg: s.remember ? '#1F4E6B' : (frosted ? 'rgba(9,19,26,0.3)' : '#FFFFFF'),
+      cbBorder: s.remember ? '#1F4E6B' : (frosted ? 'rgba(255,255,255,0.5)' : '#C3CED6'),
+
+      trust: [
+        { label: 'Secure', icon: ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D3AE60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>') },
+        { label: 'Built for realtors', icon: ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D3AE60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m7 14 4-4 3 3 5-6"></path></svg>') },
+        { label: 'Team first', icon: ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D3AE60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><circle cx="17.5" cy="9" r="2.5"></circle><path d="M15.8 14.5a5 5 0 0 1 5.7 5"></path></svg>') }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

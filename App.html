@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <base target="_top">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- interactive-widget=resizes-content is what makes the chat composer sit ON the
+     keyboard instead of behind it. Without it iOS resizes only the VISUAL viewport
+     and leaves the layout viewport at its full height, so .aura -- which is fixed
+     and sized by inset:0 against that layout viewport -- keeps its pre-keyboard
+     height and the composer ends up underneath the keyboard. With it, the layout
+     viewport shrinks too and the panel follows. Android already resizes both, so
+     this costs it nothing. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,17 +30,53 @@
 </head>
 <body>
 <div class="gate" id="gate" hidden>
-  <form class="gate-card" id="gateForm">
-    <div class="mark gate-mark">AK</div>
-    <h1 class="gate-t">Aura Key Realty</h1>
-    <p class="gate-s">Sign in to open your realtor tools.</p>
-    <label class="gate-l" for="gate_id">Portal ID</label>
-    <input id="gate_id" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
-    <label class="gate-l" for="gate_pw">Password</label>
-    <input id="gate_pw" name="password" type="password" autocomplete="current-password" required>
-    <button class="gate-go" id="gate_go" type="submit">Sign in</button>
-    <div class="gate-err" id="gate_err" role="alert" aria-live="polite"></div>
-  </form>
+  <div class="gate-sky" aria-hidden="true"></div>
+  <div class="gate-inner">
+
+    <div class="gate-brand">
+      <svg class="gate-logo" viewBox="70 30 905 640" role="img" aria-label="Aura Key">
+        <defs><linearGradient id="akgold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#F0DCA9"/><stop offset=".45" stop-color="#D3AE60"/><stop offset="1" stop-color="#9A7A3B"/>
+        </linearGradient></defs>
+        <path fill="url(#akgold)" d="M270 95L150 660L70 660ZM300 50L555 660L445 660L262 118ZM244 428L280 428L280 464L244 464ZM292 428L328 428L328 464L292 464ZM244 476L280 476L280 512L244 512ZM292 476L328 476L328 512L292 512ZM600 40L710 40L710 660L600 660ZM710 250L880 40L965 40L710 375ZM710 455L782 278L975 660L860 660Z"/>
+      </svg>
+      <div class="gate-word">AURA KEY</div>
+      <div class="gate-rule"><i></i><span>REALTY</span><i></i></div>
+      <h1 class="gate-t">Welcome back</h1>
+      <p class="gate-s">Sign in to your realtor toolkit.</p>
+    </div>
+
+    <form class="gate-card" id="gateForm">
+      <label class="gate-l" for="gate_id">Portal ID</label>
+      <div class="gate-field">
+        <svg class="gate-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 14 0v1"/></svg>
+        <input id="gate_id" name="username" placeholder="Enter your portal ID" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      </div>
+
+      <label class="gate-l" for="gate_pw">Password</label>
+      <div class="gate-field">
+        <svg class="gate-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <input id="gate_pw" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+        <button class="gate-eye" id="gate_eye" type="button" aria-label="Show password" aria-pressed="false"></button>
+      </div>
+
+      <label class="gate-remember"><input type="checkbox" id="gate_remember" checked><span>Remember me</span></label>
+
+      <div class="gate-err" id="gate_err" role="alert" aria-live="polite"></div>
+      <button class="gate-go" id="gate_go" type="submit"><span>Sign in</span></button>
+      <p class="gate-note">Need access? Contact your admin for support.</p>
+    </form>
+
+    <div class="gate-foot">
+      <ul class="gate-trust">
+        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span>Secure</span></li>
+        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 3 3 5-6"/></svg><span>Built for realtors</span></li>
+        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15.8 14.5a5 5 0 0 1 5.7 5"/></svg><span>Team first</span></li>
+      </ul>
+      <p class="gate-copy">&copy; 2026 Aura Key Realty</p>
+    </div>
+
+  </div>
 </div>
 <div class="phone">
   <div class="topbar">
@@ -55,6 +98,40 @@
   <div class="wrap"><div id="content"></div></div>
   <nav class="tabbar" id="tabbar" aria-label="Quick navigation"></nav>
   <button class="toTop" id="toTop" aria-label="Back to top"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  <!-- Hidden until Script.html finds window.AURA_BASE. The Apps Script host has no
+       chat service to talk to and cannot stream, so there it stays hidden forever. -->
+  <button class="askfab" id="askFab" hidden aria-label="Ask Aura"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.8-5a8.2 8.2 0 0 1-.8-3.5A8.4 8.4 0 0 1 12.5 4 8.4 8.4 0 0 1 21 11.5z"/></svg><span>Ask Aura</span></button>
+</div>
+<!-- Aura chat. A sibling of .phone, not a screen inside #content: the shell scrolls the
+     document, and a chat needs its own scroller with the composer pinned under it.
+     Nothing in here is position:fixed — the flex column does the pinning, which is
+     what survives the keyboard. -->
+<div class="aura" id="aura" hidden>
+  <div class="aura-hd">
+    <button class="aura-x" id="auraBack" aria-label="Close chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <div class="aura-ttl">
+      <div class="aura-name">Aura</div>
+      <div class="aura-sub" id="auraSub">Aura Key projects</div>
+    </div>
+    <button class="aura-chip" id="auraChip" aria-pressed="false" title="Switch mode"><span id="auraChipT">Realtor</span></button>
+    <button class="aura-new" id="auraNew" aria-label="Chats" aria-haspopup="dialog" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg></button>
+  </div>
+  <div class="aura-list" id="auraList" role="log" aria-live="polite" aria-label="Conversation"></div>
+  <div class="aura-hist" id="auraHist" hidden>
+    <div class="aura-hist-sc" id="auraHistScrim"></div>
+    <aside class="aura-hist-p" role="dialog" aria-modal="true" aria-label="Your chats">
+      <div class="aura-hist-hd">
+        <div class="aura-hist-t">Chats</div>
+        <button class="aura-hist-x" id="auraHistX" aria-label="Close chats"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <button class="aura-hist-new" id="auraHistNew" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>New chat</span></button>
+      <div class="aura-hist-list" id="auraHistList"></div>
+    </aside>
+  </div>
+  <form class="aura-cmp" id="auraForm" autocomplete="off">
+    <textarea id="auraInput" rows="1" placeholder="Ask about projects…" enterkeyhint="send" autocapitalize="sentences" spellcheck="true" maxlength="2000"></textarea>
+    <button class="aura-send" id="auraSend" type="submit" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  </form>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="scrim" id="scrim" onclick="closeDrawer()"></div>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-101b0497-2b43-4e11-b681-4050a470993e/styles.css">
+  <script src="_ds/modernist-101b0497-2b43-4e11-b681-4050a470993e/_ds_bundle.js"></script>
+  <style>a { color: var(--color-accent-700); } a:hover { color: var(--color-accent); }</style>
+</helmet>
+<div style="min-height: 100vh; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body);">
+  <div style="max-width: 1100px; margin: 0 auto; padding: var(--space-8) var(--space-6) var(--space-12);">
+    <header style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding-bottom: var(--space-4); border-bottom: 2px solid var(--color-divider);">
+      <div>
+        <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent);">Aura Key Realty</div>
+        <h1 style="font-family: var(--font-heading); font-weight: 800; font-size: 44px; line-height: 1.05; margin: var(--space-2) 0 0;">Aura Key — app icon</h1>
+      </div>
+      <div style="font-size: 13px; color: var(--color-neutral-600); text-align: right; flex-shrink: 0;">Gold roofline AK mark<br>on ink #0E1A22 · <a href="Aura Key Login.dc.html">login screen →</a></div>
+    </header>
+
+    <section style="display: grid; grid-template-columns: 380px 1fr; gap: var(--space-8); padding: var(--space-8) 0; border-bottom: 2px solid var(--color-divider);">
+      <div>
+        <img src="icons/icon-1024.png?v=2" alt="Aura Key master icon" style="width: 380px; height: 380px; display: block;">
+        <div style="font-size: 12px; color: var(--color-neutral-600); margin-top: var(--space-2);">icon-1024.png — master, full bleed, no pre-rounding</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; margin: 0;">Construction</h2>
+        <ul style="margin: 0; padding-left: 18px; line-height: 1.7; font-size: 15px;">
+          <li>The brand's own mark: the roofline "AK" with the gable window, redrawn as clean vector geometry from the logo.</li>
+          <li>Gold gradient fill (#EDD59B → #CDA95B → #8A6D33) matching the logo's metallic sweep.</li>
+          <li>Ink ground <strong>#0E1A22</strong> with a faint vignette — reads like the logo on the dusk skyline, and stands apart from blue MLS/CRM tiles.</li>
+          <li>Mark at 70% of canvas — inside the 80% safe zone; square, opaque, sRGB. iOS and Android apply their own masks.</li>
+        </ul>
+        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: auto;">
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; border: 1px solid var(--color-neutral-300); padding: 6px 10px;"><span style="width: 14px; height: 14px; background: #0E1A22; display: inline-block;"></span>ink #0E1A22</span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; border: 1px solid var(--color-neutral-300); padding: 6px 10px;"><span style="width: 14px; height: 14px; background: linear-gradient(135deg, #EDD59B, #CDA95B 45%, #8A6D33); display: inline-block;"></span>brand gold</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: var(--space-8) 0; border-bottom: 2px solid var(--color-divider);">
+      <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; margin: 0 0 var(--space-5);">Legibility at size</h2>
+      <div style="display: flex; align-items: flex-end; gap: var(--space-8); flex-wrap: wrap;">
+        <sc-for list="{{ sizes }}" as="sz" hint-placeholder-count="4">
+          <div style="text-align: left;">
+            <img src="icons/icon-512.png?v=2" alt="" width="{{ sz }}" height="{{ sz }}" style="display: block; image-rendering: auto;">
+            <div style="font-size: 12px; color: var(--color-neutral-600); margin-top: 6px;">{{ sz }} px</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding: var(--space-8) 0; border-bottom: 2px solid var(--color-divider);">
+      <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; margin: 0 0 var(--space-5);">Platform masks</h2>
+      <div style="display: flex; gap: var(--space-8); flex-wrap: wrap; align-items: flex-start;">
+        <div>
+          <img src="icons/icon-512.png?v=2" alt="iOS mask preview" style="width: 140px; height: 140px; display: block; border-radius: 22.37%;">
+          <div style="font-size: 12px; color: var(--color-neutral-600); margin-top: 6px;">iOS squircle (applied by OS)</div>
+        </div>
+        <div>
+          <div style="position: relative; width: 140px; height: 140px;">
+            <img src="icons/icon-512-maskable.png?v=2" alt="Android circle preview" style="width: 140px; height: 140px; display: block; border-radius: 50%;">
+            <sc-if value="{{ showSafeZone }}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; inset: 10%; border: 1px dashed rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none;"></div>
+            </sc-if>
+          </div>
+          <div style="font-size: 12px; color: var(--color-neutral-600); margin-top: 6px;">Android circle — maskable, mark at 60%</div>
+        </div>
+        <div>
+          <img src="icons/icon-512-maskable.png?v=2" alt="Android squircle preview" style="width: 140px; height: 140px; display: block; border-radius: 28%;">
+          <div style="font-size: 12px; color: var(--color-neutral-600); margin-top: 6px;">Android squircle</div>
+        </div>
+        <div style="background: #17364B; padding: 22px 26px 14px; display: flex; gap: 22px;">
+          <sc-for list="{{ neighbours }}" as="nb" hint-placeholder-count="2">
+            <div style="width: 64px; text-align: center;">
+              <div style="width: 60px; height: 60px; margin: 0 auto; border-radius: 22.37%; background: {{ nb.bg }}; color: {{ nb.fg }}; display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 800; font-size: 22px;">{{ nb.label }}</div>
+              <div style="font-size: 10px; color: #E9EDEE; margin-top: 6px; opacity: 0.85;">{{ nb.name }}</div>
+            </div>
+          </sc-for>
+          <div style="width: 64px; text-align: center;">
+            <img src="icons/icon-192.png?v=2" alt="Aura Key at 60px" style="width: 60px; height: 60px; border-radius: 22.37%; display: block; margin: 0 auto;">
+            <div style="font-size: 10px; color: #E9EDEE; margin-top: 6px;">Aura Key</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: var(--space-8) 0; border-bottom: 2px solid var(--color-divider);">
+      <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; margin: 0 0 var(--space-5);">Steel-blue variant</h2>
+      <div style="display: flex; gap: var(--space-6); align-items: center;">
+        <img src="icons/preview-blue-1024.png?v=2" alt="Gold mark on steel blue" style="width: 140px; height: 140px; display: block;">
+        <p style="max-width: 52ch; font-size: 15px; line-height: 1.7; margin: 0;">Same gold mark on the brand blue <span style="font-family: monospace; font-size: 13px;">#1F4E6B</span> — kept as <span style="font-family: monospace; font-size: 13px;">preview-blue-1024.png</span>. Say the word and the whole set re-exports from it.</p>
+      </div>
+    </section>
+
+    <section style="padding: var(--space-8) 0;">
+      <h2 style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; margin: 0 0 var(--space-5);">Exported files</h2>
+      <table class="table" style="width: 100%;">
+        <thead><tr><th>File</th><th>Size</th><th>Used by</th></tr></thead>
+        <tbody>
+          <sc-for list="{{ files }}" as="fl" hint-placeholder-count="7">
+            <tr>
+              <td style="font-family: monospace; font-size: 13px;">{{ fl.name }}</td>
+              <td>{{ fl.size }}</td>
+              <td>{{ fl.use }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showSafeZone&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Previews&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showSafeZone: this.props.showSafeZone ?? true,
+      sizes: [180, 120, 60, 48],
+      neighbours: [
+        { label: 'M', name: 'MLS', bg: '#E9EDEE', fg: '#0E1A22' },
+        { label: 'C', name: 'CRM', bg: '#0F6349', fg: '#FFFFFF' }
+      ],
+      files: [
+        { name: 'icon-1024.png', size: '1024×1024', use: 'Master / future App Store' },
+        { name: 'apple-touch-icon.png', size: '180×180', use: 'iOS home screen' },
+        { name: 'icon-512.png', size: '512×512', use: 'Android install prompt, splash, manifest' },
+        { name: 'icon-192.png', size: '192×192', use: 'Android home screen, manifest' },
+        { name: 'icon-512-maskable.png', size: '512×512', use: 'Android adaptive — mark at 60%, safe in a 410px circle' },
+        { name: 'icon-master.svg', size: 'vector', use: 'Source artwork (vector mark + gradients)' },
+        { name: 'favicon.svg', size: 'vector', use: 'Browser tab pre-install' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

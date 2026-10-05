@@ -2,15 +2,29 @@
  * Local dev harness for the Realtor Portal Apps Script web app.
  *
  * Serves App.html from disk and shims google.script.run so that
- * app(action, params) is proxied to the deployed @HEAD web app's
- * ?action= JSON API. Lets us edit the UI locally against live data.
+ * app(action, params) is proxied to the deployed web app's JSON API. Lets us
+ * edit the UI locally against live data.
+ *
+ * /api accepts the same call two ways — ?action=… on a GET, or a JSON body on a
+ * POST — so the PWA bundle (dev/build.mjs, which only ever POSTs) can be pointed
+ * here too: AK_EXEC=http://localhost:4599/api node dev/build.mjs --serve
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { HANDLES as isAuthAction, handle as authHandle, removeUser } from './authshim.mjs';
+import { EXEC } from './config.mjs';
 
 const PORT = 4599;
-const EXEC = 'https://script.google.com/macros/s/AKfycbwDuEBNjOtMhRro9ug_Zc1DvvbfHu-Jc8sEQSPuCe8pU7fePEyhwBs_MLkLxXORN5tYpQ/exec';
+/* The PWA bundle runs on its own origin (:4600), so its responses need to be readable
+   cross-origin. text/plain POSTs and GETs are "simple" requests: no preflight to answer. */
+const JSON_HEADERS = { 'content-type': 'application/json', 'access-control-allow-origin': '*' };
+
+/* One parameter bag whichever way the request arrived. */
+async function params(req, url) {
+  if (req.method !== 'POST') return Object.fromEntries(url.searchParams);
+  let raw = ''; for await (const chunk of req) raw += chunk;
+  try { return JSON.parse(raw || '{}'); } catch { return {}; }
+}
 
 const SHIM = `<script>
 // dev-only: stand in for the Apps Script client bridge
@@ -21,8 +35,6 @@ Object.defineProperty(window.google.script, 'run', { get: function () {
     withSuccessHandler: function (f) { ok = f; return chain; },
     withFailureHandler: function (f) { bad = f; return chain; },
     app: function (action, p) {
-      // V1 deployment predates doGet->app() delegation; alias until the new server code ships
-      if (action === 'schools') action = 'getSchools';
       var q = new URLSearchParams(Object.assign({ action: action }, p || {}));
       fetch('/api?' + q.toString())
         .then(function (r) { return r.json(); })
@@ -41,46 +53,35 @@ createServer(async (req, res) => {
   // "removed realtor loses access" path can be walked locally.
   if (url.pathname === '/dev/remove') {
     const left = removeUser(url.searchParams.get('user') || '');
-    res.writeHead(200, { 'content-type': 'application/json' });
+    res.writeHead(200, JSON_HEADERS);
     return res.end(JSON.stringify({ ok: true, remaining: left }));
   }
 
   if (url.pathname === '/api') {
-    const action = url.searchParams.get('action') || '';
-    // The only reachable deployment is V1 (@15) — the team's, running the old
-    // server code — so login and session are answered here by the real Core.js /
-    // Sheets.js in a VM against a fixture LOGIN tab. Everything else proxies out.
+    const p = await params(req, url);
+    const action = String(p.action || '');
+    // Login and session are answered here by the real Core.js / Sheets.js in a VM
+    // against a fixture LOGIN tab, so the auth paths can be walked without touching
+    // the team's credentials sheet. Everything else proxies to the live deployment
+    // — which is gated, so a locally minted token is refused there; data screens
+    // need a token from a real sign-in to come back with data.
     if (isAuthAction(action)) {
-      const out = authHandle(action, Object.fromEntries(url.searchParams));
+      const out = authHandle(action, p);
       console.log(action, '-> local', JSON.stringify(out).length + 'b');
-      res.writeHead(200, { 'content-type': 'application/json' });
+      res.writeHead(200, JSON_HEADERS);
       return res.end(JSON.stringify(out));
     }
     try {
-      const upstream = await fetch(EXEC + '?' + url.searchParams.toString(), { redirect: 'follow' });
-      let body = await upstream.text();
-      // Emulate server changes not yet deployed to V1, so the UI is testable locally:
-      // guiderealtors now carries links {buyers, seller} from the Dashboard sheet.
-      if (url.searchParams.get('action') === 'leaderboard') {
-        // new server filters non-realtor rows via guideIsAdmin_
-        const HIDE = ['rahul gupta', 'isa aurakeyrealty', 'office admin', 'pramodh chandrashekar', 'amar kaur', 'follow up boss', 'nav sodhi'];
-        try { const j = JSON.parse(body); if (j.agents) { j.agents = j.agents.filter(a => !HIDE.includes(String(a.name || '').trim().toLowerCase())); body = JSON.stringify(j); } } catch {}
-      }
-      if (url.searchParams.get('action') === 'getSchools' || url.searchParams.get('action') === 'schools') {
-        // new server returns only the 7 rendered fields (rankingsSlim_)
-        try { const j = JSON.parse(body); if (j.rows) { const pk = (r, ns) => { for (const k of Object.keys(r)) if (ns.includes(k.toLowerCase())) return r[k]; return ''; };
-          j.rows = j.rows.map(r => ({ school: pk(r,['school','name']), level: pk(r,['level','panel']), board: pk(r,['board']), city: pk(r,['city','municipality']), community: pk(r,['community','area']), score: pk(r,['score','rating']), rank: pk(r,['rank','ranking']) }));
-          body = JSON.stringify(j); } } catch {}
-      }
-      if (url.searchParams.get('action') === 'guiderealtors') {
-        try { const j = JSON.parse(body); if (!j.links) { j.links = { buyers: 'https://example.com/dev-buyers-guide', seller: '' }; body = JSON.stringify(j); } } catch {}
-      }
-      console.log(url.searchParams.get('action'), '->', upstream.status, body.length + 'b');
-      res.writeHead(upstream.status, { 'content-type': 'application/json' });
+      const upstream = req.method === 'POST'
+        ? await fetch(EXEC, { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(p), redirect: 'follow' })
+        : await fetch(EXEC + '?' + url.searchParams.toString(), { redirect: 'follow' });
+      const body = await upstream.text();
+      console.log(action, '->', upstream.status, body.length + 'b');
+      res.writeHead(upstream.status, JSON_HEADERS);
       res.end(body);
     } catch (err) {
       console.error('proxy error', err.message);
-      res.writeHead(502, { 'content-type': 'application/json' });
+      res.writeHead(502, JSON_HEADERS);
       res.end(JSON.stringify({ error: String(err.message) }));
     }
     return;

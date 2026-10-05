@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<defs>
+<radialGradient id="bg" cx="50%" cy="44%" r="76%"><stop offset="0" stop-color="#15262F"></stop><stop offset="0.55" stop-color="#0E1A22"></stop><stop offset="1" stop-color="#0A1218"></stop></radialGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDD59B"></stop><stop offset="0.45" stop-color="#CDA95B"></stop><stop offset="1" stop-color="#8A6D33"></stop></linearGradient>
+</defs>
+<rect width="32" height="32" fill="url(#bg)"></rect>
+<path transform="matrix(0.02475 0 0 0.02475 3.07 7.34)" fill="url(#gold)" d="M70 660L150 660L270 95ZM262 118L445 660L555 660L300 50ZM244 464L280 464L280 428L244 428ZM292 464L328 464L328 428L292 428ZM244 512L280 512L280 476L244 476ZM292 512L328 512L328 476L292 476ZM600 660L710 660L710 40L600 40ZM710 375L965 40L880 40L710 250ZM860 660L975 660L782 278L710 455Z"></path>
+</svg>

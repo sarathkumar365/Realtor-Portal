@@ -1,0 +1,43 @@
+[project]
+name = "aura-chat"
+version = "0.1.0"
+description = "Aura Chat — AI assistant for Aura Key Realty realtors"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "httpx>=0.27",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "pydantic-ai-slim[openai]>=2.33",
+  "asyncpg>=0.30",
+]
+
+# Without this, `pip install .` has no backend to call -- and Railway's builder
+# quietly installs nothing, producing a container that boots and then says
+# "uvicorn: command not found" on every request. See DEPLOY.md.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Auto-discovery refuses a flat layout with more than one top-level directory,
+# and `tests` sits next to `app`. A pattern rather than a list: an enumerated
+# one silently omits the next subpackage somebody adds, and the symptom is a
+# ModuleNotFoundError at container start while the tests pass locally against
+# an editable install running from source.
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[project.scripts]
+aura = "app.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.7"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

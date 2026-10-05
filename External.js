@@ -231,7 +231,10 @@ function bcNeedle_(address) {
   var toks = first.split(/\s+/).filter(Boolean);
   while (toks.length > 2 && /^[NSEW]{1,2}$/.test(toks[toks.length - 1])) toks.pop();
   while (toks.length > 2 && BC_TYPES.test(toks[toks.length - 1])) toks.pop();
-  return toks.join(' ').replace(/'/g, "''");
+  /* The result is concatenated into a SQL LIKE pattern, so the wildcards matter
+     as much as the quote: a bare "%" matches every row and turns one address
+     lookup into a dump of the whole municipal registry. */
+  return toks.join(' ').replace(/'/g, "''").replace(/[%_]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 function bcLayerUrl_(cfg) {
   if (cfg.serviceUrl) return cfg.serviceUrl;
@@ -329,6 +332,15 @@ function bcScript_(status, cityName, cfg, rec) {
   return { status: status, statusLabel: s.label, colour: s.colour, say: s.say, next: s.next, evidence: ev };
 }
 
+/* Internals — generated SQL, layer URLs, raw exception text — are useful in the
+   editor's log and nowhere else. Returning them to the client hands a caller the
+   field list to iterate, and for cached actions writes them to every phone. */
+function stripDbg_(o) {
+  if (!o || typeof o !== 'object') return o;
+  delete o._dbg; delete o._debug;
+  if (o.records && o.records.length) for (var i = 0; i < o.records.length; i++) stripDbg_(o.records[i]);
+  return o;
+}
 function getBasement_(address) {
   address = String(address || '').trim();
   if (address.length < 4) return { ok: false, error: 'Enter a full address, including the city (e.g. 41 Fanshawe Cres, Brampton).' };

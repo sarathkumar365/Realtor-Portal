@@ -13,6 +13,106 @@ formatting.
 
 ---
 
+## 2026-10-06 — Aura Chat becomes Aura Agent
+
+The product is now a realtor agent with several capabilities, aimed at automating the
+manual work realtors and staff do today; Chat is the first capability and Unbrander the
+second. `AGENTS.md` and the roadmap are reframed, `docs/platform.md` states the purpose and
+the rules every capability follows, and `architecture.md` gains §11 rather than having its
+V1 sections rewritten — they are the record of what the chat was designed to be.
+
+Order of work: finish Unbrander end to end, doing only the platform work it needs, then the
+heavy changes (LangChain / LangGraph, U8; renaming `aura-chat/` and `docs/aura-chat/`). The
+rename is deferred because it touches Railway config, deploy scripts and every link, which
+would stall feature work for no user-visible gain. Docs that describe code
+(`how-it-works.md`, `the-agent.md`, `api.md`, `schema.md`, `operations.md`) are updated as the
+Unbrander code lands, not ahead of it.
+
+---
+
+## 2026-10-06 — Agent loop migration to LangChain / LangGraph is decided, as phase U8
+
+Decided now, scheduled after Unbrander goes live, because the app is growing into a
+multi-capability agent. It runs last on purpose: by then there is a working system, the
+chat benchmark and the Unbrander golden set to prove the migration changed nothing for the
+worse. Cost is bounded by the `AgentRuntime` port — the chat side is one adapter
+(`agent_pydantic.py`, 340 lines) — so tools, domain and the PWA's SSE contract stay put.
+Whether to use LangChain v1 or LangGraph directly is decided at the start of U8.
+
+---
+
+## 2026-10-06 — Unbrander: service account, with the Unbranded tree in a Shared Drive
+
+The brokerage is on Google Workspace, so a service account works if the files sit in a
+Shared Drive: a service account has no storage quota and cannot upload into anyone's My
+Drive. The Unbranded tree moves into a Shared Drive with the service account as a member,
+and the sheet is shared with it as Editor. Rejected: a dedicated Workspace user with an
+OAuth refresh token — it costs a seat and its token breaks when the account's password or
+policy changes. Moving a folder keeps its file ids, so the links already in `UNBRANDED`
+cells should keep working; U0 tests that on one folder before moving the rest.
+
+---
+
+## 2026-10-06 — Unbrander: Aura Chat writes to Google directly
+
+Reverses the Apps Script choice of 2026-10-05. Apps Script caps a request near 50 MB and a
+run at 6 minutes; a large site plan sent as base64 could fail, and every write path would
+need a clasp deploy. Writing through the Drive and Sheets APIs from Aura Chat removes both.
+The cost is a Google credential with standing access — invariant 2's first exception —
+contained by scoping it to the Unbranded tree and the sheet and by letting only post-approval
+pipeline code use it. If the Unbranded tree is in a personal My Drive, a service account
+cannot upload there (no storage quota), so a dedicated Google user account is proposed instead.
+
+Also settled: files between steps on a Railway volume; Vite + React admin app on its own
+Railway service; ports `JobStore` and `GoogleWriter`; model chosen by the golden set.
+
+---
+
+## 2026-10-05 — Unbrander: writes via Apps Script, existing UNBRANDED cell, separate admin app
+
+- **Writes go through a new admin-only Apps Script action** called with the approver's
+  token, not a Google service account. Apps Script already holds Drive and sheet access;
+  a service account would be a second credential with standing privilege and would break
+  invariant 2.
+- **Publishing fills the existing `UNBRANDED` cell** (`Core.js:85`, shown as the "Drive"
+  button) rather than a new column. Staff already paste the Drive link there, so realtors
+  see the result with no portal change, and a filled cell is how an update is detected.
+- **PyMuPDF + reportlab.** PyMuPDF is the only library with true redaction (characters and
+  image pixels under a rect deleted, vector line art kept). It is AGPL-3.0; used unmodified
+  in a never-distributed service, the source obligations do not trigger. Fallback if that
+  changes: pypdfium2 + pikepdf and our own object-level redactor.
+- **The UI is a separate admin app**, the start of an Aura Agent UI, not more screens in the
+  3,300-line `Script.html`.
+- **Five-port cap lifted.** It fit a read-only chat; a write-capable agent needs a job store
+  and a writer seam. New ports still need a stated reason.
+- **No LangGraph yet.** PydanticAI sits behind `AgentRuntime` (one 340-line adapter), and the
+  Unbrander loop is a fixed pipeline with a Postgres job table, so a graph framework buys
+  little now. Re-evaluate after Unbrander ships.
+
+---
+
+## 2026-10-05 — Unbrander design: built in Aura Chat, with named PDF tools
+
+Unbrander (builder-document unbranding) is built inside Aura Chat, which therefore stops
+being read-only; invariant 5 now says the *chat* stays read-only and pipeline writes need an
+admin's approval. A second system was rejected because it would duplicate the portal's
+Drive and sheet access.
+
+The unbranding step uses **named PDF tools** (`redact_terms`, `redact_rect`, `replace_line`,
+…) that our code runs with `pymupdf`, rather than letting the model write code. Two
+alternatives were rejected. The Claude API code-execution sandbox has no network and no
+`pymupdf`, so the existing skill's `pip install` step cannot run there. A self-built code
+sandbox on Railway would work, but it lets text inside a builder PDF steer code that runs
+on our server; fixed tools close that path, and they let "no new words" and "no changed
+numbers" be enforced in code. Cost of reversing: the tools are the skill's logic moved into
+Python; going back to code execution means building and securing a sandbox.
+
+Job state and the queue live in the existing Postgres. Publishing writes the link to a new
+sheet column. The Drive and sheet write mechanism (Apps Script action or service account) is
+still open. Design: `docs/feature/Unbrander/Docs/agent/`.
+
+---
+
 ## 2026-10-05 — docs/aura-chat tracked again; feat/pwa merged to main
 
 `4a39f8b` ("feat: final") had gitignored and untracked all of `docs/aura-chat/`,

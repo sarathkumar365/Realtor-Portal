@@ -25,10 +25,12 @@ floor plans are not indexed — that is Phase 5 and it is not built. A question
 whose answer is in a PDF gets "could not confirm from current records", which is
 the correct answer and still not the one anybody wanted.
 
-## 2. It cannot do anything
+## 2. The chat cannot do anything
 
-Read-only by construction, not by instruction: the data port has no write method
-([invariants.md](invariants.md) 5). It cannot update a record, send an email or a
+The chat is read-only by construction, not by instruction: the data port has no
+write method ([invariants.md](invariants.md) 5). Actions belong to other Aura Agent
+capabilities, each behind an admin's approval — the first, Unbrander, is being
+built ([`../platform.md`](../platform.md)). The chat cannot update a record, send an email or a
 WhatsApp message, book an appointment, reserve a unit, submit a worksheet, or
 touch the CRM. Asking it to will produce a polite refusal, not an action.
 

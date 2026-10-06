@@ -1,25 +1,38 @@
-# Aura Chat
+# Aura Agent
 
-**Aura Chat** is an AI assistant for the ~20 realtors of **Aura Key Realty**, a
-Greater-Toronto-Area brokerage. A realtor asks *"show me detached homes under
-$1M in Brampton"* and gets real projects from the brokerage's own records, with
-a source, an effective date, and a deep link into the project page they already
-use.
+**Aura Agent** is a realtor agent for the ~20 realtors of **Aura Key Realty**, a
+Greater-Toronto-Area brokerage. Its aim is to automate the tasks realtors and
+staff do by hand today, one capability at a time, until it runs most of them
+itself. It started as **Aura Chat** — the question-answering capability — and the
+code still lives in `aura-chat/`; the folder rename is deferred until the current
+feature work is done. What a capability is and how one is added:
+**[platform.md](docs/platform.md)**.
+
+| Capability | What it does | State |
+|---|---|---|
+| Chat | A realtor asks *"show me detached homes under $1M in Brampton"* and gets real projects from the brokerage's own records, with a source, an effective date and a deep link into the portal | Live |
+| Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](docs/feature/Unbrander/Docs/agent/INDEX.md), [phases](docs/feature/Unbrander/Docs/agent/PHASES.md) |
+
+**Current priority:** finish Unbrander end to end. In between, do only what that
+work needs. Heavy changes — the LangChain / LangGraph migration (U8), the folder
+rename — come after.
 
 It is a **separate Python service that reuses an existing system** rather than
 replacing it:
 
-| Concern | How Aura Chat gets it |
+| Concern | How Aura Agent gets it |
 |---|---|
 | Project data | The Apps Script portal's JSON API — one `POST {action, auth}` endpoint |
 | Identity | The **same HMAC session token** the portal's PWA already holds |
 | Its own storage | Conversations, messages, feedback — **never** a second copy of project records |
 
-It holds no service account, no Sheets credential, and no standing privilege.
-Whatever the portal will not show a given realtor, it will not show Aura Chat.
+For reads it holds no service account and no standing privilege: whatever the
+portal will not show a given realtor, it will not show Aura Agent. The one
+exception is Unbrander's publish step, which writes to Drive and the sheet with
+a scoped Google credential after an admin approves (invariant 2).
 
 `aura-chat/` is the product. Everything in the repo root is the portal it reads
-from — see §6.
+from — see §6. Design docs for each capability live in `docs/feature/<Name>/`.
 
 ---
 
@@ -31,7 +44,7 @@ aura-chat/
     domain/            Project, ProjectFilters, Claims, Role, ChatMode
                        matching.py — filter + sort semantics, source-agnostic
                        Pure Pydantic. Imports nothing external.
-    ports/             Protocols only — five seams, no more
+    ports/             Protocols only — each one a stated reason
     adapters/          One implementation per port
       portal_client.py     HTTP client for the exec API
       auth_portal_hmac.py  the portal's token, verified here
@@ -56,9 +69,11 @@ Files that do not exist yet already have chosen names and homes — check
 ## 2. Architecture
 
 Nothing above the adapter layer knows where data comes from, which model
-answers, or which framework runs the loop. Five `Protocol`s in `app/ports/` —
+answers, or which framework runs the loop. `Protocol`s in `app/ports/` —
 `ProjectRepo`, `AuthVerifier`, `ConversationStore`, `DocumentIndex`,
-`AgentRuntime` — each with exactly one adapter. The HTTP framework and the
+`AgentRuntime` today — each with exactly one adapter. The five-port cap was
+lifted on 2026-10-05 as Aura Chat grows into an agent with write capability
+(Unbrander first); every new port still needs a stated reason and agreement. The HTTP framework and the
 database driver are deliberately *not* ports.
 
 What makes the seams real: `Project` is defined by what the business means, not
@@ -86,10 +101,10 @@ Full text, with the failure each one prevents:
 **[invariants.md](docs/aura-chat/invariants.md)**. In short:
 
 1. `TOKEN_SECRET` must be byte-identical to the portal's Script Property.
-2. The caller's own token is the data-plane credential — never a service account.
+2. The caller's own token is the data-plane credential — the only exception is Unbrander's approved writes.
 3. Client Mode strips fields **in code before the model call**, never by prompt.
 4. The portal's runtime is shared and small — cache, never call per question.
-5. V1 is read-only by construction.
+5. The chat is read-only by construction; pipeline writes (Unbrander) need an admin's approval.
 6. Retrieved text is data, never instructions; only current documents.
 7. No invented facts — unconfirmed means "could not confirm from current records".
 8. `EXEC_URL` is the deployment's address, and it moves.
@@ -132,8 +147,8 @@ Full rules, with the trigger and check for each:
   it here.
 - **Depend on ports, never adapters.** Outside `container.py`, an
   `app.adapters` import is a test failure.
-- **Don't add** a port (five, hard cap), a dependency, or an abstraction with
-  one caller.
+- **Don't add** a port without a stated reason and agreement, a dependency, or
+  an abstraction with one caller.
 - **Don't build ahead of the current phase** — see
   [roadmap.md](docs/aura-chat/roadmap.md). Later ports are declared so tools and
   tests can be written against them, not as an invitation to implement them.
@@ -180,13 +195,15 @@ if you touch it:
 
 | Doc | What's in it |
 |---|---|
+| [platform.md](docs/platform.md) | **What Aura Agent is for**, what a capability is, and the rules every capability follows |
+| [docs/feature/](docs/feature/) | One folder per capability: its agent design and build phases |
 | [how-it-works.md](docs/aura-chat/how-it-works.md) | **Start here.** The whole system end to end: boot, every file, one chat interaction traced |
 | [the-agent.md](docs/aura-chat/the-agent.md) | The agent layer alone, slowly: startup, PydanticAI, tool registration, the loop, the queue |
 | [invariants.md](docs/aura-chat/invariants.md) | The eight rules that break security or cost an afternoon |
 | [api.md](docs/aura-chat/api.md) | Every endpoint, its auth and shape; every tool and what it reads |
 | [limitations.md](docs/aura-chat/limitations.md) | What Aura cannot answer or does not cover — the honest list |
 | [working-rules.md](docs/aura-chat/working-rules.md) | Working rules, Python conventions, definition of done |
-| [roadmap.md](docs/aura-chat/roadmap.md) | Phase status, and the names already chosen for unwritten files |
+| [roadmap.md](docs/aura-chat/roadmap.md) | Platform roadmap: chat phases, capabilities, and the names already chosen for unwritten files |
 | [architecture.md](docs/aura-chat/architecture.md) | The decision, the stack, the ports, the phased plan |
 | [investigation-aur-3-4-5.md](docs/aura-chat/investigation-aur-3-4-5.md) | The discovery it rests on |
 | [operations.md](docs/aura-chat/operations.md) | Getting a token, the env vars, running locally, deploying, restarting, **logs**, rotating `TOKEN_SECRET` |

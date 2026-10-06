@@ -279,7 +279,7 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 
 - Not rebuilding the portal, the PWA, or AppSheet
 - Not migrating the Sheets to a database — Sheets stay the source of truth for project data
-- No writes of any kind in V1
+- No writes of any kind in V1 *(superseded 2026-10 — see §11)*
 - No fine-tuning, no custom training, no local model hosting
 - No Kubernetes, no message queue, no microservices
 - Postgres holds **conversations and derived data only** — never a second copy of project records
@@ -294,7 +294,7 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 | **Commercial columns never arrive** | Sudhanshu's reply Monday AM | Build Phases 1–3 against columns that exist (city, builder, type, occupancy, status). Tool signatures do not change when price lands. Escalate scope to the business owner. |
 | **Chat traffic starves the portal's runtime** | Home slow/failing; Apps Script quota page | `aiindex` TTL cache means ~1 fetch per 10 min, not per question. Chat-specific rate limit (AUR-21). |
 | **PydanticAI friction** | Fighting the framework more than the problem, by Phase 3 | Fall back to raw `openai` SDK + hand-rolled loop, ~100 lines. Only `agent.py` changes — `tools.py`, ports and domain are unaffected. |
-| **Over-abstraction** | Ports with one adapter that will never gain a second; indirection slowing Day 1 | Six ports, hard cap. One adapter each during the sprint. No plugin registry, no dynamic loading. |
+| **Over-abstraction** | Ports with one adapter that will never gain a second; indirection slowing Day 1 | Six ports, hard cap during the sprint (lifted 2026-10-05; new ports need a stated reason). One adapter each during the sprint. No plugin registry, no dynamic loading. |
 | **Supabase free tier pauses after ~7 days idle** | Chat history 500s after a quiet week | Daily use keeps it alive; $25/mo removes it; or move Postgres to Railway alongside the app. |
 | **Railway has no spend cap by default** | Surprise bill | Set a usage limit on day one. |
 | **Phase 5 slips** | Not started by Tue midday | It is the designated cut. AUR-16 makes it the fallback path, so the MVP stands without it. |
@@ -328,3 +328,27 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 1. **Is the commercial data anywhere?** — with Sudhanshu; decides whether Phase 2 filters are real on Day 1
 2. **Account tier** — consumer or Workspace; sizes the runtime risk
 3. **PydanticAI or raw SDK** — defaulting to PydanticAI; reversible at one file
+
+---
+
+## 11. Evolution, 2026-10 — from Aura Chat to Aura Agent
+
+Sections 1–10 are the design of the chat, kept as written. From October 2026 the
+service grows into **Aura Agent**: a realtor agent with several capabilities whose
+aim is to automate realtors' manual work ([`../platform.md`](../platform.md)).
+What that changes in this document:
+
+- **Writes are allowed, with a human in the loop.** The V1 non-goal "no writes of
+  any kind" is superseded. The chat stays read-only; a capability may write only
+  through deterministic pipeline code, after an admin approves
+  ([invariants.md](invariants.md) 2 and 5).
+- **The port cap is lifted.** Five ports fit a read-only chat; each new port still
+  needs a stated reason.
+- **The first write capability is Unbrander**, designed in
+  [`../feature/Unbrander/Docs/agent/`](../feature/Unbrander/Docs/agent/INDEX.md):
+  a Postgres job queue, named PDF tools, a Google service account scoped to one
+  Shared Drive and the sheet, and a separate admin app.
+- **The agent framework moves later.** PydanticAI stays until Unbrander is live;
+  the LangChain / LangGraph migration is phase U8.
+- **Folder names stay** (`aura-chat/`, `docs/aura-chat/`) until the current
+  feature work is done.

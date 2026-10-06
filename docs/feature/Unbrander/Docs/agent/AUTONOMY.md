@@ -13,7 +13,7 @@ State: PROPOSED (defaults accepted by the operator; review before build).
 | Remove a disclaimer | Legal disclosure lost | Builder text stays | Never autonomous; flagged for the approver |
 | Create folders, upload (private) | Clutter in Drive; reversible | Nothing | Autonomous |
 | Make link public | Leaked branding is exposed to every realtor | Delay | Human approves |
-| Register in the portal | Realtors see a bad document | Delay | Human approves (same click as above) |
+| Write link to the `UNBRANDED` cell | Realtors see a bad document | Delay | Human approves (same click as above) |
 | Notify uploader | Noise | Uploader checks the UI | Autonomous |
 
 Approving publishes in one action: share and portal registration happen together, so a
@@ -57,9 +57,12 @@ The "not sure" path is always: flag, show the page, let the human decide.
 
 ## Other rules
 
-- **Project folder already exists:** do not overwrite or merge. Move the job to the approver
+- **Project folder already exists, or the project's `UNBRANDED` cell is already filled:**
+  do not overwrite or merge. Move the job to the approver
   with "update to existing project". The update policy (overwrite or backup) is deferred; until
   decided, a human handles updates.
+- **Project not in the sheet:** the admin app shows the job and asks the admin what to do
+  (pick a row, or hold until the project is added) (D13).
 - **City not in the configured list:** stop at metadata confirmation; the human picks or adds.
 - **Reject:** the reason tag and notes are fed into one re-run. A second reject sends the job
   to `MANUAL`.
@@ -68,7 +71,7 @@ The "not sure" path is always: flag, show the page, let the human decide.
 
 | Budget | Limit | On breach |
 |---|---|---|
-| Tool calls per document | ~15 (from the skill) | Stop, report what is resisting |
+| M2 tool calls per document | ~15 (from the skill; recalibrate after the spike) | Stop, report what is resisting |
 | Render passes per document | 2, plus a third for failed pages only | Stop |
 | Wall time per document | 10 minutes (PROPOSED) | `FAILED`, notify |
 | Retries | 1 targeted retry per failed check | Flag or block |
@@ -78,5 +81,5 @@ The "not sure" path is always: flag, show the page, let the human decide.
 ## Open questions
 
 1. Model cost ceiling per document (measure first).
-2. Who is allowed to approve (default: same staff who confirm metadata; a second person is
-   not required at this volume).
+2. Who is allowed to approve (default: any admin, the same role that uploads; a second
+   person is not required at this volume).

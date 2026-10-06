@@ -5,9 +5,13 @@ State: PROPOSED (defaults accepted by the operator; review before build).
 
 ## Decision
 
-A deterministic job pipeline inside the Realtor Portal agentic system, with a model called
-at exactly three points. The orchestrator is code, not a model. No router, no coordinator:
-there is one capability.
+A deterministic job pipeline inside Aura Chat (`aura-chat/`), with a model called at exactly
+three points. The orchestrator is code, not a model. No router, no coordinator: there is one
+capability.
+
+Aura Chat becomes write-capable with this feature (decision D1, 2026-10-05). The chat agent
+stays read-only; writes happen only in this pipeline, only by code, and the public ones only
+after a human approves.
 
 ## The loop
 
@@ -21,8 +25,8 @@ UI upload ──► RECEIVED
            AWAITING_METADATA_CONFIRM .. human: confirm or edit on the form
                │
                ▼
-           UNBRANDING (per document) .. model + sandboxed code (M2): the
-               │                         unbrand-builder-docs skill
+           UNBRANDING (per document) .. model (M2) calling the named PDF tools below;
+               │                         the tools are our code, run in Aura Chat
                ▼
            VERIFYING .................. code: text sweep, word provenance, number integrity,
                │                         PDF metadata strip
@@ -35,7 +39,7 @@ UI upload ──► RECEIVED
                │            └──► REJECTED ──► re-run with notes (once) or MANUAL
                ▼
            PUBLISHED .................. code: set "anyone with the link can view",
-                                        register heading + link in the Realtor Portal,
+                                        write the link into the UNBRANDED cell,
                                         notify the uploader
 ```
 
@@ -48,7 +52,7 @@ Any step can move the job to `FAILED` (see OPERATIONS in SECURITY.md).
 | Validate upload | Code | File type, size, page count, encryption are checkable |
 | M1 Extract metadata and classify documents | Model | Unstructured PDF text; output is a schema, confirmed by a human |
 | Confirm metadata | Human | A wrong builder name makes the unbrander miss the real branding |
-| M2 Unbrand | Model + code | Existing skill: model judges what is branding, `pymupdf` removes it |
+| M2 Unbrand | Model + code | Model judges what is branding and calls a named tool; the tool (`pymupdf`) removes it |
 | Verify (text, provenance, numbers, metadata) | Code | All four are exact comparisons; no judgement needed |
 | M3 Visual check | Model | Logos, monograms and QR codes are only visible in the render |
 | Folder create, upload, share, portal register | Code | Fixed rules from configuration |
@@ -66,6 +70,55 @@ Any step can move the job to `FAILED` (see OPERATIONS in SECURITY.md).
 - **Intake is an adapter.** The pipeline starts at `RECEIVED` with a job record. The UI
   upload is the v1 adapter; a WhatsApp listener is a later adapter that creates the same
   record. Nothing after `RECEIVED` knows the source.
+- **Queue is Postgres** (decision D6). Job records live in a `jobs` table in the existing
+  Railway Postgres. A worker claims the next job with `SELECT … FOR UPDATE SKIP LOCKED`. No
+  new service. At 5 to 10 documents a day one worker is enough.
+
+## M2 tools (decision D3)
+
+Claude does not write code. It sees page renders and text, decides, and calls these tools.
+Each tool is a plain Python function in Aura Chat built on `pymupdf` (and `reportlab` for
+price lists). They carry the logic of the `unbrand-builder-docs` skill; the skill's prose
+becomes the M2 system prompt.
+
+| Tool | Does | Guard inside the tool |
+|---|---|---|
+| `render_page(page)` | 100 DPI image of one page | Counts toward the render budget |
+| `get_text(page)` | Extracted text, delimited as data | — |
+| `redact_terms(terms[])` | Removes every match on every page (text only; plan line art kept) | Logs every removed match |
+| `redact_rect(page, rect)` | Removes a logo, QR, monogram or brand panel | Rejects a rect overlapping most of the page |
+| `delete_image(page, image_id)` | Removes one embedded image | — |
+| `drop_page(page, reason)` | Removes a marketing-only page | Reason required; listed for the approver |
+| `replace_line(page, rect, text)` | Sentence repair after a removal | Rejects any word not in the source |
+| `add_mark(position)` | Aura Key mark, same position on every page | Fixed positions only |
+| `rebuild_price_list(rows)` | House-style price list | Rejects any number not in the source |
+| `verify()` | Text sweep, provenance, number integrity, metadata strip | Results stored on the document record |
+
+There is no tool to run code, read files, or reach the network. Reference for tool shape:
+[pdf-redaction-mcp](https://github.com/marc-hanheide/pdf-redaction-mcp) (MIT, inactive),
+read for ideas only, not a dependency.
+
+## Who does the writes (decisions D2, D7)
+
+After approval, Aura Chat's own code creates the folders, uploads, sets sharing and writes
+the sheet, directly through the Google Drive and Sheets APIs, behind a `GoogleWriter` port.
+The model never calls it.
+
+Rejected (2026-10-06): a new Apps Script action. It needed no new credential, but Apps
+Script caps a request near 50 MB and a run at 6 minutes, so a large site plan sent as base64
+could fail, and every write would need a clasp deploy. The Drive API's resumable upload has
+no such limit.
+
+The write is to the project row's existing `UNBRANDED` cell (D4), which the portal already
+shows as the "Drive" button. An empty cell means a new project; a filled cell means an
+update (AUTONOMY.md).
+
+## UI (decision D9)
+
+A separate admin app, not a PWA screen: the first piece of the Aura Agent UI. Three screens
+for this feature — upload with the metadata form, job list, approval with before and after
+page images. It signs in through Aura Chat's `/login` and is shown to the admin role only.
+Stack: Vite + React + TypeScript, deployed as its own Railway service (D14).
 
 ## Job record
 
@@ -77,7 +130,7 @@ documents[]: source_file_id, sha256, doc_type (price_list | floor_plan | site_pl
              feature_sheet | other), status, output_file_id, pages_dropped[],
              removed_items[], flags[], verify_results
 drive: project_folder_id, share_link
-portal: row_ref
+portal: row_ref (project row; link goes in its UNBRANDED cell)
 approval: approved_by, approved_at | rejected_by, reason_tag, notes
 audit[]: every action (see OPERATIONS)
 ```
@@ -101,9 +154,15 @@ Folder names, the root folder ID and the province list are configuration.
 - Parallel per-document subagents. No speed need at this volume.
 - A separate Unbrander agent outside the portal. The portal already owns Drive access and
   the sheet; a second system would duplicate both.
+- Running the skill as-is through the Claude API code-execution tool. Its sandbox has no
+  network and no `pymupdf`, so the skill's `pip install` step fails; and model-written code
+  is an injection path from PDF text (checked 2026-10-05 against the API docs).
+- Our own code-execution sandbox on Railway. Works, but must be built and secured; named
+  tools give the same result with a smaller attack surface.
 
 ## Open questions
 
 1. Where site plans and feature sheets go in Drive (default above).
 2. Whether a job may contain documents for more than one project (default: no, one job = one
    project).
+4. How a job finds its project row when the project is not in the sheet yet.

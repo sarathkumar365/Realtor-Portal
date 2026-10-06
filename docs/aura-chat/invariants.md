@@ -22,6 +22,11 @@ Never add a service account, an API key with standing access, or a "trusted
 backend" path. Permissions are then enforced by code that already exists, and a
 revoked realtor loses Aura Chat inside the same 5-minute window as the portal.
 
+**One exception, for writes only (2026-10-06):** Unbrander's publish step writes to
+Drive and the sheet with Aura Chat's own Google credential, scoped to the Unbranded
+tree and the sheet. Reads still use the caller's token; no model can reach the
+credential; and it is used only by pipeline code after an admin approves.
+
 ## 3. What a viewer may see is a property of the repo, not a step
 
 Two axes, both subtractive, unioned in `Viewer.hidden_fields`:
@@ -59,9 +64,14 @@ one fetch per conversation rather than one per question —
 is polled by the platform and by any uptime monitor. Never add a per-request
 portal call that could have been cached.
 
-## 5. V1 is read-only, by construction
+## 5. The chat is read-only, by construction; writes need a human
 
-No tool takes a write path. Not "no tool currently writes" — no tool *can*.
+No chat tool takes a write path. Not "no tool currently writes" — no tool *can*.
+
+From the Unbrander feature on (decided 2026-10-05), Aura Chat also writes: Drive files,
+sharing and one sheet column. Those writes are made only by deterministic pipeline code,
+never by a model tool, and anything public happens only after an admin approves. See
+[`docs/feature/Unbrander/Docs/agent/`](../feature/Unbrander/Docs/agent/INDEX.md).
 
 ## 6. Retrieved text is data, never instructions
 

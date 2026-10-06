@@ -32,8 +32,9 @@ Source: walkthrough with Sudhanshu Ranjan.
 
 ## Decision
 
-Not a new agent. Unbranding becomes a new capability of the existing Realtor Portal agentic
-system; it is built there from this design.
+Not a new agent. Unbranding becomes a new capability of the existing system — Aura Chat
+(`aura-chat/`), which becomes write-capable with this feature; it is built there from this
+design.
 
 v1 intake is a UI upload: staff upload the PDFs and enter metadata (project, builder, city).
 The agent also extracts that metadata from the PDF itself where it can, so the form can be
@@ -45,7 +46,8 @@ Drive root and folder structure are configuration, not code.
 Pipeline: intake → unbrand → file → share → publish. Broker portal download stays manual
 in v1.
 
-The unbranding step reuses the existing `unbrand-builder-docs` skill. Steps 3 to 5 are
+The unbranding step reuses the logic of the existing `unbrand-builder-docs` skill, moved
+into named tools (LOOP.md). Steps 3 to 5 are
 deterministic code; a model is used only for identification, classification, unbranding and
 quality check.
 

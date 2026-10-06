@@ -17,11 +17,12 @@ ignored). Referenced from [`../../AGENTS.md`](../../AGENTS.md).
 - **Before creating a file**, check the roadmap. The names and locations for every file
   through Phase 5 are already decided. If what you need is not on that list,
   that is a design decision — ask.
-- **Do not add a port.** Five, hard cap. A sixth needs a stated reason and the
+- **Do not add a port without agreement.** The five-port cap was lifted on
+  2026-10-05 (Unbrander). Each new port still needs a stated reason and the
   user's agreement.
 - **Do not add a dependency.** The stack is fixed: FastAPI, httpx, Pydantic,
-  pydantic-settings, and later PydanticAI and asyncpg. Anything else is a
-  design decision.
+  pydantic-settings, PydanticAI and asyncpg; `pymupdf` and `reportlab` are
+  approved for Unbrander (2026-10-05). Anything else is a design decision.
 - **Do not add an abstraction with one caller** — no plugin registry, no
   dynamic loading, no config DSL. Ports are compile-time seams wired in one
   file, and that is the whole extent of the indirection this project buys.

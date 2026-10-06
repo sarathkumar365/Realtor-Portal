@@ -6,8 +6,7 @@ that can be shown working. Do not start a phase before the one it depends on is 
 | Phase | Name | Depends on | Who |
 |---|---|---|---|
 | U0 | Prerequisites | — | Admin team + operator |
-| U1 | *Folded into U2 (2026-10-06)* | — | — |
-| U2 | PDF tools, model check, verify, golden set | U0 (sample PDFs, model key) | Engineering + Sudhanshu's team (review) |
+| U2 | PDF tools, model check, verify, golden set | — (real samples needed for the golden set) | Engineering + Sudhanshu's team (review) |
 | U3 | Pipeline to `FILED_PRIVATE` (dry run) | U2, U0 (Google access) | Engineering |
 | U4 | Admin app | U3 | Engineering |
 | U5 | Approve, publish, undo | U4 | Engineering |
@@ -15,8 +14,9 @@ that can be shown working. Do not start a phase before the one it depends on is 
 | U7 | Hardening and go-live | U6 | Engineering + operator |
 | U8 | Agent loop migration to LangChain / LangGraph | U7 | Engineering |
 
-U2 contains the decision gate (its model check): if the tools or the model cannot produce a
-clean document, the design changes before U3 starts.
+There is no U1: the separate spike was dropped on 2026-10-06 and its model check moved into
+U2 (see the worklog); the other numbers were kept. U2 contains the decision gate: if the
+tools or the model cannot produce a clean document, the design changes before U3 starts.
 
 ---
 
@@ -69,13 +69,6 @@ account counts as outside), service account and key, sheet copy, the 3 samples.
 
 **Done when:** a short script using the service account key can list the `Test` folder,
 upload a file into it, and read the `UNBRANDED` column of the sheet copy.
-
-## U1 — folded into U2
-
-Decided 2026-10-06. A separate throwaway spike was dropped: the PDF tools are needed for real
-anyway, so they are built once, in production shape, and the model is checked on real PDFs
-inside U2 before any pipeline or UI work. The risk the spike covered — the model cannot do
-the job — is still caught before U3. The number is kept so later phase numbers do not move.
 
 ## U2 — PDF tools, model check, verify, golden set
 

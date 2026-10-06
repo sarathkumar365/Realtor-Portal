@@ -71,6 +71,6 @@ before the build.
 
 ## Build phases
 
-See [PHASES.md](PHASES.md): U0 prerequisites, U2 PDF tools, model check and evals (U1, the spike, folded into U2), U3 pipeline
+See [PHASES.md](PHASES.md): U0 prerequisites, U2 PDF tools, model check and evals, U3 pipeline
 to `FILED_PRIVATE`, U4 admin app, U5 approve and publish, U6 metadata extraction, U7
 hardening, U8 agent loop migration to LangChain / LangGraph.

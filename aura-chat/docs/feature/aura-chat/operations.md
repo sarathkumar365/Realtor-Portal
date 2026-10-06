@@ -109,7 +109,7 @@ projects that do not exist, which is the one failure mode this system exists to
 prevent.
 
 Changing provider entirely means changing `OPENROUTER_API_KEY` and the base URL
-in `app/adapters/agent_pydantic.py`. Everything above that file is unaffected:
+in `app/capabilities/chat/adapters/agent_pydantic.py`. Everything above that file is unaffected:
 the runtime is a port.
 
 **Verify after changing**, in this order — the first two need no realtor token:
@@ -133,7 +133,7 @@ curl -sN -X POST $BASE/chat -H "Authorization: Bearer $TOK" -H 'Content-Type: ap
 
 A stream that goes straight from `start` to `text` is a model that is not
 calling tools — change it back. Finish with the benchmark
-(`.venv/bin/python -m app.bench`), because a model can call tools correctly and
+(`.venv/bin/python -m app.capabilities.chat.bench`), because a model can call tools correctly and
 still be worse at reading the results.
 
 ---

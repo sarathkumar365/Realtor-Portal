@@ -28,6 +28,7 @@ reasons are in the worklog.
 | [12](#12) | Incentives are unsearchable — appliances, development charges, capped DC | Medium | a whole class of realtor questions |
 | [13](#13) | No proximity or landmark search | Low | "near Highway 413", "close to the GO" |
 | [14](#14) | A refused filter blames "the tool" and leaks internals | Medium | any unsupported word in a query |
+| [15](#15) | `schema.sql` is not in the built package | Low | only a run from the installed package, not from the source folder |
 
 Data problems that are not code: [§ For Sudhanshu](#for-sudhanshu).
 
@@ -121,7 +122,7 @@ cd aura-chat && .venv/bin/aura --dev "Compare Cornerstone and Reva Westfield."
 The dev line shows `compare_projects(project_ids=['Cornerstone', 'Reva Westfield'])`.
 
 **Fix.** Lift the resolve-a-name step out of `get_project` into a shared helper
-in `app/tools.py` and use it in both. An ambiguous name should return candidates
+in `app/capabilities/chat/tools.py` and use it in both. An ambiguous name should return candidates
 to choose from, exactly as `get_project` already does, rather than nothing.
 
 ### Second root cause: a follow-up comparison has no ids to send
@@ -135,7 +136,7 @@ the first half would leave half the failures in place.
 — ids that have never existed. The model invented them in the shape it guessed.
 
 **Root cause.** History carries no ids. `_as_messages` in
-`app/adapters/agent_pydantic.py` converts each `Turn` to text and nothing else,
+`app/capabilities/chat/adapters/agent_pydantic.py` converts each `Turn` to text and nothing else,
 deliberately — replaying an old tool result would put a stale price back into
 the prompt. The consequence was not intended: with the previous answer reduced
 to prose, "the first two" refers to projects the model can name and cannot
@@ -484,6 +485,48 @@ prior context.
   the sheet holds, or say plainly that tenure is not recorded.
 * Add one prompt line: never name a tool, a parameter or a field. Say what is
   not recorded and offer the nearest question that is.
+
+---
+
+<a id="15"></a>
+## 15. `schema.sql` is not in the built package
+
+**Severity: Low.** Nothing breaks today. It breaks the day the service runs from
+an installed package instead of from its source folder.
+
+**Symptom.** None yet. If it triggers: the first conversation read or write
+fails with `FileNotFoundError: .../app/capabilities/chat/adapters/schema.sql`.
+Chat answers still stream, but history and feedback are not stored.
+
+**Root cause.** `store_postgres.py` reads its schema from a file beside itself
+(`SCHEMA = Path(__file__).with_name("schema.sql")`) and applies it on first use.
+`pyproject.toml` lists packages only (`include = ["app*"]`) and declares no
+package data, so setuptools ships the `.py` files and leaves `schema.sql` out.
+It works on Railway and locally because uvicorn starts in the source folder,
+where `app/` on the path shadows the installed copy. Found 2026-10-06 while
+checking the chat move; the file was missing from the wheel before the move too.
+
+**Reproduce.**
+
+```bash
+cd aura-chat
+.venv/bin/pip wheel . --no-deps -q -w /tmp/aura-wheel
+unzip -l /tmp/aura-wheel/aura_chat-*.whl | grep -c schema.sql   # 0
+rm -rf build
+```
+
+**The fix I would write.**
+
+* In `pyproject.toml`:
+
+  ```toml
+  [tool.setuptools.package-data]
+  "app.capabilities.chat.adapters" = ["schema.sql"]
+  ```
+
+* Add a test that builds the wheel (or reads the setuptools config) and
+  asserts every non-`.py` file under `app/` is declared, so the next capability's
+  `schema.sql` cannot go missing the same way.
 
 ---
 

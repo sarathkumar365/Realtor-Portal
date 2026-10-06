@@ -1,9 +1,9 @@
 from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
-from app.domain import ChatMode, Claims, Turn
-
-from .projects import ProjectRepo
+from app.capabilities.chat.domain import Turn
+from app.domain import ChatMode, Claims
+from app.ports import ProjectRepo
 
 
 class AgentRuntime(Protocol):

@@ -240,7 +240,7 @@ def _bench(args) -> int:
     """`aura bench questions.csv` -- run a question set and write a report."""
     from pathlib import Path
 
-    from app import bench
+    from app.capabilities.chat import bench
 
     token = token_from_anywhere(args.token)
     if not token:

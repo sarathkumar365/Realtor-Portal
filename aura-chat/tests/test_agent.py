@@ -11,8 +11,12 @@ import json
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
-from app.adapters.agent_pydantic import MAX_STEPS, PydanticAgentRuntime, _for_model
 from app.adapters.projects_redacting import RedactingProjectRepo
+from app.capabilities.chat.adapters.agent_pydantic import (
+    MAX_STEPS,
+    PydanticAgentRuntime,
+    _for_model,
+)
 from app.domain import ChatMode, Claims, Project, Role, Viewer
 from tests.fakes import FakeProjectRepo
 
@@ -199,7 +203,7 @@ async def test_the_model_and_agent_are_built_once_not_per_request():
 async def test_a_failure_while_building_the_cards_still_reports_an_error(monkeypatch):
     """Text streams, then serialisation fails. Ending the stream silently would
     leave a conforming client waiting under a finished answer."""
-    import app.adapters.agent_pydantic as mod
+    import app.capabilities.chat.adapters.agent_pydantic as mod
 
     model = scripted(
         ModelResponse(parts=[ToolCallPart("search_projects", {})]),
@@ -250,7 +254,7 @@ async def test_a_named_project_is_found_without_an_id():
 async def test_an_ambiguous_name_returns_candidates_not_a_denial():
     """Two Brampton projects really are both called Mayfield Village. The
     realtor needs to be asked which, not told neither exists."""
-    from app.adapters.agent_pydantic import build_agent
+    from app.capabilities.chat.adapters.agent_pydantic import build_agent
 
     twins = [
         a_project(id="AK-1", name="Mayfield Village", builder="Royal Pine"),

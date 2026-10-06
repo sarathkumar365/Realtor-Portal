@@ -164,7 +164,7 @@ def test_reopened_turns_carry_their_ids(app):
 def test_reading_a_thread_asks_for_more_than_the_model_window(app):
     """history() defaults to 20 because that is what fits in a prompt. A realtor
     reopening a long conversation wants to scroll all of it."""
-    from app.conversations import MAX_MESSAGES
+    from app.capabilities.chat.conversations import MAX_MESSAGES
 
     seen = {}
 

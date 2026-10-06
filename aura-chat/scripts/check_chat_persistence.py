@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import asyncpg
 from fastapi.testclient import TestClient
 
-from app.adapters.store_postgres import PostgresConversationStore
+from app.capabilities.chat.adapters.store_postgres import PostgresConversationStore
 from app.config import Settings
 from app.container import Container
 from app.domain import Claims, Role

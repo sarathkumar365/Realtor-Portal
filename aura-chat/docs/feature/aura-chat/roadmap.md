@@ -53,8 +53,8 @@ not on this list, that is a design decision — ask.
 | File | Phase | What it is |
 |---|---|---|
 | `app/agent.py` | 3 | The **only** file permitted to import an agent framework |
-| ~~`app/adapters/store_postgres.py`~~ | 4 | **written** — `ConversationStore` on Railway Postgres |
-| `app/adapters/docs_pgvector.py` | 5 | `DocumentIndex` |
+| ~~`app/capabilities/chat/adapters/store_postgres.py`~~ | 4 | **written** — `ConversationStore` on Railway Postgres |
+| `app/capabilities/chat/adapters/docs_pgvector.py` | 5 | `DocumentIndex` |
 
 **`app/adapters/filters.py` was planned and deliberately not built.** Filtering
 became `app/domain/matching.py` (`matches`, `sort_key` — pure, source-agnostic,

@@ -95,7 +95,7 @@ async def test_a_tool_cannot_obtain_an_unredacted_project():
     no code path returning something it has not filtered."""
     inner = FakeProjectRepo([loaded()])
     repo = RedactingProjectRepo(inner, Viewer(role=Role.REALTOR, mode=ChatMode.CLIENT))
-    from app import tools
+    from app.capabilities.chat import tools
 
     for got in (
         (await tools.search_projects(repo, auth=AUTH)).items,

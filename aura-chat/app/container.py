@@ -2,15 +2,16 @@
 
 from dataclasses import dataclass
 
-from app.adapters.agent_pydantic import PydanticAgentRuntime
 from app.adapters.auth_portal_hmac import PortalHmacAuthVerifier
 from app.adapters.portal_client import PortalClient
 from app.adapters.projects_exec import ExecApiProjectRepo
 from app.adapters.projects_redacting import RedactingProjectRepo
-from app.adapters.store_postgres import PostgresConversationStore
+from app.capabilities.chat.adapters.agent_pydantic import PydanticAgentRuntime
+from app.capabilities.chat.adapters.store_postgres import PostgresConversationStore
+from app.capabilities.chat.ports import AgentRuntime, ConversationStore, DocumentIndex
 from app.config import Settings, load
 from app.domain import Viewer
-from app.ports import AgentRuntime, AuthVerifier, ConversationStore, DocumentIndex, ProjectRepo
+from app.ports import AuthVerifier, ProjectRepo
 
 
 @dataclass(slots=True)

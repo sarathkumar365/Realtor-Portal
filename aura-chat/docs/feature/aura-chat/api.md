@@ -181,7 +181,7 @@ existed. Telling those apart is itself a disclosure (AUR-40).
 
 ## 2. Tools (AUR-89)
 
-Five, in [`app/tools.py`](../../../app/tools.py). Plain async functions
+Five, in [`app/capabilities/chat/tools.py`](../../../app/capabilities/chat/tools.py). Plain async functions
 over `ProjectRepo`; no framework and no adapter is imported there.
 
 **Read-only by construction** (AUR-19): `ProjectRepo` has no write method, so

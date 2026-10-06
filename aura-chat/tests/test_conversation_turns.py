@@ -4,7 +4,7 @@ Pure and database-free, which is the point: this is the compare-by-name fix and
 it can be proven before anything writes a row.
 """
 
-from app.domain import MAX_HISTORY_TURNS, Turn, source_line, turns_from
+from app.capabilities.chat.domain import MAX_HISTORY_TURNS, Turn, source_line, turns_from
 
 ANSWER = {
     "role": "assistant",
@@ -102,7 +102,7 @@ def test_the_source_line_is_never_cut_in_half():
     """The clamp used to run after the ids were appended, so a long answer could
     leave "[projects: AK-00" -- something that looks like a project reference
     and is not, which is the failure source_line exists to prevent."""
-    from app.domain.conversation import MAX_CONTENT
+    from app.capabilities.chat.domain.conversation import MAX_CONTENT
 
     out = turns_from([{
         "role": "assistant",

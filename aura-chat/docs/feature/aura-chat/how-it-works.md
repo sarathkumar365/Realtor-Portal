@@ -99,9 +99,9 @@ app = create_app()
 ```
 
 **A router** is a group of URL handlers. There are four — the ordinary endpoints
-in `app/api.py`, the chat endpoint in `app/chat.py` (kept apart because chat is
-the only one that streams), the feedback endpoints in `app/feedback.py`, and the
-conversation-reading endpoints in `app/conversations.py`.
+in `app/api.py`, the chat endpoint in `app/capabilities/chat/routes.py` (kept apart because chat is
+the only one that streams), the feedback endpoints in `app/capabilities/chat/feedback.py`, and the
+conversation-reading endpoints in `app/capabilities/chat/conversations.py`.
 
 Three of those lines earn a sentence each:
 
@@ -421,14 +421,14 @@ each, which is why the whole suite runs with no network.
 
 ### The rest
 
-- **`app/tools.py`** — the five things the model may do. Plain async functions
+- **`app/capabilities/chat/tools.py`** — the five things the model may do. Plain async functions
   over ports. No framework import, no adapter import.
-- **`app/prompts.py`** — the system prompt. Rules the model is *asked* to follow.
+- **`app/capabilities/chat/prompts.py`** — the system prompt. Rules the model is *asked* to follow.
 - **`app/limits.py`** — the sliding-window counters behind the 429s. Pure
   arithmetic over a clock; not a port, because there is nothing to swap.
 - **`app/diagnostics.py`** — the checks behind `/health` and `/doctor`.
-- **`app/cli.py`** — `aura`, a terminal client. Talks HTTP like any other client.
-- **`app/bench.py`** — the 50-question benchmark harness. Scores what a machine
+- **`app/capabilities/chat/cli.py`** — `aura`, a terminal client. Talks HTTP like any other client.
+- **`app/capabilities/chat/bench.py`** — the 50-question benchmark harness. Scores what a machine
   can score and leaves correctness to a human verdict column.
 
 ### Every file, every function that matters
@@ -453,17 +453,17 @@ what `/health` reports · `load()`
 refusal (reason and address, never the token) · `login()` `health()` `doctor()`
 `me()`
 
-**`app/chat.py`** (217) — `Ask` the request body and its limits · `_resolve()`
+**`app/capabilities/chat/routes.py`** (217) — `Ask` the request body and its limits · `_resolve()`
 finds or creates the conversation · `_history()` stored turns, else the
 client's · `_audit()` one JSON line per question · `_sse()` formats one event ·
 `chat()` opens the stream · `events()` the generator, where every failure is
 caught so it reaches the client in the shape it is reading, and where the
 answer is stored in a `finally`
 
-**`app/conversations.py`** (71) — `GET /conversations` this realtor's threads ·
+**`app/capabilities/chat/conversations.py`** (71) — `GET /conversations` this realtor's threads ·
 `GET /conversations/{id}` one thread, oldest first, 404 for anyone else's
 
-**`app/feedback.py`** (118) — `POST /feedback` records a report ·
+**`app/capabilities/chat/feedback.py`** (118) — `POST /feedback` records a report ·
 `GET /feedback` and `GET /feedback.csv` the admin-only review queue ·
 `_inert()` stops a note becoming a live spreadsheet formula
 
@@ -471,13 +471,13 @@ answer is stored in a `finally`
 `client_ip()` the LAST `X-Forwarded-For` entry, the one our proxy wrote ·
 `check()` raise 429 or pass
 
-**`app/tools.py`** (139) — `search_projects()` `inventory_summary()`
+**`app/capabilities/chat/tools.py`** (139) — `search_projects()` `inventory_summary()`
 `get_project()` `compare_projects()` `get_recent_projects()` ·
 `MAX_RESULTS = 12`, `MAX_COMPARE = 4`. `get_project` resolves an id *or* an
 exact unique name, and returns `None` on ambiguity rather than guessing between
 two projects that share a name.
 
-**`app/prompts.py`** (119) — `SYSTEM` the rules · `CLIENT_MODE_NOTE` appended in
+**`app/capabilities/chat/prompts.py`** (119) — `SYSTEM` the rules · `CLIENT_MODE_NOTE` appended in
 Client Mode · `system_prompt(client_mode=)`
 
 **`app/diagnostics.py`** (234) — `Check` / `Report` one result and the whole ·
@@ -498,11 +498,11 @@ rule · `sort_key(project)` focus first, then cheapest known price, unpriced las
 
 **`app/domain/identity.py`** (31) — `Claims` · `Role` · `ChatMode`
 
-**`app/domain/conversation.py`** (53) — `Turn` · `MAX_HISTORY_TURNS = 20` ·
+**`app/capabilities/chat/domain/conversation.py`** (53) — `Turn` · `MAX_HISTORY_TURNS = 20` ·
 `source_line()` the ids an answer used, as one line · `turns_from()` stored rows
 → model turns
 
-**`app/domain/feedback.py`** (70) — `Feedback` · `Verdict` · `IssueCategory`
+**`app/capabilities/chat/domain/feedback.py`** (70) — `Feedback` · `Verdict` · `IssueCategory`
 
 **`app/adapters/portal_client.py`** (111) — `call(action, auth=, timeout_s=)` one
 POST to the dispatcher · `healthy()` cached 60s on success, 5s on failure ·
@@ -521,7 +521,7 @@ every read passes through `_redact()`. Also re-exposes `total_rows` and
 window, no network · `verify()` adds liveness via the portal, cached 60s ·
 `_prune()` evicts expired entries and caps the cache
 
-**`app/adapters/store_postgres.py`** (189) — `_ready()` the lazy pool, schema
+**`app/capabilities/chat/adapters/store_postgres.py`** (189) — `_ready()` the lazy pool, schema
 applied before the pool is published · `create()` `append()` `history()`
 `list_for()` `meta()` `set_mode()` `record_feedback()` `list_feedback()`
 `healthy()` `aclose()` · every read carries `user` into the SQL
@@ -530,16 +530,16 @@ applied before the pool is published · `create()` `append()` `history()`
 `parse_price_range()` `parse_percent()` `parse_min_bedrooms()` `parse_date()`
 `slugify()`
 
-**`app/adapters/agent_pydantic.py`** (339) — `build_agent()` registers the five
+**`app/capabilities/chat/adapters/agent_pydantic.py`** (339) — `build_agent()` registers the five
 tools · `_agent_for(client_mode)` memoised, two at most · `_model_for()`
 memoised · `_as_messages(history)` our `Turn`s into framework messages ·
 `_for_model(project)` what the model sees, empty fields dropped · `_keep()`
 collects and dedupes · `stream()` the queue, the background task, the cancel ·
 `MAX_STEPS = 6`
 
-**`app/cli.py`** (442) — traced in Part VIII.
+**`app/capabilities/chat/cli.py`** (442) — traced in Part VIII.
 
-**`app/bench.py`** (400) — `aura bench`, the 50-question harness.
+**`app/capabilities/chat/bench.py`** (400) — `aura bench`, the 50-question harness.
 
 ---
 
@@ -1045,7 +1045,7 @@ the app is backgrounded, proxies time out, containers recycle — so a stream ca
 end without `done` or `error` ever arriving. The client notices ("the answer
 was cut off") rather than leaving a caret blinking under half an answer.
 
-The CLI (`app/cli.py`) consumes the identical stream in a terminal; `--dev`
+The CLI (`app/capabilities/chat/cli.py`) consumes the identical stream in a terminal; `--dev`
 shows each tool call with arguments, timings and token usage — which answers
 *"was this a data, a retrieval, or a model problem?"* in one screen.
 
@@ -1129,7 +1129,7 @@ route above it requires an admin token (Part VI).
 ### 5.3 History reaches the model as text — plus one crucial line
 
 When a conversation continues, `_history()` loads the stored rows and
-`turns_from()` (in `domain/conversation.py`) turns them into the `Turn` list
+`turns_from()` (in `capabilities/chat/domain/conversation.py`) turns them into the `Turn` list
 the model receives. Text only, as ever. But each assistant turn gains one
 appended line, built by `source_line()` from the `sources` column:
 

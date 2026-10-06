@@ -46,11 +46,12 @@ In the REPL: `/new` clears the conversation, `/mode` switches realtor↔client,
 
 | Path | Rule |
 |---|---|
-| `app/domain/` | the business shape. Imports nothing external. |
-| `app/ports/` | Protocols only. Five seams, no more. |
+| `app/domain/` | the shared business shape. Imports nothing external. |
+| `app/ports/` | shared Protocols only; each seam has a stated reason. |
 | `app/adapters/` | one implementation per port. |
-| `app/tools.py` | the AI's tools. Imports `domain` + `ports` only. |
-| `app/agent.py` | the only file that may import an agent framework. |
+| `app/capabilities/<name>/` | one capability, with its own `domain/`, `ports/`, `adapters/`. Never imports another capability. |
+| `app/capabilities/chat/tools.py` | the AI's tools. Imports `domain` + `ports` only. |
+| `app/capabilities/chat/adapters/agent_pydantic.py` | the only file that imports an agent framework. |
 | `app/container.py` | the only file that may construct an adapter. |
 
 `tests/test_layering.py` enforces all of that. If it fails, the swap described
@@ -59,7 +60,7 @@ in the architecture doc has quietly stopped being a one-file change.
 ## Endpoints
 
 All three take the realtor's own portal token as `Authorization: Bearer <token>`,
-except `/health`. See [`../docs/aura-chat/operations.md`](docs/feature/aura-chat/operations.md)
+except `/health`. See [`docs/feature/aura-chat/operations.md`](docs/feature/aura-chat/operations.md)
 for how to get one.
 
 | | |

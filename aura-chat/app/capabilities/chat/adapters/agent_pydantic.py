@@ -21,10 +21,11 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from app import tools
-from app.domain import ChatMode, Claims, Project, Turn
+from app.capabilities.chat import tools
+from app.capabilities.chat.domain import Turn
+from app.capabilities.chat.prompts import system_prompt
+from app.domain import ChatMode, Claims, Project
 from app.ports import ProjectRepo
-from app.prompts import system_prompt
 
 MAX_STEPS = 6
 LIMITS = UsageLimits(request_limit=MAX_STEPS)

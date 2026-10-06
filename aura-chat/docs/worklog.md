@@ -13,6 +13,37 @@ formatting.
 
 ---
 
+## 2026-10-06 — Chat moved into its own capability slice
+
+Aura Agent is one realtor agent with several capabilities. The code now says so: `app/` is
+the shared platform (config, container, auth, portal client, project data, limits,
+diagnostics), and each capability is a slice under `app/capabilities/<name>/` with its own
+`domain/`, `ports/` and `adapters/`. Chat moved first, as a pure move with no behaviour change
+(same endpoints, same SSE contract, same start command; 350 tests before, 350 + 2 after), so
+Unbrander is built in `app/capabilities/unbrander/` in the same shape instead of being mixed
+into chat's folders.
+
+What moved: the chat routes (`app/chat.py` is now `routes.py`), conversations, feedback,
+prompts, tools, cli and bench; `Turn` and `Feedback` from the domain; the `AgentRuntime`,
+`ConversationStore` and `DocumentIndex` ports; the PydanticAI and Postgres adapters with
+`schema.sql`. What stayed shared: `Claims`, `Role`, `ChatMode`, `Viewer` and `Project`, because
+the redacting project repo depends on the viewer's mode and any capability may read projects;
+`config.py`, because the model provider is platform. The Container field names did not change.
+
+`test_layering` now applies its three rules to every `domain/`, `ports/` and `adapters/` dir,
+not only the top-level ones, and adds two: shared code imports a capability only in
+`container.py` and `main.py`, and a capability never imports another one.
+
+Rejected: a thin slice that moved only chat's top-level modules and left every port and
+adapter in the shared folders. It was fewer moves, but Unbrander's ports and adapters would
+have joined chat's in shared folders, and nothing would show which capability owns what.
+
+No router or supervisor agent: users reach each capability through its own UI. One gets added
+when a single entry point must reach several capabilities, and even then the chat agent would
+start an Unbrander job through a tool, never run it inside the chat loop (SECURITY.md).
+
+---
+
 ## 2026-10-06 — Docs moved under aura-chat/; two docs removed
 
 The docs moved from `docs/` to `aura-chat/docs/`, with the chat docs under

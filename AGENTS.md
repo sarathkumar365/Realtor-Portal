@@ -38,24 +38,40 @@ from — see §6. Design docs for each capability live in `aura-chat/docs/featur
 
 ## 1. Layout
 
+`app/` is the shared platform; each capability is a slice under
+`app/capabilities/<name>/` with the same layers. Unbrander goes in
+`app/capabilities/unbrander/`, shaped like `chat/`.
+
 ```
 aura-chat/
-  app/
-    domain/            Project, ProjectFilters, Claims, Role, ChatMode
+  app/                 the shared platform
+    domain/            Project, ProjectFilters, Claims, Role, ChatMode, Viewer
                        matching.py — filter + sort semantics, source-agnostic
                        Pure Pydantic. Imports nothing external.
-    ports/             Protocols only — each one a stated reason
+    ports/             AuthVerifier, ProjectRepo. Protocols only — each one a stated reason
     adapters/          One implementation per port
       portal_client.py     HTTP client for the exec API
       auth_portal_hmac.py  the portal's token, verified here
       projects_exec.py     ProjectRepo over aiindex — no column name escapes it
+      projects_redacting.py  ProjectRepo as one viewer may see it (Client Mode)
       parsing.py           sheet text -> money, percent, dates, slugs
-    tools.py           What the model may do. Imports domain + ports only
     container.py       Composition root — the ONLY file that constructs an adapter
-    api.py             FastAPI routes (/health, /doctor, /me)
+    api.py             FastAPI routes (/login, /health, /doctor, /me)
     diagnostics.py     the checks behind /health and /doctor
+    limits.py          rate limits
     config.py          the ONLY module that reads the environment
     main.py            ASGI entrypoint (`uvicorn app.main:app`)
+    capabilities/
+      chat/
+        routes.py          POST /chat — the SSE stream
+        conversations.py   GET /conversations
+        feedback.py        POST /feedback
+        prompts.py         the system prompt
+        tools.py           What the model may do. Imports domain + ports only
+        cli.py, bench.py   the `aura` terminal client and the benchmark harness
+        domain/            Turn, Feedback
+        ports/             AgentRuntime, ConversationStore, DocumentIndex
+        adapters/          agent_pydantic.py (PydanticAI), store_postgres.py, schema.sql
   tests/
     fakes.py           in-memory adapter per port — tests never touch the network
     test_layering.py   the architecture rules, enforced rather than remembered
@@ -69,9 +85,9 @@ Files that do not exist yet already have chosen names and homes — check
 ## 2. Architecture
 
 Nothing above the adapter layer knows where data comes from, which model
-answers, or which framework runs the loop. `Protocol`s in `app/ports/` —
-`ProjectRepo`, `AuthVerifier`, `ConversationStore`, `DocumentIndex`,
-`AgentRuntime` today — each with exactly one adapter. The five-port cap was
+answers, or which framework runs the loop. `Protocol`s in `app/ports/`
+(`ProjectRepo`, `AuthVerifier`) and in chat's `ports/` (`ConversationStore`,
+`DocumentIndex`, `AgentRuntime`), each with exactly one adapter. The five-port cap was
 lifted on 2026-10-05 as Aura Chat grows into an agent with write capability
 (Unbrander first); every new port still needs a stated reason and agreement. The HTTP framework and the
 database driver are deliberately *not* ports.
@@ -80,12 +96,17 @@ What makes the seams real: `Project` is defined by what the business means, not
 by what a sheet column is called, and `ProjectFilters` expresses query intent,
 never storage mechanics. Tools only ever see domain objects.
 
-**Three rules hold it together**, enforced by `tests/test_layering.py`:
+**Three rules hold it together**, enforced by `tests/test_layering.py` in the
+platform and in every capability:
 
 1. `domain/` imports nothing external — not FastAPI, not PydanticAI, not httpx.
 2. `tools.py` imports only `domain/` and `ports/`.
-3. **Only `container.py` constructs an adapter.** Nothing else imports
-   `app.adapters`.
+3. **Only `container.py` constructs an adapter.** Nothing else imports an
+   `adapters` package.
+
+Two more keep the capabilities apart: shared code imports a capability only in
+`container.py` and `main.py`, and a capability never imports another one —
+what two capabilities need belongs in the platform.
 
 A `test_layering` failure means the migration in the architecture doc has
 quietly stopped being a one-file change. Fix the import, not the test.

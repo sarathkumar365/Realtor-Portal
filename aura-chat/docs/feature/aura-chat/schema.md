@@ -2,7 +2,7 @@
 
 Three tables, on Railway Postgres. AUR-88.
 
-Source of truth is [`../../aura-chat/app/adapters/schema.sql`](../../../app/adapters/schema.sql),
+Source of truth is [`../../aura-chat/app/capabilities/chat/adapters/schema.sql`](../../../app/capabilities/chat/adapters/schema.sql),
 applied at startup on every boot. It is idempotent (`CREATE TABLE IF NOT EXISTS`),
 so restarts and replicas are safe. **There is no migration tool** — see
 [worklog](../../worklog.md) for why, and what it costs.

@@ -16,7 +16,8 @@ from pydantic import BaseModel, Field
 
 from app import limits
 from app.api import container, current_claims
-from app.domain import MAX_HISTORY_TURNS, ChatMode, Claims, Turn, Viewer, turns_from
+from app.capabilities.chat.domain import MAX_HISTORY_TURNS, Turn, turns_from
+from app.domain import ChatMode, Claims, Viewer
 
 router = APIRouter()
 log = logging.getLogger("aura.chat")

@@ -34,8 +34,10 @@ pipeline and its tests.
    the alternatives rejected.
 2. **Cut phases** that each end in something demoable, starting with a spike of the
    riskiest dependency.
-3. **Build in this repo**, on the existing layering (`domain/`, `ports/`, `adapters/`,
-   `container.py`). A new port needs a stated reason and agreement.
+3. **Build in this repo**, as a slice in `aura-chat/app/capabilities/<name>/` with its
+   own `domain/`, `ports/` and `adapters/`, wired in `container.py`. It may use the
+   shared platform in `app/` but never another capability. A new port needs a stated
+   reason and agreement.
 4. **Record why** in [`worklog.md`](worklog.md), and add the capability to the tables in
    this file, in `AGENTS.md` and in the roadmap.
 

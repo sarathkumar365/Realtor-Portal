@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import container as container_mod
 from app.api import router
-from app.chat import router as chat_router
+from app.capabilities.chat.conversations import router as conversations_router
+from app.capabilities.chat.feedback import router as feedback_router
+from app.capabilities.chat.routes import router as chat_router
 from app.config import Settings, load
-from app.conversations import router as conversations_router
-from app.feedback import router as feedback_router
 from app.limits import Limits
 
 

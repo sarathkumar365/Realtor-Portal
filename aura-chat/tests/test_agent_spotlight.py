@@ -65,7 +65,7 @@ async def test_the_model_still_receives_both_records_whatever_is_carded():
 
     from pydantic_ai.models.function import FunctionModel
 
-    from app.adapters.agent_pydantic import PydanticAgentRuntime
+    from app.capabilities.chat.adapters.agent_pydantic import PydanticAgentRuntime
 
     rt = PydanticAgentRuntime(
         api_key="", model_name="test", model=FunctionModel(stream_function=capture)

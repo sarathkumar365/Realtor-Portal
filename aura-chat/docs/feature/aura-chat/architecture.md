@@ -145,6 +145,9 @@ Tools, prompts, agent, API and UI are untouched throughout.
 
 ### 4.4 Repo layout
 
+The layout as planned in August. Since 2026-10-06 chat lives in its own slice,
+`app/capabilities/chat/`; the current tree is in `AGENTS.md` §1.
+
 ```
 aura-chat/
   app/

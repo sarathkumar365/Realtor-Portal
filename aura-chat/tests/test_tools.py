@@ -2,8 +2,8 @@
 
 import pytest
 
-from app import tools
 from app.adapters.projects_redacting import RedactingProjectRepo
+from app.capabilities.chat import tools
 from app.domain import ChatMode, Project, Role, Viewer
 from tests.fakes import FakeProjectRepo
 

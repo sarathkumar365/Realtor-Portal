@@ -5,7 +5,7 @@ link is a dead end -- and it is also the last place a confidential field could
 leak, because it is the one payload the model never touches.
 """
 
-from app.adapters.agent_pydantic import _for_client, _for_model
+from app.capabilities.chat.adapters.agent_pydantic import _for_client, _for_model
 from app.domain import CLIENT_HIDDEN, ChatMode, Project, Role, Viewer
 
 REALTOR = Viewer(role=Role.REALTOR, mode=ChatMode.REALTOR)

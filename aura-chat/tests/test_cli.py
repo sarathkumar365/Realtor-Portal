@@ -6,7 +6,7 @@ own, which is where its bugs live.
 
 import json
 
-from app import cli
+from app.capabilities.chat import cli
 
 
 def test_a_subcommand_is_one_bare_word():
@@ -116,7 +116,7 @@ def test_help_says_the_service_must_be_running():
 
 def test_a_billing_failure_is_not_reported_as_a_wrong_answer():
     """A page of "cards>=1 - got 0" that all share one cause hides the cause."""
-    from app import bench
+    from app.capabilities.chat import bench
 
     q = bench.Question(id="Q1", mode="realtor", follows="", question="x",
                        expect="y", check="cards>=1;says:brampton")
@@ -126,7 +126,7 @@ def test_a_billing_failure_is_not_reported_as_a_wrong_answer():
 
 
 def test_fatal_errors_are_the_ones_about_the_account():
-    from app import bench
+    from app.capabilities.chat import bench
 
     for fatal in ("status_code: 402", "429 rate limit", "insufficient credit",
                   "in_flight_budget_exhausted", "invalid api key"):
@@ -149,7 +149,7 @@ HEADER = "id,mode,follows,question,expect,check\n"
 def test_a_csv_exported_from_sheets_loads(tmp_path):
     """Google Sheets and Excel both write a BOM. Read as plain utf-8 it becomes
     part of the first field name, and the error names a keyword nobody typed."""
-    from app import bench
+    from app.capabilities.chat import bench
 
     src = _write(tmp_path, HEADER + "Q1,realtor,,hi,x,cards>=1\n", encoding="utf-8-sig")
     assert [q.id for q in bench.load(src)] == ["Q1"]
@@ -160,7 +160,7 @@ def test_duplicate_question_ids_are_refused_before_anything_runs(tmp_path):
     question's result while showing another's twice."""
     import pytest
 
-    from app import bench
+    from app.capabilities.chat import bench
 
     src = _write(tmp_path, HEADER + "Q1,realtor,,a,x,\nQ1,realtor,,b,y,\n")
     with pytest.raises(ValueError, match="duplicate question id"):
@@ -170,7 +170,7 @@ def test_duplicate_question_ids_are_refused_before_anything_runs(tmp_path):
 def test_history_is_capped_at_what_the_server_accepts():
     """The cap has to apply to the whole history: slicing only the two new
     turns is a no-op, and a long chain then 422s on every question."""
-    from app import bench
+    from app.capabilities.chat import bench
 
     history = [{"role": "user", "content": f"q{i}"} for i in range(30)]
     capped = (history + [{"role": "user", "content": "n"}, {"role": "assistant", "content": "a"}])[
@@ -182,7 +182,7 @@ def test_history_is_capped_at_what_the_server_accepts():
 def test_the_report_escapes_project_names(tmp_path):
     """A `<` in a name would otherwise swallow the project, in a report whose
     whole job is showing what came back."""
-    from app import bench
+    from app.capabilities.chat import bench
 
     q = bench.Question(id="Q1", mode="realtor", follows="", question="x", expect="y", check="")
     r = bench.Result(q=q, answer="ok", cards=[{"id": "AK-1", "name": "Smith & <Sons>"}])
@@ -194,7 +194,7 @@ def test_the_report_escapes_project_names(tmp_path):
 
 def test_an_unreadable_event_does_not_lose_the_whole_run():
     """Forty already-paid-for answers should not be lost to one bad line."""
-    from app import bench
+    from app.capabilities.chat import bench
 
     r = bench.Result(q=bench.Question("Q1", "realtor", "", "x", "y", ""))
     try:

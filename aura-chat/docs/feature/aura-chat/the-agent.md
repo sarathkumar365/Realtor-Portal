@@ -21,7 +21,7 @@ happen, in this order.
 builds the rate-limit windows onto `app.state.limits`, and mounts the routers:
 `/health`, `/doctor`, `/me`, `/login` from
 [api.py](../../../app/api.py), `/chat` from
-[chat.py](../../../app/chat.py), plus conversations and feedback. No
+[routes.py](../../../app/capabilities/chat/routes.py), plus conversations and feedback. No
 adapters yet. CORS has to be registered while the app object is being built, which is why settings are read
 here as well as inside the container.
 
@@ -175,9 +175,9 @@ turns Python functions into tools the model can call, runs the call-and-reply
 loop, and validates everything crossing the boundary with Pydantic.
 
 It is imported in **exactly one file**,
-[agent_pydantic.py](../../../app/adapters/agent_pydantic.py). That is the
+[agent_pydantic.py](../../../app/capabilities/chat/adapters/agent_pydantic.py). That is the
 whole point of the adapter layer: swapping to LangGraph or a hand-rolled loop is
-a rewrite of one file. [tools.py](../../../app/tools.py) has never heard
+a rewrite of one file. [tools.py](../../../app/capabilities/chat/tools.py) has never heard
 of it.
 
 What the library gives us, and what we actually use:
@@ -206,7 +206,7 @@ own database — Postgres, via the `ConversationStore` port
 ## 5. How an agent is built, and how a tool gets registered
 
 `build_agent()`
-([agent_pydantic.py:97](../../../app/adapters/agent_pydantic.py#L97))
+([agent_pydantic.py:97](../../../app/capabilities/chat/adapters/agent_pydantic.py#L97))
 is called at most twice in the life of the process — once for Realtor Mode,
 once for Client Mode:
 
@@ -283,7 +283,7 @@ framework out of the layer below.
 
 The five docstrings tell the model what each tool *is*. The system prompt's
 "Using the tools" section
-([prompts.py:33](../../../app/prompts.py#L33)) tells it which to *reach
+([prompts.py:33](../../../app/capabilities/chat/prompts.py#L33)) tells it which to *reach
 for*, in the realtor's own words: "how many do we have" → `inventory_summary`,
 "what should I be selling" → `search_projects(focus_only=True)`. Duplication is
 cheap here and the failure it prevents — the model counting from a 12-row page
@@ -294,7 +294,7 @@ and telling a realtor the brokerage has 12 projects — is not.
 ## 6. Per request: the `Deps` bag and the basket
 
 Back in `stream()`
-([agent_pydantic.py:261](../../../app/adapters/agent_pydantic.py#L261)),
+([agent_pydantic.py:261](../../../app/capabilities/chat/adapters/agent_pydantic.py#L261)),
 two lines set up the run:
 
 ```python
@@ -315,7 +315,7 @@ agent = self._agent_for(mode is ChatMode.CLIENT)
 `collected` is a plain Python list that starts empty and accumulates the real
 `Project` objects that tools returned during this run. Every tool passes its
 results through `_keep()`
-([agent_pydantic.py:106](../../../app/adapters/agent_pydantic.py#L106))
+([agent_pydantic.py:106](../../../app/capabilities/chat/adapters/agent_pydantic.py#L106))
 before returning them, and `_keep` does two things: append anything whose `id`
 is not already in the basket, and hand back the model-shaped dicts.
 
@@ -561,7 +561,7 @@ Seven event types, each a line of `data: {...}` in the SSE stream:
 | `error` | any failure | a readable message, never a stack trace |
 
 The terminal client is the reference consumer
-([cli.py:145](../../../app/cli.py#L144)): read lines, keep the ones
+([cli.py:145](../../../app/capabilities/chat/cli.py#L144)): read lines, keep the ones
 starting with `data: `, `json.loads` the rest, dispatch on `type`. `--dev` shows
 every event with timings; plain mode prints only the prose and the cards.
 
@@ -593,7 +593,7 @@ flowchart LR
     end
 ```
 
-[prompts.py](../../../app/prompts.py) says it in its own docstring:
+[prompts.py](../../../app/capabilities/chat/prompts.py) says it in its own docstring:
 rules the model is *asked* to follow live in the prompt; rules that must *hold*
 do not — "because a prompt instruction is a request, and this agent answers
 questions about other people's money."

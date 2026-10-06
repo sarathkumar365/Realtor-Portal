@@ -14,8 +14,8 @@ import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.adapters.store_postgres import PostgresConversationStore
-from app.domain import turns_from
+from app.capabilities.chat.adapters.store_postgres import PostgresConversationStore
+from app.capabilities.chat.domain import turns_from
 
 OK, BAD = "  ok  ", "  FAIL"
 fails = 0

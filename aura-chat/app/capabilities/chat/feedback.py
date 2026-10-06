@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from app.api import container, current_claims
-from app.domain import Claims, Feedback
+from app.capabilities.chat.domain import Feedback
+from app.domain import Claims
 
 router = APIRouter()
 

@@ -11,7 +11,7 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain import IssueCategory
+from app.capabilities.chat.domain import IssueCategory
 from tests.fakes import FakeProjectRepo, make_token
 
 TOKEN = make_token("sarath")
@@ -184,8 +184,8 @@ def test_the_log_line_survives_a_real_uvicorn_style_startup(capsys):
     """
     import logging as _logging
 
+    from app.capabilities.chat.feedback import _record
     from app.config import Settings
-    from app.feedback import _record
     from app.main import configure_logging
     from app.main import create_app as _create
 

@@ -2,7 +2,7 @@
 
 Everything environmental: getting a token, what each setting does, deploying,
 and rotating the one secret whose failure is invisible. Referenced from
-[`../../AGENTS.md`](../../AGENTS.md).
+[`../../AGENTS.md`](../../../../AGENTS.md).
 
 ---
 
@@ -62,7 +62,7 @@ Every one is read in `app/config.py` and nowhere else. `.env` is git-ignored;
 |---|---|---|
 | `TOKEN_SECRET` | *(none — refuses)* | HMAC key for portal session tokens. See §5. |
 | `EXEC_URL` | *(none)* | The deployed Apps Script web app. Must equal `EXEC` in `dev/config.mjs`. |
-| `EXEC_TIMEOUT_S` | `30.0` | Per-request timeout against the portal. Cold index builds are slow; see [`../portal.md`](../portal.md) §3.6. |
+| `EXEC_TIMEOUT_S` | `30.0` | Per-request timeout against the portal. Cold index builds are slow; see [`../portal.md`](../../portal.md) §3.6. |
 | `SESSION_MS` | `604800000` (7 days) | Token lifetime. **Must match `SESSION_MS` in `Core.js`** — longer here keeps honouring tokens the portal has retired. |
 | `ALLOWED_ORIGINS` | `http://localhost:4600,http://localhost:4599` | Comma-separated CORS allowlist. The PWA's origin **must** be in here or the browser blocks the chat before the request leaves the phone. Never `*`: a wildcard lets any page a realtor visits spend their token. |
 | `ALLOWED_ORIGIN_REGEX` | *(empty)* | Only for Netlify deploy previews, which get a random subdomain per draft deploy and so cannot be named in the list. A standing hole in the allowlist — set it while testing previews, unset it after. |
@@ -167,7 +167,7 @@ AURA_BASE=http://localhost:8000 node dev/build.mjs --serve
 
 Everything else is already the default. The bundle talks to the live deployment
 because that URL is the fallback in
-[`../../dev/config.mjs`](../../dev/config.mjs) — `AK_EXEC` exists to point at a
+[`../../dev/config.mjs`](../../../../dev/config.mjs) — `AK_EXEC` exists to point at a
 *different* deployment, not at the normal one. Reading it from the browser works
 because the Apps Script web app answers with `Access-Control-Allow-Origin: *`,
 and `ALLOWED_ORIGINS` already lists `localhost:4600`, so CORS needs no change.
@@ -243,7 +243,7 @@ the harness, because `verify()` asks the portal whether the account still lives.
 Left at the real deployment it is asked about a locally-minted token, says no,
 and every request 401s with nothing in the log explaining why.
 
-Fixture users are in [`../../dev/authshim.mjs`](../../dev/authshim.mjs) —
+Fixture users are in [`../../dev/authshim.mjs`](../../../../dev/authshim.mjs) —
 `harvinder` / `Summer2026`.
 
 **You cannot reach the chat through the gate this way.** `dev/serve.mjs` answers
@@ -317,7 +317,7 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 6. Rebuild and redeploy the PWA with `AURA_BASE` pointing at the service —
    `AURA_BASE=https://<service> node dev/deploy.mjs --prod`. Until that is set,
    the bundle ships without the chat button by design; see
-   [`../portal.md`](../portal.md). The Apps Script-hosted copy never gets it:
+   [`../portal.md`](../../portal.md). The Apps Script-hosted copy never gets it:
    its pages come from a `googleusercontent.com` subdomain whose hash varies, so
    the origin cannot be allowlisted, and Apps Script cannot stream anyway.
 
@@ -349,7 +349,7 @@ but an older build will not re-create a table a newer one added.
 **Never touch the Apps Script side to fix Aura.** If the portal must be
 republished, edit the **existing** deployment. "New deployment" mints a new id
 and leaves every installed phone — and this service's `EXEC_URL` — calling an
-address that no longer answers. See [`../portal.md`](../portal.md).
+address that no longer answers. See [`../portal.md`](../../portal.md).
 
 ---
 

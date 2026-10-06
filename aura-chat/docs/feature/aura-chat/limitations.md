@@ -30,7 +30,7 @@ the correct answer and still not the one anybody wanted.
 The chat is read-only by construction, not by instruction: the data port has no
 write method ([invariants.md](invariants.md) 5). Actions belong to other Aura Agent
 capabilities, each behind an admin's approval — the first, Unbrander, is being
-built ([`../platform.md`](../platform.md)). The chat cannot update a record, send an email or a
+built ([`../platform.md`](../../platform.md)). The chat cannot update a record, send an email or a
 WhatsApp message, book an appointment, reserve a unit, submit a worksheet, or
 touch the CRM. Asking it to will produce a polite refusal, not an action.
 

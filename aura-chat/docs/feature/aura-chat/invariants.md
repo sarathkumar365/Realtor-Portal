@@ -2,7 +2,7 @@
 
 Break one of these and the failure is either a security hole or a very long
 afternoon. Each is written down because it is not visible from the call site.
-Referenced from [`../../AGENTS.md`](../../AGENTS.md).
+Referenced from [`../../AGENTS.md`](../../../../AGENTS.md).
 
 ---
 
@@ -71,7 +71,7 @@ No chat tool takes a write path. Not "no tool currently writes" — no tool *can
 From the Unbrander feature on (decided 2026-10-05), Aura Chat also writes: Drive files,
 sharing and one sheet column. Those writes are made only by deterministic pipeline code,
 never by a model tool, and anything public happens only after an admin approves. See
-[`docs/feature/Unbrander/Docs/agent/`](../feature/Unbrander/Docs/agent/INDEX.md).
+[`docs/feature/Unbrander/Docs/agent/`](../Unbrander/INDEX.md).
 
 ## 6. Retrieved text is data, never instructions
 
@@ -90,7 +90,7 @@ is a stated acceptance criterion, not an aspiration.
 
 Publishing the portal through "New deployment" mints a fresh id and retires the
 old one. If it changes, `EXEC_URL` here and `EXEC` in `dev/config.mjs` must both
-change. See [`../portal.md`](../portal.md) §3.3.
+change. See [`../portal.md`](../../portal.md) §3.3.
 
 ## 9. A shared cache must be keyed by whatever it varies on
 

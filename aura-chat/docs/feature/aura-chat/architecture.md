@@ -1,7 +1,7 @@
 # Aura Chat — Architecture Decision & Build Plan
 
 **Date:** 2026-08-24 · **Owner:** Sarath · **Status:** proposed, awaiting approval
-**Companion doc:** [investigation-aur-3-4-5.md](investigation-aur-3-4-5.md) — the discovery this rests on.
+**Discovery this rests on:** the investigation write-up, removed 2026-10-06; its findings are summarised in the worklog entry for 2026-08-24 (full text in git history).
 
 ---
 
@@ -335,7 +335,7 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 
 Sections 1–10 are the design of the chat, kept as written. From October 2026 the
 service grows into **Aura Agent**: a realtor agent with several capabilities whose
-aim is to automate realtors' manual work ([`../platform.md`](../platform.md)).
+aim is to automate realtors' manual work ([`../platform.md`](../../platform.md)).
 What that changes in this document:
 
 - **Writes are allowed, with a human in the loop.** The V1 non-goal "no writes of
@@ -345,10 +345,10 @@ What that changes in this document:
 - **The port cap is lifted.** Five ports fit a read-only chat; each new port still
   needs a stated reason.
 - **The first write capability is Unbrander**, designed in
-  [`../feature/Unbrander/Docs/agent/`](../feature/Unbrander/Docs/agent/INDEX.md):
+  [`../feature/Unbrander/Docs/agent/`](../Unbrander/INDEX.md):
   a Postgres job queue, named PDF tools, a Google service account scoped to one
   Shared Drive and the sheet, and a separate admin app.
 - **The agent framework moves later.** PydanticAI stays until Unbrander is live;
   the LangChain / LangGraph migration is phase U8.
-- **Folder names stay** (`aura-chat/`, `docs/aura-chat/`) until the current
+- **Folder names stay** (`aura-chat/`, `aura-chat/docs/feature/aura-chat/`) until the current
   feature work is done.

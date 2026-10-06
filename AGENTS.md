@@ -6,12 +6,12 @@ staff do by hand today, one capability at a time, until it runs most of them
 itself. It started as **Aura Chat** — the question-answering capability — and the
 code still lives in `aura-chat/`; the folder rename is deferred until the current
 feature work is done. What a capability is and how one is added:
-**[platform.md](docs/platform.md)**.
+**[platform.md](aura-chat/docs/platform.md)**.
 
 | Capability | What it does | State |
 |---|---|---|
 | Chat | A realtor asks *"show me detached homes under $1M in Brampton"* and gets real projects from the brokerage's own records, with a source, an effective date and a deep link into the portal | Live |
-| Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](docs/feature/Unbrander/Docs/agent/INDEX.md), [phases](docs/feature/Unbrander/Docs/agent/PHASES.md) |
+| Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](aura-chat/docs/feature/Unbrander/INDEX.md), [phases](aura-chat/docs/feature/Unbrander/PHASES.md) |
 
 **Current priority:** finish Unbrander end to end. In between, do only what that
 work needs. Heavy changes — the LangChain / LangGraph migration (U8), the folder
@@ -32,7 +32,7 @@ exception is Unbrander's publish step, which writes to Drive and the sheet with
 a scoped Google credential after an admin approves (invariant 2).
 
 `aura-chat/` is the product. Everything in the repo root is the portal it reads
-from — see §6. Design docs for each capability live in `docs/feature/<Name>/`.
+from — see §6. Design docs for each capability live in `aura-chat/docs/feature/<Name>/`.
 
 ---
 
@@ -62,7 +62,7 @@ aura-chat/
 ```
 
 Files that do not exist yet already have chosen names and homes — check
-[roadmap.md](docs/aura-chat/roadmap.md) before creating one.
+[roadmap.md](aura-chat/docs/feature/aura-chat/roadmap.md) before creating one.
 
 ---
 
@@ -91,14 +91,14 @@ A `test_layering` failure means the migration in the architecture doc has
 quietly stopped being a one-file change. Fix the import, not the test.
 
 Full rationale and rejected alternatives:
-[architecture.md](docs/aura-chat/architecture.md).
+[architecture.md](aura-chat/docs/feature/aura-chat/architecture.md).
 
 ---
 
 ## 3. Invariants
 
 Full text, with the failure each one prevents:
-**[invariants.md](docs/aura-chat/invariants.md)**. In short:
+**[invariants.md](aura-chat/docs/feature/aura-chat/invariants.md)**. In short:
 
 1. `TOKEN_SECRET` must be byte-identical to the portal's Script Property.
 2. The caller's own token is the data-plane credential — the only exception is Unbrander's approved writes.
@@ -127,7 +127,7 @@ curl -H "Authorization: Bearer $TOK" localhost:8000/doctor      # add ?fresh=1 t
 ```
 
 Getting `$TOK`, and every other environment question:
-[operations.md](docs/aura-chat/operations.md).
+[operations.md](aura-chat/docs/feature/aura-chat/operations.md).
 
 `/doctor` is the first thing to run when an answer fails: it uses the caller's
 own token and exercises the same path a question takes, so it tells "the portal
@@ -138,7 +138,7 @@ is reachable" apart from "Aura can actually read projects".
 ## 5. How to work here
 
 Full rules, with the trigger and check for each:
-**[working-rules.md](docs/aura-chat/working-rules.md)**. The short form:
+**[working-rules.md](aura-chat/docs/feature/aura-chat/working-rules.md)**. The short form:
 
 - **Search before you write.** Name the existing thing you reused, or say what
   you searched for and that nothing matched.
@@ -150,7 +150,7 @@ Full rules, with the trigger and check for each:
 - **Don't add** a port without a stated reason and agreement, a dependency, or
   an abstraction with one caller.
 - **Don't build ahead of the current phase** — see
-  [roadmap.md](docs/aura-chat/roadmap.md). Later ports are declared so tools and
+  [roadmap.md](aura-chat/docs/feature/aura-chat/roadmap.md). Later ports are declared so tools and
   tests can be written against them, not as an invitation to implement them.
 - **Tests are `pytest` and never touch the network.** Every port has a fake in
   `tests/fakes.py`. Fixing a bug means adding the test that would have caught
@@ -160,7 +160,7 @@ Full rules, with the trigger and check for each:
   Script action, database schema, or two approaches with real trade-offs.
   Don't ask about naming, formatting, or anything these docs answer.
 - **Record why, in the same change.** Append to
-  [worklog.md](docs/worklog.md) — newest first — whenever the change is one a
+  [worklog.md](aura-chat/docs/worklog.md) — newest first — whenever the change is one a
   future reader could reasonably want to undo: a decision, a rejected
   alternative, a non-obvious constraint, a fix that looks arbitrary without its
   story. Skip typos and renames. Write the reason; the diff already says what.
@@ -168,7 +168,7 @@ Full rules, with the trigger and check for each:
   `pytest -q` before claiming done and report failures.
 - **Write it down instead of fixing it** when a defect is real but off the path
   of the current change. Add an entry to
-  [known-issues.md](docs/aura-chat/known-issues.md) with the symptom, the root
+  [known-issues.md](aura-chat/docs/feature/aura-chat/known-issues.md) with the symptom, the root
   cause, a command that reproduces it, and the fix you would write. Fixing every
   defect the moment it is found is how a sprint stops moving; finding the same
   one twice is how it stops mattering. Fixing one means deleting its entry and
@@ -179,7 +179,7 @@ Full rules, with the trigger and check for each:
 ## 6. The portal (upstream)
 
 The Apps Script web app and PWA in the repo root:
-**[portal.md](docs/portal.md)**. Aura Chat's only change to it is `Ai.js` —
+**[portal.md](aura-chat/docs/portal.md)**. Aura Chat's only change to it is `Ai.js` —
 one read-only action, `aiindex`, shipped in Phase 2. Two things will bite you
 if you touch it:
 
@@ -195,20 +195,18 @@ if you touch it:
 
 | Doc | What's in it |
 |---|---|
-| [platform.md](docs/platform.md) | **What Aura Agent is for**, what a capability is, and the rules every capability follows |
-| [docs/feature/](docs/feature/) | One folder per capability: its agent design and build phases |
-| [how-it-works.md](docs/aura-chat/how-it-works.md) | **Start here.** The whole system end to end: boot, every file, one chat interaction traced |
-| [the-agent.md](docs/aura-chat/the-agent.md) | The agent layer alone, slowly: startup, PydanticAI, tool registration, the loop, the queue |
-| [invariants.md](docs/aura-chat/invariants.md) | The eight rules that break security or cost an afternoon |
-| [api.md](docs/aura-chat/api.md) | Every endpoint, its auth and shape; every tool and what it reads |
-| [limitations.md](docs/aura-chat/limitations.md) | What Aura cannot answer or does not cover — the honest list |
-| [working-rules.md](docs/aura-chat/working-rules.md) | Working rules, Python conventions, definition of done |
-| [roadmap.md](docs/aura-chat/roadmap.md) | Platform roadmap: chat phases, capabilities, and the names already chosen for unwritten files |
-| [architecture.md](docs/aura-chat/architecture.md) | The decision, the stack, the ports, the phased plan |
-| [investigation-aur-3-4-5.md](docs/aura-chat/investigation-aur-3-4-5.md) | The discovery it rests on |
-| [operations.md](docs/aura-chat/operations.md) | Getting a token, the env vars, running locally, deploying, restarting, **logs**, rotating `TOKEN_SECRET` |
-| [schema.md](docs/aura-chat/schema.md) | The three tables, isolation in SQL, backup and restore |
-| [worklog.md](docs/worklog.md) | **Why** each change was made — decisions, rejected options, costs of reversing |
-| [known-issues.md](docs/aura-chat/known-issues.md) | Defects found and understood but **not fixed** — symptom, root cause, how to reproduce, the fix I would write |
-| [sprint-tracker.html](docs/aura-chat/sprint-tracker.html) | The AUR-* sprint board. Reference only — nothing reads it |
-| [portal.md](docs/portal.md) | The upstream Apps Script portal and PWA |
+| [platform.md](aura-chat/docs/platform.md) | **What Aura Agent is for**, what a capability is, and the rules every capability follows |
+| [docs/feature/](aura-chat/docs/feature/) | One folder per capability: its agent design and build phases |
+| [how-it-works.md](aura-chat/docs/feature/aura-chat/how-it-works.md) | **Start here.** The whole system end to end: boot, every file, one chat interaction traced |
+| [the-agent.md](aura-chat/docs/feature/aura-chat/the-agent.md) | The agent layer alone, slowly: startup, PydanticAI, tool registration, the loop, the queue |
+| [invariants.md](aura-chat/docs/feature/aura-chat/invariants.md) | The eight rules that break security or cost an afternoon |
+| [api.md](aura-chat/docs/feature/aura-chat/api.md) | Every endpoint, its auth and shape; every tool and what it reads |
+| [limitations.md](aura-chat/docs/feature/aura-chat/limitations.md) | What Aura cannot answer or does not cover — the honest list |
+| [working-rules.md](aura-chat/docs/feature/aura-chat/working-rules.md) | Working rules, Python conventions, definition of done |
+| [roadmap.md](aura-chat/docs/feature/aura-chat/roadmap.md) | Platform roadmap: chat phases, capabilities, and the names already chosen for unwritten files |
+| [architecture.md](aura-chat/docs/feature/aura-chat/architecture.md) | The decision, the stack, the ports, the phased plan |
+| [operations.md](aura-chat/docs/feature/aura-chat/operations.md) | Getting a token, the env vars, running locally, deploying, restarting, **logs**, rotating `TOKEN_SECRET` |
+| [schema.md](aura-chat/docs/feature/aura-chat/schema.md) | The three tables, isolation in SQL, backup and restore |
+| [worklog.md](aura-chat/docs/worklog.md) | **Why** each change was made — decisions, rejected options, costs of reversing |
+| [known-issues.md](aura-chat/docs/feature/aura-chat/known-issues.md) | Defects found and understood but **not fixed** — symptom, root cause, how to reproduce, the fix I would write |
+| [portal.md](aura-chat/docs/portal.md) | The upstream Apps Script portal and PWA |

@@ -2,7 +2,7 @@
 
 How to make a change here. Adjectives are not enforceable, so each rule has a
 **trigger** (when it fires) and a **check** (how anyone can tell it was
-ignored). Referenced from [`../../AGENTS.md`](../../AGENTS.md).
+ignored). Referenced from [`../../AGENTS.md`](../../../../AGENTS.md).
 
 ---
 
@@ -107,7 +107,7 @@ out. A failing check reported is worth more than a passing one implied.
   design decision, a rejected alternative, a non-obvious constraint, a bug whose
   fix looks arbitrary without its story.
   **Check:** `git log` shows a substantive commit with no matching entry in
-  [`../worklog.md`](../worklog.md).
+  [`../worklog.md`](../../worklog.md).
 - **Skip it** for typos, formatting and mechanical renames. An entry nobody
   needs is noise, and noise is how a log stops being read.
 - Write the **reason**. The code says what changed and `git log` says when; the
@@ -126,7 +126,7 @@ out. A failing check reported is worth more than a passing one implied.
 2. `test_layering.py` still green — the architecture rules survived the change.
 3. `/doctor` green against a real token, if the change touches auth or the data
    plane.
-4. Substantive change? [`../worklog.md`](../worklog.md) has an entry for it.
+4. Substantive change? [`../worklog.md`](../../worklog.md) has an entry for it.
 5. What you changed, what you verified, and what you left out, stated plainly.
 6. Portal files touched? `node dev/verify.mjs`, then `clasp push`, then publish
    by **editing** the existing deployment.

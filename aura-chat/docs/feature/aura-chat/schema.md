@@ -2,10 +2,10 @@
 
 Three tables, on Railway Postgres. AUR-88.
 
-Source of truth is [`../../aura-chat/app/adapters/schema.sql`](../../aura-chat/app/adapters/schema.sql),
+Source of truth is [`../../aura-chat/app/adapters/schema.sql`](../../../app/adapters/schema.sql),
 applied at startup on every boot. It is idempotent (`CREATE TABLE IF NOT EXISTS`),
 so restarts and replicas are safe. **There is no migration tool** — see
-[worklog](../worklog.md) for why, and what it costs.
+[worklog](../../worklog.md) for why, and what it costs.
 
 ## What is here, and what is deliberately not
 
@@ -112,8 +112,8 @@ and browser history, and opens nothing on its own.
   persistence silently
 
 Proven against real Postgres, not just the fake, by
-[`scripts/check_store.py`](../../aura-chat/scripts/check_store.py) and
-[`scripts/check_chat_persistence.py`](../../aura-chat/scripts/check_chat_persistence.py).
+[`scripts/check_store.py`](../../../scripts/check_store.py) and
+[`scripts/check_chat_persistence.py`](../../../scripts/check_chat_persistence.py).
 
 ## Running the checks
 

@@ -2,17 +2,17 @@
 
 What is wired, what is next, and the names already chosen for files that do not
 exist yet. Aura Agent grows one capability at a time
-([`../platform.md`](../platform.md)); the first capability, Chat, was built in
+([`../platform.md`](../../platform.md)); the first capability, Chat, was built in
 Phases 1–6 below (detail and done-signals in [`architecture.md`](architecture.md)
-§5). Later capabilities carry their own phases in `docs/feature/<Name>/`.
-Referenced from [`../../AGENTS.md`](../../AGENTS.md).
+§5). Later capabilities carry their own phases in `aura-chat/docs/feature/<Name>/`.
+Referenced from [`../../AGENTS.md`](../../../../AGENTS.md).
 
 ## Capabilities
 
 | Capability | Phases | State |
 |---|---|---|
 | Chat | 1–6 below | Live; Phase 5 not started, Phase 6 part done |
-| Unbrander | U0–U8, [`PHASES.md`](../feature/Unbrander/Docs/agent/PHASES.md) | **Current priority** — designing done, build next |
+| Unbrander | U0–U8, [`PHASES.md`](../Unbrander/PHASES.md) | **Current priority** — designing done, build next |
 | Next capabilities | — | To be added after Unbrander |
 
 ---
@@ -32,8 +32,8 @@ failures.
 | 4b | History panel, New Chat list, admin reports screen | **done** — 4b built the reports screen rather than a conversation browser; see the worklog |
 | 5 | Document retrieval over pgvector; structured-first | not started |
 | 6 | Audit logging, chat-specific rate limit, latency, 50-question benchmark | **part done** — audit logging (AUR-20) and the rate limit (AUR-21) shipped; latency measured; the benchmark is at 44/50 against a bar of 47 |
-| U | **Unbrander** — builder-document unbranding, the first write feature, with a separate admin app (Aura Agent UI) | **designing** — see [`docs/feature/Unbrander/Docs/agent/`](../feature/Unbrander/Docs/agent/INDEX.md). Phases U0–U7 in [`PHASES.md`](../feature/Unbrander/Docs/agent/PHASES.md) |
-| L | Move the agent loop from PydanticAI to LangChain / LangGraph | **decided 2026-10-06; phase U8**, after Unbrander goes live — see [`PHASES.md`](../feature/Unbrander/Docs/agent/PHASES.md) |
+| U | **Unbrander** — builder-document unbranding, the first write feature, with a separate admin app (Aura Agent UI) | **designing** — see [`docs/feature/Unbrander/Docs/agent/`](../Unbrander/INDEX.md). Phases U0–U7 in [`PHASES.md`](../Unbrander/PHASES.md) |
+| L | Move the agent loop from PydanticAI to LangChain / LangGraph | **decided 2026-10-06; phase U8**, after Unbrander goes live — see [`PHASES.md`](../Unbrander/PHASES.md) |
 
 Phase 2 shipped one outstanding check: reading real rows needs a realtor token,
 which the session that built it did not have. See

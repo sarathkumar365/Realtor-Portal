@@ -29,7 +29,7 @@ is *why* this shape was chosen and what was rejected;
 [invariants.md](invariants.md) is the rules that break security or cost an
 afternoon; [api.md](api.md) is every endpoint and tool as a reference;
 [schema.md](schema.md) is the three database tables;
-[../worklog.md](../worklog.md) is why each change was made, newest first.
+[../worklog.md](../../worklog.md) is why each change was made, newest first.
 
 ---
 

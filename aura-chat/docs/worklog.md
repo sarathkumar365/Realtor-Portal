@@ -13,6 +13,26 @@ formatting.
 
 ---
 
+## 2026-10-06 — Docs moved under aura-chat/; two docs removed
+
+The docs moved from `docs/` to `aura-chat/docs/`, with the chat docs under
+`feature/aura-chat/` beside `feature/Unbrander/`. The move left every relative link in
+`AGENTS.md`, `aura-chat/README.md` and the docs themselves pointing at the old paths; they
+were rewritten in this change and a link check now finds none broken. The Unbrander design
+was flattened from `feature/Unbrander/Docs/agent/` to `feature/Unbrander/`: the extra two
+levels held nothing else.
+
+Removed: `investigation-aur-3-4-5.md` (the pre-build discovery; its findings live in
+`architecture.md` and the 2026-08-24 entry below, and its line links into `Core.js` had gone
+stale) and `sprint-tracker.html` (the AUR-* board, which nothing read and was no longer kept
+current). Both are in git history. `WHITEBOARD.md` was kept: it is the only record of the
+manual process the outcome baseline is measured against. `portal.md` describes the repo-root
+portal but now sits under `aura-chat/docs/`; left there for now.
+
+Older entries below keep the paths that were true when they were written.
+
+---
+
 ## 2026-10-06 — Unbrander: spike phase U1 folded into U2
 
 The separate spike would have built the PDF tools as throwaway code just to test whether a
@@ -826,7 +846,7 @@ still the better answer to what `spotlight` patches over.
 **What.** `aura-chat` is live on Railway at
 `aura-chat-production-0711.up.railway.app`. Getting there needed a build backend
 in `pyproject.toml`, a literal `requirements.txt`, a `.python-version` pin, and a
-deploy flag. The how is in [`../aura-chat/DEPLOY.md`](../aura-chat/DEPLOY.md);
+deploy flag. The how is in [`../aura-chat/DEPLOY.md`](../DEPLOY.md);
 this is why those files exist at all, so nobody deletes one as redundant.
 
 **Why the deploy command has a flag that looks optional.** `railway up` archives
@@ -1081,7 +1101,7 @@ typos.
 
 ## 2026-08-24 — A walkthrough of the whole system
 
-**What.** [`how-it-works.md`](aura-chat/how-it-works.md) — 1,049 lines, twelve
+**What.** [`how-it-works.md`](feature/aura-chat/how-it-works.md) — 1,049 lines, twelve
 diagrams, ordered as a story: an empty process, then boot, then every file, then
 one chat interaction traced end to end, then the other flows, the CLI, the
 tests, and a troubleshooting map.
@@ -1529,7 +1549,7 @@ Hard cap: five ports, one adapter each during the sprint.
 
 ## 2026-08-24 — Discovery: what the portal actually holds
 
-Full write-up: [`aura-chat/investigation-aur-3-4-5.md`](aura-chat/investigation-aur-3-4-5.md).
+Full write-up: `investigation-aur-3-4-5.md`, removed 2026-10-06 (in git history).
 
 **The two findings that reshaped the sprint:**
 

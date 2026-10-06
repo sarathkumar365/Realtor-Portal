@@ -1,7 +1,7 @@
 # Aura Agent — the platform
 
 What Aura Agent is for, what a capability is, and the rules every capability follows.
-Referenced from [`../AGENTS.md`](../AGENTS.md).
+Referenced from [`../AGENTS.md`](../../AGENTS.md).
 
 ## Purpose
 
@@ -29,7 +29,7 @@ pipeline and its tests.
 
 ## How a capability is added
 
-1. **Design first**, in `docs/feature/<Name>/`, with the agent-design phases: whiteboard,
+1. **Design first**, in `aura-chat/docs/feature/<Name>/`, with the agent-design phases: whiteboard,
    loop, autonomy, context, evals, security, then build phases. Decisions are recorded with
    the alternatives rejected.
 2. **Cut phases** that each end in something demoable, starting with a spike of the
@@ -58,4 +58,4 @@ pipeline and its tests.
 - **Momentum over preparation.** Build the current capability end to end; do only the
   platform work it needs. Heavy migrations wait until it ships.
 
-The full security rules are the invariants: [`aura-chat/invariants.md`](aura-chat/invariants.md).
+The full security rules are the invariants: [`aura-chat/invariants.md`](feature/aura-chat/invariants.md).

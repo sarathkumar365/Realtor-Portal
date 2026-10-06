@@ -2,7 +2,7 @@
 
 The Apps Script web app that Aura Chat reads its data and identity from, and the
 installable PWA that realtors actually open. Aura Chat depends on this; it does
-not change it. Read [`../AGENTS.md`](../AGENTS.md) first — this file is only for
+not change it. Read [`../AGENTS.md`](../../AGENTS.md) first — this file is only for
 work that touches the portal itself.
 
 ---
@@ -53,7 +53,7 @@ dependencies. Data lives in three Google Sheets, read through `Sheets.js`.
 | `assets/` | Icons and gate artwork consumed by the build |
 | `www/`, `.netlify/` | **Generated. Gitignored. Never edit** |
 | `aura-chat/` | Separate Python 3.12 / FastAPI service (live in production) — see §7 |
-| `docs/worklog.md` | **Why** things are the way they are. Append on every substantive change — see §7 |
+| `aura-chat/docs/worklog.md` | **Why** things are the way they are. Append on every substantive change — see §7 |
 | `docs/` | Architecture decisions and investigations |
 | `design_handoff_aura_key/` | Design references (HTML prototypes), not production code |
 
@@ -235,4 +235,4 @@ is high and deliberate.
    deployment**.
 4. Client change → `node dev/deploy.mjs --prod` as well, or installed phones
    keep the old shell.
-5. Substantive change → `docs/worklog.md` has an entry for it (§7).
+5. Substantive change → `aura-chat/docs/worklog.md` has an entry for it (§7).

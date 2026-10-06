@@ -3,10 +3,10 @@
 AI assistant for Aura Key Realty realtors. Reads the portal's project data over
 the existing Apps Script API; stores its own conversations.
 
-**New here? Read [how-it-works.md](../docs/aura-chat/how-it-works.md)** — the whole
+**New here? Read [how-it-works.md](docs/feature/aura-chat/how-it-works.md)** — the whole
 system from process start to a finished answer, with every file explained.
 Design rationale and rejected alternatives are in
-[architecture.md](../docs/aura-chat/architecture.md).
+[architecture.md](docs/feature/aura-chat/architecture.md).
 
 ## Run
 
@@ -59,7 +59,7 @@ in the architecture doc has quietly stopped being a one-file change.
 ## Endpoints
 
 All three take the realtor's own portal token as `Authorization: Bearer <token>`,
-except `/health`. See [`../docs/aura-chat/operations.md`](../docs/aura-chat/operations.md)
+except `/health`. See [`../docs/aura-chat/operations.md`](docs/feature/aura-chat/operations.md)
 for how to get one.
 
 | | |

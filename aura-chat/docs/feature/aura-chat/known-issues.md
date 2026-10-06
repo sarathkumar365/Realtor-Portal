@@ -7,7 +7,7 @@ One entry per defect. Each carries the symptom a realtor would see, the root
 cause in the code, a command that reproduces it, and the fix I would write. If
 an entry cannot be reproduced from a cold checkout, it is not finished.
 
-**This is not the worklog.** [worklog.md](../worklog.md) says why the code is the
+**This is not the worklog.** [worklog.md](../../worklog.md) says why the code is the
 way it is. This says where it is still wrong.
 
 When one is fixed: delete the entry, and put the reason in the worklog.

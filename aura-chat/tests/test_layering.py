@@ -14,15 +14,42 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1] / "app"
 
 
-def _imports(path: Path) -> list[str]:
-    tree = ast.parse(path.read_text())
+def _imports_in(source: str, package: str) -> list[str]:
+    """Every module imported, as an absolute name.
+
+    Relative imports are resolved against `package`, or `from ..chat import tools`
+    inside another capability would read as plain "chat" and slip past every rule.
+    """
     out: list[str] = []
-    for node in ast.walk(tree):
+    for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             out += [a.name for a in node.names]
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            out.append(node.module)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                out.append(node.module or "")
+                continue
+            base = package.split(".")[: len(package.split(".")) - (node.level - 1)]
+            if node.module:
+                out.append(".".join([*base, node.module]))
+            else:
+                # `from . import x`: x may be a submodule, so it is the import.
+                out += [".".join([*base, a.name]) for a in node.names]
     return out
+
+
+def _imports(path: Path) -> list[str]:
+    package = ".".join(("app", *path.relative_to(APP).parts[:-1]))
+    return _imports_in(path.read_text(), package)
+
+
+def test_relative_imports_are_seen_as_absolute():
+    """The rules below compare against `app.` names; a relative import must
+    reach them in that form."""
+    pkg = "app.capabilities.unbrander"
+    assert _imports_in("from ..chat.tools import x", pkg) == ["app.capabilities.chat.tools"]
+    assert _imports_in("from .. import chat", pkg) == ["app.capabilities.chat"]
+    assert _imports_in("from .adapters import pdf", pkg) == [f"{pkg}.adapters"]
+    assert _imports_in("from app.domain import Claims", pkg) == ["app.domain"]
 
 
 def _layer(name: str) -> list[Path]:

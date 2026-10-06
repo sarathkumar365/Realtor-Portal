@@ -49,14 +49,17 @@ Work F1, F8 and F4 first.
 
 ## Golden dataset
 
-- **Source:** the existing Unbranded Drive tree. Every project there is a pair: the builder
-  original and the staff-approved unbranded output. These are labels made by domain experts
-  already.
+- **Source:** real builder PDFs, labelled by Sudhanshu's team reviewing the agent's output
+  once from written instructions (pass or fail, what leaked, what was damaged). Where a
+  builder original and a staff-made unbranded version already exist (linked from an
+  `UNBRANDED` cell), that pair is used as a ready-made label. Revised 2026-10-06: the admin
+  team keeps no such tree in Drive, so pairs cannot be assumed.
 - **Size to start:** 30 documents — at least 8 price lists, 8 floor plans, 6 site plans,
   6 feature sheets, chosen across different builders.
 - **Per case:** original PDF, metadata, hit list, expected kept pages, expected dropped
   pages, and a note of any known hard element (monogram, QR, brand panel).
-- **Labeller:** Sudhanshu's team. The labelling UI is the approval screen itself.
+- **Labeller:** Sudhanshu's team. In U2 they review outputs as files (before and after
+  PDFs) with a written checklist; from U4 the approval screen is the labelling UI.
 
 ## Eval run
 

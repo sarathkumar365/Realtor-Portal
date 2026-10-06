@@ -13,6 +13,35 @@ formatting.
 
 ---
 
+## 2026-10-06 — Unbrander: spike phase U1 folded into U2
+
+The separate spike would have built the PDF tools as throwaway code just to test whether a
+model can drive them. The tools are needed in production anyway, so they are built once and
+the model is checked on the 3 real sample PDFs inside U2, before any pipeline or UI work (U3+).
+The risk the spike guarded against is still caught at the same point; only the throwaway code
+is gone. The golden set is labelled by Sudhanshu's team reviewing outputs once, since there
+are no stored branded/unbranded pairs to build it from. Phase numbers are kept so U8 and
+other references do not move.
+
+---
+
+## 2026-10-06 — Unbrander U0: Google access settled with the admin team
+
+The admin team keeps no unbranded documents in Drive today, so nothing is moved: output starts
+in a new Shared Drive, "Aura Agent". A Shared Drive is needed because a service account has
+no storage quota and cannot own files in anyone's My Drive; the folder the admin first shared
+(in a My Drive, open to anyone with the link) would fail with `storageQuotaExceeded`.
+
+Rejected: using the `office@aurakeyrealty.ca` login (it holds all final paperwork, so a shared
+password exposes every deal, breaks on 2-step verification, and makes every action look like
+the office's); a new paid Workspace user (licence cost, and its refresh token dies on a
+password change); the operator's 2Creative account (files would be owned outside Aura's
+Workspace and leave with the operator). The Cloud project is created with the company
+Workspace account so it sits under Aura's organisation. During development the operator's own
+login is used, against a test folder and a copy of the sheet only.
+
+---
+
 ## 2026-10-06 — Aura Chat becomes Aura Agent
 
 The product is now a realtor agent with several capabilities, aimed at automating the

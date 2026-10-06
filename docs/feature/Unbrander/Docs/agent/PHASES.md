@@ -6,8 +6,8 @@ that can be shown working. Do not start a phase before the one it depends on is 
 | Phase | Name | Depends on | Who |
 |---|---|---|---|
 | U0 | Prerequisites | — | Admin team + operator |
-| U1 | Spike: tools + models on real PDFs | U0 (sample PDFs, model key) | Engineering |
-| U2 | PDF tools, verify, golden set | U1 | Engineering + Sudhanshu's team (labels) |
+| U1 | *Folded into U2 (2026-10-06)* | — | — |
+| U2 | PDF tools, model check, verify, golden set | U0 (sample PDFs, model key) | Engineering + Sudhanshu's team (review) |
 | U3 | Pipeline to `FILED_PRIVATE` (dry run) | U2, U0 (Google access) | Engineering |
 | U4 | Admin app | U3 | Engineering |
 | U5 | Approve, publish, undo | U4 | Engineering |
@@ -15,61 +15,95 @@ that can be shown working. Do not start a phase before the one it depends on is 
 | U7 | Hardening and go-live | U6 | Engineering + operator |
 | U8 | Agent loop migration to LangChain / LangGraph | U7 | Engineering |
 
-U1 is a decision gate: if the tools or the models cannot produce a clean document, the
-design changes before U2 starts.
+U2 contains the decision gate (its model check): if the tools or the model cannot produce a
+clean document, the design changes before U3 starts.
 
 ---
 
 ## U0 — Prerequisites
 
-Nothing here is code. Most of it is done by the Workspace admin.
+Nothing here is code. Revised 2026-10-06 after talking to the admin team (Amarpreet).
 
-- Create a Shared Drive for Unbranded. Move **one** project folder into it first and check
-  that its existing link (in its `UNBRANDED` cell) still opens. Then move the rest of the
-  tree.
-- Create a Google Cloud project; enable the Drive API and the Sheets API.
-- Create a service account and a JSON key. Add it to the Shared Drive as Content manager.
-  Share the sheet with it as Editor. No domain-wide delegation.
-- Create a test folder inside the Shared Drive for dry runs (`drive.test_root_folder_id`).
-- Pick 3 real builder PDFs for the spike: one price list, one floor plan set, one site plan.
-- Confirm the branded originals exist next to the unbranded outputs (for the golden set).
-- Measure today's manual time per document (the outcome baseline in EVALUATION.md).
+**Asked of the admin team** (sent 2026-10-06):
 
-**Done when:** a short script using the service account key can list the Unbranded root and
-read the sheet's `UNBRANDED` column; the moved test folder's old link still opens.
+- Create a Shared Drive, "Aura Agent", and add the operator as Manager. *(Done; the operator
+  then created the `Unbranded` and `Test` folders — see Status below.)*
+- Once the operator sends the service account email: add it to the Shared Drive as Content
+  manager, and share the projects sheet with it as Editor.
+- 3 real builder PDFs (one price list, one floor plan set, one site plan), with how they are
+  unbranded by hand today and roughly how long each takes (the outcome baseline in
+  EVALUATION.md).
 
-## U1 — Spike: tools and models on real PDFs
+**Done by the operator:**
 
-Run locally, outside the service. Throwaway code, kept in `aura-chat/spikes/unbrander/`.
+- Create the Google Cloud project while signed in with the **company Workspace account**,
+  not a personal Gmail; or have the admin create it and add the operator as Owner. Enable the
+  Drive API and the Sheets API.
+- Create the service account and a JSON key. If the org policy
+  `iam.disableServiceAccountKeyCreation` blocks the key, ask the admin to allow it for this
+  project. No domain-wide delegation.
+- For local development, make a copy of the projects sheet. Until U3, dev runs with the
+  operator's own Google login, against the `Test` folder and the sheet copy only, never the
+  live sheet. Production uses only the service account.
 
-- First cut of the M2 tools (LOOP.md) on `pymupdf`: `render_page`, `get_text`,
-  `redact_terms`, `redact_rect`, `delete_image`, `drop_page`, `add_mark`, `verify`.
-  `replace_line` and `rebuild_price_list` only if a sample needs them.
-- A minimal tool-calling loop (PydanticAI, as in `agent_pydantic.py`) with the M2 prompt
-  adapted from the `unbrand-builder-docs` skill.
-- Run the 3 PDFs against 2–3 vision + tool-calling models through OpenRouter (for example
-  Gemini Flash, a Claude Sonnet, a GPT model).
+**Not needed:** moving existing folders. Staff keep no PDFs in Drive for this today, so new
+output starts in the new Shared Drive. Not used: the `office@` login, a new paid Workspace
+user, or a personal / 2Creative account (see the worklog).
 
-**Done when:** for each model, the 3 outputs are reviewed by Sudhanshu's team against what
-they produce today, and the following are written into a spike note: leaks found, damage
-found, tool calls, wall time and cost per document, and which tools were missing or
-unused. Outcome: a model shortlist and a confirmed tool list.
+**Status (2026-10-06):** Shared Drive "Aura Agent" created, operator is Manager. Layout:
 
-## U2 — PDF tools, verify, golden set
+```
+Aura Agent (Shared Drive)
+  ├─ Unbranded   output root
+  └─ Test        dry runs
+```
+
+| What | Drive ID | Config key |
+|---|---|---|
+| Shared Drive "Aura Agent" | `0AAos_9jUJ7hLUk9PVA` | `drive.shared_drive_id` |
+| `Unbranded` folder (output root) | `1JzHRpjdghrbd3eVZgeDpXB3-Xkx6z4JX` | `drive.root_folder_id` |
+| `Test` folder (dry runs) | `1HUH-DNChIiWnXF9KOjhszRDzBrI4Ucos` | `drive.test_root_folder_id` |
+
+Open: Cloud project, the drive's "people outside the organisation" setting (a service
+account counts as outside), service account and key, sheet copy, the 3 samples.
+
+**Done when:** a short script using the service account key can list the `Test` folder,
+upload a file into it, and read the `UNBRANDED` column of the sheet copy.
+
+## U1 — folded into U2
+
+Decided 2026-10-06. A separate throwaway spike was dropped: the PDF tools are needed for real
+anyway, so they are built once, in production shape, and the model is checked on real PDFs
+inside U2 before any pipeline or UI work. The risk the spike covered — the model cannot do
+the job — is still caught before U3. The number is kept so later phase numbers do not move.
+
+## U2 — PDF tools, model check, verify, golden set
 
 Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
 
-- PDF tools as a plain module with their guards (LOOP.md): no word outside the source, no
-  changed number, no near-full-page rect, render budget.
-- `verify()`: text sweep, word provenance, number integrity, metadata strip (AUTONOMY.md).
-- Unit tests on small fixture PDFs checked into `tests/` — no network.
-- Golden set: 30 documents from the existing branded/unbranded pairs (EVALUATION.md),
-  stored outside git.
-- Eval runner: code checks on every case; M3 visual judge per page. How the judge is graded
-  is decided at the start of this phase (INDEX.md open question 8).
+1. **Tools.** The M2 tools (LOOP.md) as a plain module with their guards: no word outside the
+   source, no changed number, no near-full-page rect, render budget. Start with
+   `render_page`, `get_text`, `redact_terms`, `redact_rect`, `delete_image`, `drop_page`,
+   `add_mark`; `replace_line` and `rebuild_price_list` only when a sample needs them. Unit
+   tests on small fixture PDFs checked into `tests/` — no network. Can start before the real
+   samples arrive.
+2. **`verify()`**: text sweep, word provenance, number integrity, metadata strip
+   (AUTONOMY.md).
+3. **Model check — the decision gate.** A minimal tool-calling loop with the M2 prompt
+   adapted from the `unbrand-builder-docs` skill, run on the 3 real sample PDFs with the
+   configured model (Gemini Flash via OpenRouter); a second model only if the first fails.
+   Sudhanshu's team reviews the outputs against what they produce by hand. Write a short
+   note: leaks, damage, tool calls, wall time and cost per document, tools missing or
+   unused. If the output is not clean, the design changes before U3.
+4. **Golden set.** About 30 real documents, reviewed once by Sudhanshu's team from
+   written instructions (pass or fail, what leaked, what was damaged). Their verdicts become
+   the labels; stored outside git. Staff do not re-review on every change — the eval runner
+   re-checks automatically.
+5. **Eval runner.** Code checks on every case; M3 visual judge per page. How the judge is
+   graded is decided at this point (INDEX.md open question 8).
 
-**Done when:** `pytest -q` is green, and the eval runner passes leak, integrity and
-provenance on every golden case with the chosen model.
+**Done when:** `pytest -q` is green; the model check passed; and the eval runner passes
+leak, integrity and provenance on every golden case with the chosen model.
 
 ## U3 — Pipeline to `FILED_PRIVATE` (dry run)
 

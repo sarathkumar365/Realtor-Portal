@@ -71,7 +71,7 @@ The "not sure" path is always: flag, show the page, let the human decide.
 
 | Budget | Limit | On breach |
 |---|---|---|
-| M2 tool calls per document | ~15 (from the skill; recalibrate after the spike) | Stop, report what is resisting |
+| M2 tool calls per document | ~15 (from the skill; recalibrate after the U2 model check) | Stop, report what is resisting |
 | Render passes per document | 2, plus a third for failed pages only | Stop |
 | Wall time per document | 10 minutes (PROPOSED) | `FAILED`, notify |
 | Retries | 1 targeted retry per failed check | Flag or block |

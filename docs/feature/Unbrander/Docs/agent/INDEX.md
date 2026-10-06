@@ -34,7 +34,7 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 | D14 | Admin app: **Vite + React + TypeScript**, its own Railway service | LOOP.md |
 | D15 | New ports `JobStore` (Postgres) and `GoogleWriter` (Drive + Sheets); the PDF tools are plain code, not a port. Worker runs inside the Aura Chat service | LOOP.md |
 | D16 | M2/M3 model chosen by the golden set: cheapest vision + tool-calling model with zero leaks, via OpenRouter | EVALUATION.md |
-| D17 | Google credential: a **service account**; the Unbranded tree moves into a **Shared Drive** with the service account as a member, and the sheet is shared with it as Editor | SECURITY.md |
+| D17 | Google credential: a **service account**; output is filed in a new **Shared Drive** ("Aura Agent") with the service account as a member — nothing is moved, and the sheet is shared with it as Editor | SECURITY.md |
 
 ## Documents
 
@@ -71,6 +71,6 @@ before the build.
 
 ## Build phases
 
-See [PHASES.md](PHASES.md): U0 prerequisites, U1 spike, U2 PDF tools and evals, U3 pipeline
+See [PHASES.md](PHASES.md): U0 prerequisites, U2 PDF tools, model check and evals (U1, the spike, folded into U2), U3 pipeline
 to `FILED_PRIVATE`, U4 admin app, U5 approve and publish, U6 metadata extraction, U7
 hardening, U8 agent loop migration to LangChain / LangGraph.

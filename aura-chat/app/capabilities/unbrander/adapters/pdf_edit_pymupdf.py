@@ -35,6 +35,7 @@ class PyMuPdfSession:
     def __init__(self, doc: "pymupdf.Document") -> None:
         self._doc = doc
         self.page_count = doc.page_count
+        self._drawn_on: dict[int, list[int]] | None = None
 
     def _page(self, page: int) -> "pymupdf.Page":
         return self._doc[page - 1]
@@ -47,13 +48,20 @@ class PyMuPdfSession:
         return [Word(text=w[4], bbox=tuple(w[:4])) for w in self._page(page).get_text("words")]
 
     def images(self, page: int) -> list[ImageRef]:
+        if self._drawn_on is None:
+            # Built once, rebuilt only after delete_image, which puts a new
+            # blank image on the page.
+            self._drawn_on = {}
+            for q in self._doc:
+                for xref in {i[0] for i in q.get_images(full=True)}:
+                    self._drawn_on.setdefault(xref, []).append(q.number + 1)
+        drawn_on = self._drawn_on
         p = self._page(page)
         out = []
-        for xref, *_ in p.get_images(full=True):
-            pages = [q.number + 1 for q in self._doc
-                     if any(i[0] == xref for i in q.get_images(full=True))]
+        # get_images lists an xref once per XObject that uses it; each placement once.
+        for xref in dict.fromkeys(i[0] for i in p.get_images(full=True)):
             for rect in p.get_image_rects(xref):
-                out.append(ImageRef(id=xref, bbox=tuple(rect), pages=pages))
+                out.append(ImageRef(id=xref, bbox=tuple(rect), pages=drawn_on[xref]))
         return out
 
     def render(self, page: int, dpi: int) -> bytes:
@@ -85,6 +93,7 @@ class PyMuPdfSession:
 
     def delete_image(self, page: int, image_id: int) -> None:
         self._page(page).delete_image(image_id)
+        self._drawn_on = None
 
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
         doc = self._doc
@@ -97,7 +106,10 @@ class PyMuPdfSession:
         for page in doc:
             for annot in list(page.annots()):
                 page.delete_annot(annot)
-        doc.scrub()  # info dict, catalog XMP, links, attachments, hidden text, JavaScript
+        # Info dict, catalog XMP, links, attachments, JavaScript. Hidden text stays:
+        # in a scanned brochure it is the OCR layer that makes prices searchable,
+        # and redact_terms has already taken the builder's names out of it.
+        doc.scrub(hidden_text=False)
         _strip_object_metadata(doc)
         _rename_layers(doc)
         try:
@@ -109,6 +121,9 @@ class PyMuPdfSession:
 
 
 def _wordmark(page: "pymupdf.Page", position: MarkPosition) -> None:
+    """Placed as the page is seen. page.rect is the rotated (visible) page, but
+    insert_text works in unrotated space, so each point is derotated and the
+    letters are turned with the page to read upright."""
     letters = [(ch, color) for word, color in MARK for ch in word]
     width = sum(pymupdf.get_text_length(ch, MARK_FONT, MARK_SIZE) + MARK_TRACKING
                 for ch, _ in letters) + MARK_SIZE * 0.5 * (len(MARK) - 1)
@@ -117,8 +132,9 @@ def _wordmark(page: "pymupdf.Page", position: MarkPosition) -> None:
     y = page.rect.height - MARGIN
     for word, color in MARK:
         for ch in word:
-            page.insert_text((x, y), ch, fontname=MARK_FONT, fontsize=MARK_SIZE,
-                             color=color, fill_opacity=MARK_OPACITY)
+            page.insert_text(pymupdf.Point(x, y) * page.derotation_matrix, ch,
+                             fontname=MARK_FONT, fontsize=MARK_SIZE, color=color,
+                             fill_opacity=MARK_OPACITY, rotate=page.rotation)
             x += pymupdf.get_text_length(ch, MARK_FONT, MARK_SIZE) + MARK_TRACKING
         x += MARK_SIZE * 0.5
 

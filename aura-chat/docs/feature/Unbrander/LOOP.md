@@ -105,8 +105,8 @@ Built so far (U2 step 1): every row above except `replace_line` and `rebuild_pri
 - A refused call raises `ToolRejected` before anything changes; the loop returns the reason
   to the model as the tool's error.
 - **`finish()` is code, not a model tool.** It saves the document, then strips the info
-  dict, the XMP (the catalog's and every object's), annotations, links, attachments, hidden
-  text and layer names. It hands `dropped_pages` and the removal log to `verify()` and the
+  dict, the XMP (the catalog's and every object's), annotations, links, attachments and layer
+  names. Hidden text stays: in a scan it is the OCR layer that keeps prices searchable. It hands `dropped_pages` and the removal log to `verify()` and the
   approver.
 
 There is no tool to run code, read files, or reach the network. Reference for tool shape:

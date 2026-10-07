@@ -82,6 +82,8 @@ def test_images_and_delete_image():
     [ref] = session.images(1)
     assert ref.bbox == pytest.approx((20, 20, 100, 60))
     session.delete_image(1, ref.id)
+    # The blank replacement is a new xref; images() must still know its pages.
+    assert all(i.pages == [1] for i in session.images(1))
     with pymupdf.open(stream=session.save(drop=[], mark=None)) as doc:
         pix = doc[0].get_pixmap(clip=pymupdf.Rect(30, 30, 90, 50))
         assert set(pix.samples) == {255}
@@ -95,6 +97,33 @@ def test_save_drops_pages_and_marks_every_kept_page_in_the_same_place():
         spots = [p.search_for("A")[-1] for p in doc]
         assert spots[0] == spots[1]
         assert spots[0].x0 > 450 and spots[0].y1 > 740
+
+
+def test_images_lists_each_placement_once_with_every_page_it_is_on():
+    doc = pymupdf.open()
+    first = doc.new_page(width=612, height=792)
+    xref = first.insert_image(pymupdf.Rect(20, 20, 100, 60), pixmap=logo_pixmap())
+    doc.new_page(width=612, height=792).insert_image(pymupdf.Rect(0, 0, 50, 50), xref=xref)
+    session = PyMuPdfEditor().open(doc.tobytes())
+    [ref] = session.images(1)
+    assert (ref.id, ref.pages) == (xref, [1, 2])
+
+
+def test_save_keeps_the_invisible_ocr_layer_of_a_scan():
+    def draw(doc, page):
+        page.insert_text((72, 100), "The Aspen $1,234,990", render_mode=3)
+    out = PyMuPdfEditor().open(build(draw)).save(drop=[], mark=None)
+    assert "$1,234,990" in page_text(out)
+
+
+@pytest.mark.parametrize("rotation", [90, 180, 270])
+def test_mark_sits_bottom_right_as_a_rotated_page_is_seen(rotation):
+    pdf = build(lambda d, p: p.set_rotation(rotation))
+    out = PyMuPdfEditor().open(pdf).save(drop=[], mark=MarkPosition.BOTTOM_RIGHT)
+    with pymupdf.open(stream=out) as doc:
+        page = doc[0]
+        seen = page.search_for("Y")[-1] * page.rotation_matrix  # the last letter
+        assert seen.x1 > page.rect.width - 60 and seen.y1 > page.rect.height - 60
 
 
 def test_save_strips_metadata_everywhere():

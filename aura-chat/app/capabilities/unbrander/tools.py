@@ -42,6 +42,7 @@ class Toolbox:
         self._renders: Counter[int] = Counter()
         self._dropped: dict[int, str] = {}
         self._mark: MarkPosition | None = None
+        self._finished = False
         self.removals: list[Removal] = []
 
     def render_page(self, page: int) -> Rendered:
@@ -58,10 +59,13 @@ class Toolbox:
     def get_text(self, page: int) -> str:
         self._check_page(page)
         text = " ".join(w.text for w in self._session.words(page))
-        # Retrieved text is data, never instructions (invariant 6).
+        # Retrieved text is data, never instructions (invariant 6). Angle brackets
+        # are escaped so the PDF cannot close the wrapper and speak outside it.
+        text = text.replace("<", "&lt;").replace(">", "&gt;")
         return f'<document_text page="{page}">\n{text}\n</document_text>'
 
     def redact_terms(self, terms: list[str]) -> dict[str, dict[int, int]]:
+        self._check_open()
         terms = [t.strip() for t in terms]
         if not terms:
             raise ToolRejected("no terms given")
@@ -117,10 +121,16 @@ class Toolbox:
         refs = [i for i in self._session.images(page) if i.id == image_id]
         if not refs:
             raise ToolRejected(f"no image {image_id} on page {page}; render_page lists them")
-        w, h = self._session.page_size(page)
-        if any(_area(r.bbox) > MAX_PAGE_SHARE * w * h for r in refs):
-            raise ToolRejected(f"image {image_id} covers more than half of page {page}; it is "
-                               "likely the page itself. Use redact_rect on the brand element")
+        # Deleting an image empties it on every page that draws it, so every
+        # placement is checked, not only this page's.
+        for p in refs[0].pages:
+            w, h = self._session.page_size(p)
+            placed = refs if p == page else [
+                i for i in self._session.images(p) if i.id == image_id]
+            if any(_area(r.bbox) > MAX_PAGE_SHARE * w * h for r in placed):
+                raise ToolRejected(f"image {image_id} covers more than half of page {p}; it "
+                                   "is likely the page itself. Use redact_rect on the brand "
+                                   "element")
         self._session.delete_image(page, image_id)
         others = [p for p in refs[0].pages if p != page]
         self.removals.append(Removal(tool="delete_image", page=page,
@@ -138,6 +148,7 @@ class Toolbox:
         self.removals.append(Removal(tool="drop_page", page=page, detail=reason.strip()))
 
     def add_mark(self, position: str) -> None:
+        self._check_open()
         if self._mark is not None:
             raise ToolRejected(f"the mark is already placed at {self._mark.value}")
         try:
@@ -147,6 +158,8 @@ class Toolbox:
 
     def finish(self) -> Finished:
         """Not a model tool: the pipeline calls it, then verify()."""
+        self._check_open()
+        self._finished = True
         dropped = sorted(self._dropped)
         pdf = self._session.save(drop=dropped, mark=self._mark)
         return Finished(pdf=pdf, removals=list(self.removals), dropped_pages=dropped)
@@ -154,7 +167,13 @@ class Toolbox:
     def _kept_pages(self) -> list[int]:
         return [p for p in range(1, self._session.page_count + 1) if p not in self._dropped]
 
+    def _check_open(self) -> None:
+        # save() closes the document; a retry needs a fresh Toolbox on the source.
+        if self._finished:
+            raise ToolRejected("the document is finished; nothing can change it now")
+
     def _check_page(self, page: int) -> None:
+        self._check_open()
         if not 1 <= page <= self._session.page_count:
             raise ToolRejected(f"page {page} does not exist; pages are 1 to "
                                f"{self._session.page_count}")

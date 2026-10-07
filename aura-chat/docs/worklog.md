@@ -43,6 +43,13 @@ check caught it as "FIED" and "PTIONAL". The fix leaves out 35% of the height at
 at the bottom. If a sample with tighter leading shows the same fragments, that number is the
 place to look.
 
+**From the review of the first version.** `get_text` escapes angle brackets, so a PDF that
+contains `</document_text>` cannot close the wrapper. `delete_image` checks the image's size on
+every page that draws it, because pymupdf empties the image everywhere. Tools refuse to run
+after `finish()`, since the document is closed. `scrub()` keeps hidden text: in a scanned
+brochure that is the OCR layer. The mark is placed in the page's visible orientation, so
+rotated pages get it bottom-right and upright.
+
 **`redact_terms` refuses a term that is not in the source's text layer.** It would remove
 nothing, and a model reaching for one is usually looking at drawn text, which needs
 `redact_rect`; the error tells it so.

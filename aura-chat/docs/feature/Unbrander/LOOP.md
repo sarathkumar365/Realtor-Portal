@@ -2,6 +2,7 @@
 
 Patterns applied: 2 (evolve architecture), 5 (parallelize carefully), 6 (share context).
 State: PROPOSED (defaults accepted by the operator; review before build).
+![alt text](image.png)
 
 ## Decision
 
@@ -47,16 +48,16 @@ Any step can move the job to `FAILED` (see OPERATIONS in SECURITY.md).
 
 ## Deterministic or model
 
-| Step | Kind | Why |
-|---|---|---|
-| Validate upload | Code | File type, size, page count, encryption are checkable |
-| M1 Extract metadata and classify documents | Model | Unstructured PDF text; output is a schema, confirmed by a human |
-| Confirm metadata | Human | A wrong builder name makes the unbrander miss the real branding |
-| M2 Unbrand | Model + code | Model judges what is branding and calls a named tool; the tool (`pymupdf`) removes it |
-| Verify (text, provenance, numbers, metadata) | Code | All four are exact comparisons; no judgement needed |
-| M3 Visual check | Model | Logos, monograms and QR codes are only visible in the render |
-| Folder create, upload, share, portal register | Code | Fixed rules from configuration |
-| Approve | Human | Last gate before public exposure |
+| Step                                          | Kind         | Why                                                                                   |
+| --------------------------------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| Validate upload                               | Code         | File type, size, page count, encryption are checkable                                 |
+| M1 Extract metadata and classify documents    | Model        | Unstructured PDF text; output is a schema, confirmed by a human                       |
+| Confirm metadata                              | Human        | A wrong builder name makes the unbrander miss the real branding                       |
+| M2 Unbrand                                    | Model + code | Model judges what is branding and calls a named tool; the tool (`pymupdf`) removes it |
+| Verify (text, provenance, numbers, metadata)  | Code         | All four are exact comparisons; no judgement needed                                   |
+| M3 Visual check                               | Model        | Logos, monograms and QR codes are only visible in the render                          |
+| Folder create, upload, share, portal register | Code         | Fixed rules from configuration                                                        |
+| Approve                                       | Human        | Last gate before public exposure                                                      |
 
 ## Structure
 
@@ -81,18 +82,18 @@ Each tool is a plain Python function in Aura Chat built on `pymupdf` (and `repor
 price lists). They carry the logic of the `unbrand-builder-docs` skill; the skill's prose
 becomes the M2 system prompt.
 
-| Tool | Does | Guard inside the tool |
-|---|---|---|
-| `render_page(page)` | 100 DPI image of one page, plus the ids and boxes of its images | At most 3 renders of any one page |
-| `get_text(page)` | Extracted text, delimited as data | — |
-| `redact_terms(terms[])` | Removes every whole-word match on every page (text only; plan line art kept) | Rejects a term not in the source's text layer; logs every removed match |
-| `redact_rect(page, box)` | Removes a logo, QR, monogram or brand panel | Rejects a box over half the page; reports and logs any other words it removed |
-| `delete_image(page, image_id)` | Removes one embedded image, on every page that draws it | Rejects an image over half the page (a flattened plan is one image); names the other pages |
-| `drop_page(page, reason)` | Removes a marketing-only page | Reason required; the last page cannot go; listed for the approver |
-| `replace_line(page, rect, text)` | Sentence repair after a removal | Rejects any word not in the source |
-| `add_mark(position)` | Aura Key mark, same position on every page | `bottom_right` or `bottom_centre`; once per document |
-| `rebuild_price_list(rows)` | House-style price list | Rejects any number not in the source |
-| `verify()` | Text sweep, raw-object sweep, OCR sweep (3 modes), number integrity, provenance, metadata strip, cover-up, page sizes (AUTONOMY.md) | Code only; results stored on the document record |
+| Tool                             | Does                                                                                                                                | Guard inside the tool                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `render_page(page)`              | 100 DPI image of one page, plus the ids and boxes of its images                                                                     | At most 3 renders of any one page                                                          |
+| `get_text(page)`                 | Extracted text, delimited as data                                                                                                   | —                                                                                          |
+| `redact_terms(terms[])`          | Removes every whole-word match on every page (text only; plan line art kept)                                                        | Rejects a term not in the source's text layer; logs every removed match                    |
+| `redact_rect(page, box)`         | Removes a logo, QR, monogram or brand panel                                                                                         | Rejects a box over half the page; reports and logs any other words it removed              |
+| `delete_image(page, image_id)`   | Removes one embedded image, on every page that draws it                                                                             | Rejects an image over half the page (a flattened plan is one image); names the other pages |
+| `drop_page(page, reason)`        | Removes a marketing-only page                                                                                                       | Reason required; the last page cannot go; listed for the approver                          |
+| `replace_line(page, rect, text)` | Sentence repair after a removal                                                                                                     | Rejects any word not in the source                                                         |
+| `add_mark(position)`             | Aura Key mark, same position on every page                                                                                          | `bottom_right` or `bottom_centre`; once per document                                       |
+| `rebuild_price_list(rows)`       | House-style price list                                                                                                              | Rejects any number not in the source                                                       |
+| `verify()`                       | Text sweep, raw-object sweep, OCR sweep (3 modes), number integrity, provenance, metadata strip, cover-up, page sizes (AUTONOMY.md) | Code only; results stored on the document record                                           |
 
 Built so far (U2 step 1): every row above except `replace_line` and `rebuild_price_list`, in
 `tools.py` over the `PdfEditor` port. Conventions:
@@ -180,4 +181,4 @@ Folder names, the root folder ID and the province list are configuration.
 1. Where site plans and feature sheets go in Drive (default above).
 2. Whether a job may contain documents for more than one project (default: no, one job = one
    project).
-4. How a job finds its project row when the project is not in the sheet yet.
+3. How a job finds its project row when the project is not in the sheet yet.

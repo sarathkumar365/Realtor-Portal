@@ -13,6 +13,42 @@ formatting.
 
 ---
 
+## 2026-10-07 — Unbrander M2 tools (U2 step 1)
+
+The tools the M2 model calls: `render_page`, `get_text`, `redact_terms`, `redact_rect`,
+`delete_image`, `drop_page`, `add_mark`, plus `finish()`, which is code. Each guard is inside
+its tool, so a wrong decision is refused in code, not left to the prompt.
+
+**A second port, `PdfEditor`**, next to `PdfInspector`. The guards (what may be removed, how
+much, how often) are policy and are tested pure, on an in-memory session; pymupdf mechanics
+stay in one adapter. Rejected: adding edit methods to `PdfInspector`, which would mix reading
+facts with changing the file under one port.
+
+**Boxes on a 0–1000 grid.** Gemini emits boxes on this grid natively, Claude handles it, and
+it doesn't depend on the render DPI. Rejected: render pixels (tied to the DPI) and PDF points
+(the model would convert by eye).
+
+**Drops and the mark wait for save().** If a page were deleted at once, every later page
+number would shift under the model mid-run. A mark added early could be removed by a later
+redaction.
+
+**Term matching moved to `domain/terms.py`.** The tools and `verify()` must find a term the
+same way, or verify would pass what the tools never looked for.
+
+**Text is redacted on the middle band of each word box only.** MuPDF removes every glyph
+whose box touches the redaction rect, and glyph boxes span the full line height. In the spike
+brochure, "BUY AN ARISTA" sits over "STAR® CERTIFIED" with overlapping line boxes, so
+redacting ARISTA's full box also took the "®" and "CERTI" below. `verify()`'s provenance
+check caught it as "FIED" and "PTIONAL". The fix leaves out 35% of the height at the top and
+at the bottom. If a sample with tighter leading shows the same fragments, that number is the
+place to look.
+
+**`redact_terms` refuses a term that is not in the source's text layer.** It would remove
+nothing, and a model reaching for one is usually looking at drawn text, which needs
+`redact_rect`; the error tells it so.
+
+---
+
 ## 2026-10-07 — Unbrander `verify()`, before any M2 tool
 
 `verify()` is the code gate between M2 and the human, and it comes first because every route

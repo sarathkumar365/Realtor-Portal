@@ -11,6 +11,7 @@ import unicodedata
 
 from .domain import (
     OCR_MODES,
+    SHORT,
     BBox,
     Check,
     Finding,
@@ -19,6 +20,7 @@ from .domain import (
     PdfFacts,
     Severity,
     VerifyReport,
+    term_pattern,
 )
 
 GENERIC = {
@@ -36,7 +38,6 @@ ALLOWED_NEW_WORDS = {"aura", "key", "realty", "vendor", "builder", "the"}
 # is two edits, more than the fuzzy match allows, so it is folded instead.
 OCR_FOLD = str.maketrans({"0": "o", "1": "l", "i": "l", "|": "l", "5": "s"})
 
-SHORT = 3        # below this a term matches only as a whole, case-sensitive word
 OCR_SQUASH = 5   # from this length OCR text is matched with spacing removed
 OCR_FUZZY = 6    # from this length one OCR edit is tolerated
 COVERED = 0.9    # share of a text or image box hidden by a later opaque fill
@@ -62,18 +63,6 @@ def verify(
     return VerifyReport(findings=findings)
 
 
-def _term_pattern(term: str, *, anchored: bool = True) -> re.Pattern:
-    """Tolerates one separator between any two characters, so "SouthCal" also
-    finds "South Cal", "South-Cal" and letter-spaced "S O U T H C A L"."""
-    if len(term) < SHORT:
-        return re.compile(rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])")
-    chars = [re.escape(c) for c in term if c.isalnum()]
-    body = r"[\s\-_.·]?".join(chars)
-    if anchored:
-        body = rf"(?<![A-Za-z0-9]){body}(?![A-Za-z0-9])"
-    return re.compile(body, re.IGNORECASE)
-
-
 def _page_text(page: PageFacts) -> tuple[str, list[int]]:
     starts, parts, pos = [], [], 0
     for w in page.words:
@@ -93,7 +82,7 @@ def _text_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
     text, starts = _page_text(page)
     out = []
     for term in terms:
-        for m in _term_pattern(term).finditer(text):
+        for m in term_pattern(term).finditer(text):
             out.append(Finding(
                 check=Check.TEXT_SWEEP, severity=Severity.RETRY, page=page.number,
                 detail=f"{term!r} in the text layer: {m.group()!r}",
@@ -120,7 +109,7 @@ def _raw_bytes(output: PdfFacts, terms: list[str]) -> list[Finding]:
     for term in terms:
         if len(term) < 4:
             continue
-        m = _term_pattern(term, anchored=False).search(output.object_text)
+        m = term_pattern(term, anchored=False).search(output.object_text)
         if m:
             a, b = max(m.start() - 30, 0), m.end() + 30
             out.append(Finding(

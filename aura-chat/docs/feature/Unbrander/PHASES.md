@@ -78,8 +78,9 @@ Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
    source, no changed number, no near-full-page rect, render budget. Start with
    `render_page`, `get_text`, `redact_terms`, `redact_rect`, `delete_image`, `drop_page`,
    `add_mark`; `replace_line` and `rebuild_price_list` only when a sample needs them. Unit
-   tests on small fixture PDFs checked into `tests/` — no network. Can start before the real
-   samples arrive.
+   tests on small PDFs built inside the tests — no binaries in git, no network. Done
+   2026-10-07: `tools.py` holds the guards; the PDF work is behind a second port,
+   `PdfEditor` (pymupdf adapter). Boxes are on a 0–1000 grid.
 2. **`verify()`** — built first, because every route needs it. Pure code over facts read
    through the `PdfInspector` port (pymupdf adapter): hit-list and generic text sweep,
    raw-object sweep, OCR in three modes, number integrity, word provenance, metadata strip,

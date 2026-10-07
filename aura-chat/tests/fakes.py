@@ -10,7 +10,7 @@ import hmac
 import time
 from collections.abc import AsyncIterator
 
-from app.capabilities.unbrander.domain import PdfFacts
+from app.capabilities.unbrander.domain import BBox, ImageRef, MarkPosition, PdfFacts, Word
 from app.domain import (
     Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
 )
@@ -202,3 +202,57 @@ class FakePdfInspector:
     def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts:
         self.calls.append((pdf, ocr))
         return self.facts[pdf]
+
+
+class FakeEditSession:
+    """Pages as word lists and image lists. Redaction removes the words whose
+    box it was given or that sit inside the area; every call is logged."""
+
+    def __init__(self, pages: list[list[Word]], images: dict[int, list[ImageRef]] | None = None,
+                 size: tuple[float, float] = (612, 792)) -> None:
+        self.pages = [list(p) for p in pages]
+        self.image_map = images or {}
+        self.size = size
+        self.page_count = len(pages)
+        self.calls: list[tuple] = []
+
+    def page_size(self, page: int) -> tuple[float, float]:
+        return self.size
+
+    def words(self, page: int) -> list[Word]:
+        return list(self.pages[page - 1])
+
+    def images(self, page: int) -> list[ImageRef]:
+        return list(self.image_map.get(page, []))
+
+    def render(self, page: int, dpi: int) -> bytes:
+        self.calls.append(("render", page, dpi))
+        return b"png"
+
+    def redact_text(self, page: int, boxes: list[BBox]) -> None:
+        self.calls.append(("redact_text", page, boxes))
+        self.pages[page - 1] = [w for w in self.pages[page - 1] if w.bbox not in boxes]
+
+    def redact_area(self, page: int, box: BBox) -> list[Word]:
+        self.calls.append(("redact_area", page, box))
+        def inside(w: Word) -> bool:
+            return (w.bbox[0] >= box[0] and w.bbox[1] >= box[1]
+                    and w.bbox[2] <= box[2] and w.bbox[3] <= box[3])
+        lost = [w for w in self.pages[page - 1] if inside(w)]
+        self.pages[page - 1] = [w for w in self.pages[page - 1] if not inside(w)]
+        return lost
+
+    def delete_image(self, page: int, image_id: int) -> None:
+        self.calls.append(("delete_image", page, image_id))
+
+    def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
+        self.calls.append(("save", drop, mark))
+        return b"%PDF-fake"
+
+
+class FakePdfEditor:
+    def __init__(self, session: FakeEditSession) -> None:
+        self.session = session
+
+    def open(self, pdf: bytes) -> FakeEditSession:
+        return self.session

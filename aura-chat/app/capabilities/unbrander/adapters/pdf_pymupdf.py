@@ -1,4 +1,5 @@
-"""PdfInspector over PyMuPDF. The only file that imports pymupdf or Pillow.
+"""PdfInspector over PyMuPDF. With pdf_edit_pymupdf.py, the only files that
+import pymupdf or Pillow.
 
 `import pymupdf`, never the legacy `fitz` alias.
 """

@@ -11,6 +11,8 @@ migration from one file into an archaeology exercise.
 import ast
 from pathlib import Path
 
+import pytest
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 
@@ -100,17 +102,17 @@ def test_only_the_container_constructs_adapters():
 CHAT = APP / "capabilities" / "chat"
 
 
-def test_tools_depend_only_on_domain_and_ports():
+@pytest.mark.parametrize("capability", ["chat", "unbrander"])
+def test_tools_depend_only_on_domain_and_ports(capability):
     """Written before tools.py exists, so it can never be true-by-accident."""
-    tools = CHAT / "tools.py"
+    tools = APP / "capabilities" / capability / "tools.py"
     if not tools.exists():
         return
-    allowed = (
-        "app.domain", "app.ports", "app.capabilities.chat.domain", "app.capabilities.chat.ports",
-    )
+    own = f"app.capabilities.{capability}"
+    allowed = ("app.domain", "app.ports", f"{own}.domain", f"{own}.ports")
     for mod in _imports(tools):
         if mod.startswith("app."):
-            assert mod.startswith(allowed), f"tools.py imports {mod}"
+            assert mod.startswith(allowed), f"{capability}/tools.py imports {mod}"
 
 
 def test_tools_have_no_redaction_step_of_their_own():

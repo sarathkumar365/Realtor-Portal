@@ -92,7 +92,7 @@ becomes the M2 system prompt.
 | `replace_line(page, rect, text)` | Sentence repair after a removal | Rejects any word not in the source |
 | `add_mark(position)` | Aura Key mark, same position on every page | Fixed positions only |
 | `rebuild_price_list(rows)` | House-style price list | Rejects any number not in the source |
-| `verify()` | Text sweep, provenance, number integrity, metadata strip | Results stored on the document record |
+| `verify()` | Text sweep, raw-object sweep, OCR sweep (3 modes), number integrity, provenance, metadata strip, cover-up, page sizes (AUTONOMY.md) | Code only; results stored on the document record |
 
 There is no tool to run code, read files, or reach the network. Reference for tool shape:
 [pdf-redaction-mcp](https://github.com/marc-hanheide/pdf-redaction-mcp) (MIT, inactive),

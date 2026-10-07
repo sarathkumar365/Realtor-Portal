@@ -13,6 +13,43 @@ formatting.
 
 ---
 
+## 2026-10-07 — Unbrander `verify()`, before any M2 tool
+
+`verify()` is the code gate between M2 and the human, and it comes first because every route
+needs it: our own tools, the Managed Agent, any model. It never reads the model's report. In
+the Managed Agent spike, Haiku's report claimed removals its PDF did not contain.
+
+**A port, `PdfInspector`, with one pymupdf adapter.** The adapter reads a PDF into plain facts
+(words, paint order, OCR text, metadata, object text); `verify()` is pure logic over two sets
+of facts. That keeps the checks testable without PDFs, and the M2 tools will read through the
+same adapter. Rejected: pymupdf inside `verify.py`, which would mix parsing with judgement and
+need real PDFs for every test.
+
+**Beyond the four checks AUTONOMY.md first listed**, each from something that happened:
+
+- *OCR in three modes, in v1.* White text on a teal panel shipped once; only pixels show it.
+  The "light" mode isolates light ink. OCR not run is a block, and the adapter raises
+  `OcrUnavailable` rather than returning empty text.
+- *Raw-object sweep, including metadata streams.* Running verify on the spike outputs found
+  Opus's PDF, which its grader passed, still carrying `SouthCal_DT 2001` and the designer's
+  `/Volumes/.../ARISTA/` paths in the XMP of eleven images. The first version skipped all
+  stream bodies and missed it.
+- *Cover-up.* An opaque box drawn over text or an image hides it without removing it; Haiku
+  did this twice. Only opaque fills count, so a translucent tint over a photo is not flagged.
+- *Whole-word matching.* "Inc" matched "include" in a field report's sweep.
+
+**Generic URLs and phones flag, not retry.** The brochure quotes a natural-resources.canada.ca
+Energy Star link. A builder's own URL carries its name, and the hit list catches it.
+
+**Provenance normalises with NFKC.** Sonnet's re-typeset text used ligatures (`ﬂ`) and a font
+whose `ti` ligature has no text mapping, so "exceptional" extracts as "excep onal" while it
+renders correctly. Those fragments stay as flags: the page looks right, but its text layer is
+damaged.
+
+**tesseract is not a Python dependency.** It is a system binary; the agent's startup and
+doctor script will install and check it. The OCR adapter test skips, with its reason, when it
+is absent. Dependencies added: `pymupdf`, `pillow`.
+
 ## 2026-10-06 — Chat moved into its own capability slice
 
 Aura Agent is one realtor agent with several capabilities. The code now says so: `app/` is

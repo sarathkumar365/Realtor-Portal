@@ -80,8 +80,11 @@ Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
    `add_mark`; `replace_line` and `rebuild_price_list` only when a sample needs them. Unit
    tests on small fixture PDFs checked into `tests/` — no network. Can start before the real
    samples arrive.
-2. **`verify()`**: text sweep, word provenance, number integrity, metadata strip
-   (AUTONOMY.md).
+2. **`verify()`** — built first, because every route needs it. Pure code over facts read
+   through the `PdfInspector` port (pymupdf adapter): hit-list and generic text sweep,
+   raw-object sweep, OCR in three modes, number integrity, word provenance, metadata strip,
+   cover-up, page integrity (AUTONOMY.md). `scripts/unbrand_verify.py` runs it on a real
+   pair by hand. OCR needs the tesseract binary, which the agent's startup script installs.
 3. **Model check — the decision gate.** A minimal tool-calling loop with the M2 prompt
    adapted from the `unbrand-builder-docs` skill, run on the 3 real sample PDFs with the
    configured model (Gemini Flash via OpenRouter); a second model only if the first fails.
@@ -109,6 +112,10 @@ leak, integrity and provenance on every golden case with the chosen model.
   writes only under the test root.
 - Admin-only API: create a job (upload + metadata typed by hand), get a job, list jobs.
 - Input guardrails, budgets, audit log, `unbrander.enabled` switch (SECURITY.md).
+- System dependencies: tesseract on Railway (`RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr`),
+  a local setup script (venv, pip install, `brew install tesseract`, `.env`), and a
+  tesseract check in `/doctor`, so a deploy without OCR fails at boot rather than at the
+  first PDF. verify() blocks every document when OCR cannot run.
 
 **Done when:** an upload by `curl` with an admin token produces a job that reaches
 `FILED_PRIVATE`, with the files in the test folder of the Shared Drive and every action in

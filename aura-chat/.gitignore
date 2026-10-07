@@ -10,3 +10,5 @@ __pycache__/
 # collected alongside the real one -- 34 errors quietly became 56.
 build/
 dist/
+# Local-only scratch: spikes, real builder PDFs, API keys. Never committed.
+.local/

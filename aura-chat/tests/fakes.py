@@ -10,6 +10,7 @@ import hmac
 import time
 from collections.abc import AsyncIterator
 
+from app.capabilities.unbrander.domain import PdfFacts
 from app.domain import (
     Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
 )
@@ -189,3 +190,15 @@ class FakeAgentRuntime:
 
     async def healthy(self) -> bool:
         return True
+
+
+class FakePdfInspector:
+    """Hands back facts given up front, keyed by the PDF bytes."""
+
+    def __init__(self, facts: dict[bytes, PdfFacts]) -> None:
+        self.facts = facts
+        self.calls: list[tuple[bytes, bool]] = []
+
+    def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts:
+        self.calls.append((pdf, ocr))
+        return self.facts[pdf]

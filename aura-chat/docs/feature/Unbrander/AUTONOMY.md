@@ -44,10 +44,15 @@ pass, fail or be unsure.
 
 | Check | Pass | Otherwise |
 |---|---|---|
-| Text sweep (hit list + generic terms) | Zero hits | One targeted retry, then flag |
+| Text sweep (hit list) | Zero hits, whole-word, including spaced and hyphenated variants | One targeted retry, then flag |
+| Text sweep (generic: URL, email, phone, domain) | — | Flag; brochures quote legitimate addresses too |
+| Raw-object sweep | No hit-list term in any object definition, layer name or metadata stream (each image can carry its own XMP) | One targeted retry, then flag |
+| OCR sweep | No hit-list term in the rendered page, in normal, inverted and light-ink modes | One targeted retry, then flag; OCR not run blocks |
 | Word provenance | Every output word exists in the source, except the Aura Key mark | Flag; never auto-fix |
 | Number integrity | Every number in the output exists in the source | Block the document |
-| PDF metadata strip | Title, author, subject, keywords, producer, XMP, links, annotations, embedded files cleared | Retry, then block |
+| PDF metadata strip | Title, author, subject, keywords, creator, producer, XMP, links, annotations, embedded files cleared | Retry, then block |
+| Cover-up | No opaque shape drawn over 90% or more of earlier text or an image | One targeted retry, then flag |
+| Page integrity | Kept pages keep their size; page count matches the declared drops | Flag |
 | Visual check (M3) | "No branding visible" and "plans intact" on every page | Fail or unsure → flag for the approver |
 
 Flags do not stop the job. They go to the approver, marked on the page they concern. A

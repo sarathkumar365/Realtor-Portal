@@ -15,3 +15,5 @@ pydantic>=2.9
 pydantic-settings>=2.6
 pydantic-ai-slim[openai]>=2.33
 asyncpg>=0.30
+pymupdf>=1.25
+pillow>=11

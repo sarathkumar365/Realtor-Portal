@@ -72,6 +72,11 @@ aura-chat/
         domain/            Turn, Feedback
         ports/             AgentRuntime, ConversationStore, DocumentIndex
         adapters/          agent_pydantic.py (PydanticAI), store_postgres.py, schema.sql
+      unbrander/
+        verify.py          the code gate after M2: compares source and cleaned PDF facts
+        domain/            PdfFacts, HitList, Finding, VerifyReport
+        ports/             PdfInspector
+        adapters/          pdf_pymupdf.py — the only file that imports pymupdf or Pillow
   tests/
     fakes.py           in-memory adapter per port — tests never touch the network
     test_layering.py   the architecture rules, enforced rather than remembered

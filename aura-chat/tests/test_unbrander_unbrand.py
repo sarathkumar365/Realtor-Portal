@@ -280,3 +280,32 @@ async def test_contacts_go_from_a_page_the_guards_keep_whatever_the_sort_said():
     done = await run(pdfs, models, 2)
     assert done.dropped_pages == []
     assert texts(pdfs, done.pdf) == ["From $899,990 call", "plan"]
+
+
+async def test_a_sort_term_is_not_swept_for_in_the_output():
+    """A short sort term ("ARISTA") matched OCR noise within one edit and failed a
+    clean brochure; the text layer's matches are removed by redact_terms anyway."""
+    class Noisy(FakePdfStore):
+        def inspect(self, pdf, *, ocr):
+            facts = super().inspect(pdf, ocr=ocr)
+            for page in facts.pages:
+                page.ocr = {mode: "earlrta lot" for mode in page.ocr}
+            return facts
+
+    pdfs = Noisy(SOURCE, [words("ARISTA Lot 12")])
+    models = FakeUnbrandModels(sorting("floor_plan", terms=["ARISTA"]))
+    done = await run(pdfs, models, 1)
+    assert done.report.passed and models.repaired == []
+
+
+async def test_a_page_whose_repair_proposes_nothing_is_not_asked_again():
+    """Bright Side floor plans: pages 7 and 9 answered nothing in round 1, then the
+    same refused removals in round 2, while another page kept the rounds going."""
+    pdfs = store("Lot 12", "SouthCal a")
+    models = FakeUnbrandModels(sorting("floor_plan", "floor_plan", terms=()),
+                               judge=lambda round_number, page: [leak(page.page)],
+                               repair={2: [RedactRect(page=2, box=(0, 0, 100, 100), why="logo")]})
+    done = await run(pdfs, models, 2, max_rounds=2)
+    assert [page for page, _ in models.repaired] == [1, 2, 2]
+    assert done.rounds == 3 and leak(1) in done.judge
+

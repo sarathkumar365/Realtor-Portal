@@ -61,7 +61,12 @@ def verify(
     hits: HitList,
     dropped_pages: list[int] | None = None,
     removals: list[Removal] | None = None,
+    removed_terms: list[str] | None = None,
 ) -> VerifyReport:
+    """`removed_terms` are names removed on purpose beyond the hit list (the
+    sort's): their absence is not damage. They are not swept for: a short one
+    such as "ARISTA" matched OCR noise ("earlrta") within one edit, and every
+    match in the text layer was removed by redact_terms anyway."""
     terms = hits.terms()
     findings: list[Finding] = []
     for page in output.pages:
@@ -73,7 +78,8 @@ def verify(
     findings += _provenance(source, output)
     findings += _metadata(output)
     findings += _pages(source, output, dropped_pages)
-    findings += _damage(source, output, terms, dropped_pages, removals or [])
+    findings += _damage(source, output, [*terms, *(removed_terms or [])], dropped_pages,
+                        removals or [])
     return VerifyReport(findings=findings)
 
 

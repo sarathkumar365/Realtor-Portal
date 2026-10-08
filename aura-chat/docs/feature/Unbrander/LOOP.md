@@ -128,8 +128,8 @@ Built in `app/capabilities/unbrander/unbrand.py`, with the model calls behind th
   approver; `passed` is the code checks alone. Repair stays a separate role from the judge
   (Sarath, 2026-10-08).
 - **A refused action** is recorded with the guard's reason and fed to the next repair.
-  A page whose repair actions were all refused is not repaired again: the model proposes
-  the same thing, and its problems go to the approver as they stand.
+  A page whose repair actions were all refused, or whose repair proposed nothing, is not
+  repaired again: the model proposes the same thing, and its problems go to the approver as they stand.
 - **Model tiers are settings** (`unbrander_sort_model`, `_pick_model`, `_judge_model`,
   `_repair_model`, and `unbrander_thinking` per role). The model check of 2026-10-08 chose
   Gemini 2.5 Flash to sort and Gemini 3.8 Flash with low thinking for the rest

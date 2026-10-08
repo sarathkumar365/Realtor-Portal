@@ -20,8 +20,11 @@ A review of the sort, pick, judge and repair pipeline found these, all fixed wit
 - **verify() did not know the sort's terms.** It had only the operator's hit list, so the
   removal of a name the sort found (a sales rep, "PRESENTATION CENTRE") was flagged as
   damage, and a sales office address would have blocked the document: its street number
-  is a lost word with a digit. The sort's terms now join the hit list for verify() and
-  the toolboxes of every round.
+  is a lost word with a digit. The sort's terms now excuse those words in the damage
+  check only. Adding them to the hit list was tried first and failed the brochure on the
+  rerun: the OCR sweep tolerates one edit from six letters, and "ARISTA" matched noise
+  ("earlrta") on two clean pages. Every text-layer match is removed by redact_terms, so
+  sweeping for them added nothing.
 - **A big coloured element could take a plan's lines with it.** An area removal takes
   every shape wholly inside it, and coloured elements may be up to half the page. Over an
   unlabelled part of a floor plan, nothing saw it: the text guard found no text and the
@@ -42,8 +45,10 @@ A review of the sort, pick, judge and repair pipeline found these, all fixed wit
 On the Bright Side site plan both repair rounds proposed boxes through the gradient
 horseshoe (known issue 17), the cut-through guard refused them both times, and the
 second round cost about a minute of apply, OCR and judging for nothing. A page whose
-repair actions were all refused now drops out of later repair rounds; when no other
-page needs work the rounds end. Its problems still reach the approver. The rule only
+repair actions were all refused now drops out of later repair rounds, and so does a
+page whose repair proposed nothing: on the floor-plan rerun pages 7 and 9 answered
+nothing in round 1 and the same refused removals in round 2. When no other page needs
+work the rounds end. Its problems still reach the approver. The rule only
 looks at repair actions, not the first pick: a refused pick says nothing about what a
 repair given the refusal reason might try.
 

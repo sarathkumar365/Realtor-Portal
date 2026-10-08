@@ -96,9 +96,6 @@ async def unbrand_document(
                  _sorted_actions(sorting, pages), pages)
     sorting = _with_contacts(sorting, source, kept)
     actions = _sorted_actions(sorting, pages)
-    # The sort's terms are names the verify checks must know too: removing a
-    # sales office address is not damage, and one left in the text is a leak.
-    hits = brief.hits.model_copy(update={"extras": [*brief.hits.extras, *sorting.terms]})
     picked = await _each(kept, lambda page: models.pick(brief, views[page]))
     actions += [action for page_actions in picked for action in page_actions]
     plan_seconds = time.monotonic() - started
@@ -110,17 +107,18 @@ async def unbrand_document(
     while True:
         rounds += 1
         clock = _Clock()
-        toolbox = Toolbox(editor.open(pdf), source, hits)
+        toolbox = Toolbox(editor.open(pdf), source, brief.hits)
         outcomes = [_apply(toolbox, action) for action in actions]
         done = toolbox.finish()
         clock.lap("apply")
         output = inspector.inspect(done.pdf, ocr=True)
-        report = verify(source, output, hits, dropped_pages=done.dropped_pages,
-                        removals=done.removals)
+        # Removing a sales office address the sort named is not damage.
+        report = verify(source, output, brief.hits, dropped_pages=done.dropped_pages,
+                        removals=done.removals, removed_terms=sorting.terms)
         clock.lap("verify")
         kept = [page for page in pages if page not in done.dropped_pages]
         removed = _removed(outcomes)
-        after = _views(Toolbox(editor.open(done.pdf), output, hits),
+        after = _views(Toolbox(editor.open(done.pdf), output, brief.hits),
                        list(range(1, len(kept) + 1)), numbering=kept,
                        marks={page: {number: ref for number, ref in elements[page].items()
                                      if number not in removed[page]} for page in kept})
@@ -148,6 +146,10 @@ async def unbrand_document(
             repaired = await _each(
                 failing, lambda page, views=by_page, found=problems: models.repair(
                     brief, views[page], found[page]))
+            # A repair that proposes nothing says nothing can fix the page;
+            # asking again got the refused removals back (Bright Side floor plans).
+            given_up |= {page for page, page_actions in zip(failing, repaired)
+                         if not page_actions}
             actions += [action for page_actions in repaired for action in page_actions]
             clock.lap("repair")
             finished = len(actions) == new_from  # nothing more to try

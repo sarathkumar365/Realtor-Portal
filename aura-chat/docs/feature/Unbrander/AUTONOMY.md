@@ -82,7 +82,7 @@ The "not sure" path is always: flag, show the page, let the human decide.
 | Wall time per document | 10 minutes (PROPOSED) | `FAILED`, notify |
 | Model output | sort 8k tokens; pick, judge and repair 2k each | A capped answer does not parse and is asked for once more |
 | Broken connection | 3 tries per call, 2 s then 5 s apart (on top of the SDK's own retry of network errors and 5xx) | The error goes up; the run fails as a General error |
-| Retries | Up to `unbrander_max_rounds` (2) repair rounds, failing pages only, driven by `retry` findings and the judge; a page whose last repair was refused whole is not repaired again | Flag or block |
+| Retries | Up to `unbrander_max_rounds` (2) repair rounds, failing pages only, driven by `retry` findings and the judge; a page whose last repair was refused whole, or proposed nothing, is not repaired again | Flag or block |
 | Documents per day | 30 (3× current volume) | Queue holds; alert the operator |
 | Model cost per document | Open — set after first measured runs | Alert |
 

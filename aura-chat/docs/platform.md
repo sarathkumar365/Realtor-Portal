@@ -27,6 +27,28 @@ More are added after Unbrander. Each one is a self-contained slice of the same s
 it shares auth, Postgres, the portal client and the admin app, and owns its tools, its
 pipeline and its tests.
 
+## Who the agent works for
+
+One deployment serves one organization (decided 2026-10-08). A second brokerage gets its
+own service and database, not a row in this one: serving several from one deployment
+would put an organization id on every table and query, and into the portal token and
+Client Mode, for a need nobody has yet.
+
+Who that organization is — its name, the assistant's name, its region and its brand mark
+— is one platform object, `Organization` in `app/domain/organization.py`, built in
+`container.py` and handed to every capability. No capability writes the brokerage's name,
+colours or font itself. Admins edit the profile from the admin app; until it is saved,
+defaults in code apply. Built in Unbrander phases U2b to U4
+([PHASES.md](feature/Unbrander/PHASES.md)).
+
+Three kinds of setting, kept apart:
+
+| Kind | Examples | Changed by | Lives in |
+|---|---|---|---|
+| Organization profile | name, region, brand mark | an admin, rarely | `organization` table, edited in the admin app |
+| Engineering settings | models, rounds, limits | a developer | `app/config.py` and the environment |
+| Per-job input | builder and project names | an admin, every job | the job record |
+
 ## How a capability is added
 
 1. **Design first**, in `aura-chat/docs/feature/<Name>/`, with the agent-design phases: whiteboard,

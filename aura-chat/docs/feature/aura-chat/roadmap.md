@@ -55,6 +55,9 @@ not on this list, that is a design decision — ask.
 | `app/agent.py` | 3 | The **only** file permitted to import an agent framework |
 | ~~`app/capabilities/chat/adapters/store_postgres.py`~~ | 4 | **written** — `ConversationStore` on Railway Postgres |
 | `app/capabilities/chat/adapters/docs_pgvector.py` | 5 | `DocumentIndex` |
+| `app/domain/organization.py` | U2b | `Organization` and `Brand`: who the agent works for, with today's values as defaults |
+| `app/ports/organization.py` | U3 | `OrganizationStore`: read and save the one organization profile |
+| `app/adapters/organization_postgres.py` | U3 | `OrganizationStore` on Postgres, one-row `organization` table |
 
 **`app/adapters/filters.py` was planned and deliberately not built.** Filtering
 became `app/domain/matching.py` (`matches`, `sort_key` — pure, source-agnostic,

@@ -13,6 +13,36 @@ formatting.
 
 ---
 
+## 2026-10-08 — Unbrander gate passed; one organization per deployment, as a platform profile
+
+**The U2 gate passed.** Sarath reviewed the four cleaned samples (brochure, floor plans,
+site plan, price list) by eye and judged them useful. U3 starts now, with the golden set
+and eval runner still open: they run alongside U3 and U4 and gate go-live, not the build.
+That is safe because nothing is published without an admin's approval, and the misses we
+know about (known issues 17–19) are flagged to the approver.
+
+**The organization the agent works for becomes platform configuration.** Its name,
+region and brand mark were written into capability code: the chat prompt and CLI, and in
+Unbrander the mark's words, colours and font, verify()'s allowed new words and the
+prompts. Four Unbrander files had to change together to change the mark; changing only
+the drawing would have made verify() block every document for new words. Sarath wants
+the brand editable from the admin app, and every later capability will need the same
+facts, so they become one platform object, `Organization`, built in phases: one object
+with defaults in code (U2b), a table and admin API (U3), a settings screen (U4).
+
+**One organization per deployment, not many in one.** Serving several brokerages from
+one deployment would need an organization id on every table and query, an organization
+in the portal's token, and Client Mode reworked, for a need nobody has. A second
+brokerage gets its own service and database. Keeping every name in the profile means a
+later move to many organizations is a schema and auth change, not a hunt through
+prompts.
+
+**Kept out of the profile:** where the mark goes (it follows the page type, so it stays
+an Unbrander rule), models and limits (engineering settings, `config.py`), and builder
+names (per job). Custom font files and logo images are left out until asked for: the
+base-14 PDF fonts need no embedding, and an image mark would need its own handling for
+size, transparency and verify().
+
 ## 2026-10-08 — Unbrander review fixes before the first commit of the new pipeline
 
 A review of the sort, pick, judge and repair pipeline found these, all fixed with tests:

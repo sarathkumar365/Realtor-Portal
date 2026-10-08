@@ -7,7 +7,8 @@ that can be shown working. Do not start a phase before the one it depends on is 
 |---|---|---|---|
 | U0 | Prerequisites | — | Admin team + operator |
 | U2 | PDF tools, model check, verify, golden set | — (real samples needed for the golden set) | Engineering + Sudhanshu's team (review) |
-| U3 | Pipeline to `FILED_PRIVATE` (dry run) | U2, U0 (Google access) | Engineering |
+| U2b | Organization profile (platform) | U2 steps 1–3 | Engineering |
+| U3 | Pipeline to `FILED_PRIVATE` (dry run) | U2 steps 1–3, U2b, U0 (Google access) | Engineering |
 | U4 | Admin app | U3 | Engineering |
 | U5 | Approve, publish, undo | U4 | Engineering |
 | U6 | Metadata extraction (M1) | U5 | Engineering |
@@ -17,6 +18,11 @@ that can be shown working. Do not start a phase before the one it depends on is 
 There is no U1: the separate spike was dropped on 2026-10-06 and its model check moved into
 U2 (see the worklog); the other numbers were kept. U2 contains the decision gate: if the
 tools or the model cannot produce a clean document, the design changes before U3 starts.
+
+The gate passed on 2026-10-08 (see U2 step 3). U3 then started with U2's golden set and
+eval runner (steps 4 and 5) still open; they run alongside U3 and U4, and go-live (U7)
+needs them. Every output waits for an admin's approval meanwhile, so a document the
+pipeline gets wrong is caught there rather than published.
 
 ---
 
@@ -96,7 +102,13 @@ Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
    the expected pages. Ask before spending on the bake-off.
    Done on the one sample, 2026-10-08 ([model-check.md](model-check.md)): sort on Gemini
    2.5 Flash, pick, judge and repair on Gemini 3.8 Flash with low thinking; a clean pass at
-   $0.069 and 115 s. Still to run on a price list and a site plan.
+   $0.069 and 115 s. Then run on the three Remington samples (floor plans, site plan,
+   price list): all four pass verify(). Sarath reviewed the four outputs by eye on
+   2026-10-08 and judged them useful, so **the gate passed** and the design stands. Left
+   as known issues, each flagged to the approver rather than fixed: a logo drawn as a
+   gradient (known issue 17), words lost above a removed name (18), and a watermark under
+   plan labels (19). The site-plan judge missed the gradient logos, so "passed" is not
+   "clean" — the approver still looks at every page.
    Sudhanshu's team reviews the outputs against what they produce by hand. Write a short
    note: leaks, damage, tool calls, wall time and cost per document, tools missing or
    unused. If the output is not clean, the design changes before U3.
@@ -109,6 +121,37 @@ Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
 
 **Done when:** `pytest -q` is green; the model check passed; and the eval runner passes
 leak, integrity and provenance on every golden case with the chosen model.
+
+## U2b — Organization profile (platform)
+
+Decided 2026-10-08. Aura Agent works for one organization per deployment; a second
+brokerage gets its own service and database (worklog, [platform.md](../../platform.md)).
+Who the agent works for — its name, region and brand — is today written into capability
+code: the chat system prompt, the CLI, and in Unbrander the mark's words, colours and
+font, verify()'s allowed new words and the prompts. This phase moves all of it into one
+platform object, so that later phases can make it editable without touching capabilities.
+
+- `app/domain/organization.py`: `Organization(name, short_name, assistant_name, region,
+  brand)` and `Brand(mark_words, font, size, tracking, opacity, margin)`, where each mark
+  word carries its colour. Pure Pydantic. The font is one of the PDF base-14 families
+  (Times, Helvetica, Courier); a custom font file and a logo image wait until someone
+  asks for them.
+- The defaults are today's values (AURA navy, KEY gold, REALTY navy; Times, 7.5 pt,
+  opacity 0.55, 36 pt margin), written once in that file. `container.py` builds the
+  profile at boot and hands it to each capability.
+- Chat: the system prompt and the CLI take the name, assistant name and region.
+- Unbrander: the adapter draws the mark from `Brand`; verify()'s allowed new words come
+  from the mark words, and the mark strip from the margin and size; the prompts take the
+  organization's name and mark text. Where the mark goes (bottom right on plans, bottom
+  centre otherwise) stays an Unbrander rule, not a brand setting: it follows the page
+  type, not the organization.
+- Tests: a profile with another name and mark reaches the chat prompt, the drawn mark and
+  verify()'s allowed words, and a document marked with it passes verify(). A test fails
+  if the brokerage's name appears in `app/` outside `organization.py`.
+
+**Done when:** `pytest -q` is green; the name, colours and font of the brokerage appear
+only in `organization.py`; and the existing cleaned outputs still pass
+`scripts/unbrand_verify.py` with the default profile. No live model run is needed.
 
 ## U3 — Pipeline to `FILED_PRIVATE` (dry run)
 
@@ -123,6 +166,14 @@ leak, integrity and provenance on every golden case with the chosen model.
 - `GoogleWriter` port with its adapter: create folders, upload, keep private. Dry-run mode
   writes only under the test root.
 - Admin-only API: create a job (upload + metadata typed by hand), get a job, list jobs.
+- The organization profile becomes editable (platform, not Unbrander): one-row
+  `organization` table — schema change, reviewed before it is applied —
+  `OrganizationStore` port with a Postgres adapter and a fake, and admin-only
+  `GET`/`PUT /admin/organization`. Read at boot and kept in memory; a save replaces it
+  in the running process. A save is validated: colours as hex, the font from the allowed
+  families, mark words as letters only. With no row, the defaults from U2b apply. Each
+  job stores a copy of the brand it was marked with, so a later change does not rewrite
+  how a past output is explained.
 - Input guardrails, budgets, audit log, `unbrander.enabled` switch (SECURITY.md).
 - System dependencies: tesseract on Railway (`RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr`),
   a local setup script (venv, pip install, `brew install tesseract`, `.env`), and a
@@ -141,6 +192,8 @@ Vite + React + TypeScript, its own Railway service (D14).
 - Screens: upload with the metadata form; job list (with stale jobs marked); job detail
   with before and after page images, flags on the pages they concern, dropped pages and
   removed items listed.
+- Organization settings screen: edit the profile from U3, with a preview of the mark
+  rendered by the service on a sample page before it is saved.
 - Aura Chat adds the new app's origin to `ALLOWED_ORIGINS`.
 
 **Done when:** an admin uploads a PDF in the app and reviews the resulting `FILED_PRIVATE`
@@ -172,7 +225,7 @@ without retyping.
 
 - Alerts (failed job, daily cap, eval gate failed), stale-job display.
 - Docs: `api.md`, `operations.md` (service account key rotation, volume, worker), and
-  `schema.md` for the `jobs` table.
+  `schema.md` for the `jobs` and `organization` tables.
 - Deploy both services; run a week with every publish approved; track the metrics in
   EVALUATION.md.
 

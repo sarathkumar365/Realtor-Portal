@@ -93,7 +93,9 @@ Output (must pass before `FILED_PRIVATE`):
 ## Operations
 
 **Where it runs:** inside Aura Chat on Railway. Jobs are rows in the Postgres `jobs` table;
-a worker in the same service claims them (`FOR UPDATE SKIP LOCKED`).
+a worker in the same service holds each job with a Postgres advisory lock on its own
+connection (D19), so a crashed worker's lock frees itself and two instances during a deploy
+never take the same job.
 
 **Trigger:** a UI upload creates a job. Later, a WhatsApp adapter creates the same job.
 
@@ -119,8 +121,22 @@ Model calls also log the model, prompt version, token count and cost.
 3. Move the output files to Drive trash (never hard-delete).
 4. Return the job to `AWAITING_APPROVAL` with the reason.
 
-**Retention:** keep source PDFs and outputs for the life of the project, so any published
-file can be traced back to its original.
+**Retention:** files on the volume (uploads, working copies, renders) are evicted
+`unbrander.retention_days` after the job ends (D20; default 30). A job waiting for a human
+keeps its files. The job row, its audit log and the Drive copies stay. The original upload
+goes too: Sarath accepted on 2026-10-07 that a published file can no longer be traced to its
+original after the retention period.
+
+**Model call log (dev only):** `scripts/unbrand_model_check.py` writes every model call to
+`.local/unbrand/.../calls.jsonl`: the prompt text (page text included, images replaced by
+their size) and the raw answer. `.local/` is gitignored and never leaves the machine. Not a
+hosted tracer: LangSmith would send builder pages to a third party. Production keeps the
+audit log in Postgres (U3).
+
+**Errors (D22):** General errors include model API errors. Transient ones (rate limit,
+timeout, 5xx) get a retry with backoff; permanent ones (auth, invalid request) move the job
+to `FAILED`. A model answer that does not fit its schema is dropped item by item, not
+retried. An answer with no usable list at all is asked for once more (LOOP.md).
 
 **Alerts to the operator:** job in `FAILED`, a reported leak, daily cap reached, eval gate
 failed.
@@ -135,10 +151,13 @@ drive.province_default            ("Ontario")
 drive.cities[]                    (allowed city folders)
 drive.subfolders.floor_plans      ("Floor Plans")
 limits.max_file_mb, limits.max_pages, limits.docs_per_day, limits.doc_timeout_min
+unbrander.retention_days          (30)
+unbrander_sort_model, unbrander_pick_model, unbrander_judge_model, unbrander_repair_model, unbrander_max_rounds
 intake.adapters[]                 (["ui"]; "whatsapp" later)
 ```
 
 ## Open questions
 
 Settled 2026-10-05/06: service account + Shared Drive; queue is Postgres; writes direct from Aura Chat; files on a Railway volume; PyMuPDF and reportlab;
-secrets are Railway environment variables and Script Properties, as today.
+secrets are Railway environment variables and Script Properties, as today. Settled 2026-10-07: the original upload is evicted with the rest; none open.
+

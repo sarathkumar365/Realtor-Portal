@@ -78,6 +78,12 @@ out. A failing check reported is worth more than a passing one implied.
 - **Everything crossing a boundary is a Pydantic model**, not a dict. Inside a
   module, a dataclass is fine.
 - **Ports are `async`.** An adapter that cannot be async still declares async.
+- **Names say what the thing is.** Plan and doc labels (stage ids like M2, phase ids like
+  U3, decision ids like D16) stay in the docs: in code, a file name, identifier or comment
+  says it in words, or names the doc ("see LOOP.md, Rejected"). No invented abbreviations
+  (`tb`, `cfg`, `res`). No single-letter names except `i`/`j` for a loop index and `_` for a
+  value thrown away, comprehensions and `except ... as error` included.
+  `tests/test_naming.py` enforces it (single letters: Unbrander only, so far).
 - **Docstrings explain why, and what breaks otherwise.**
   `app/adapters/auth_portal_hmac.py` and `app/diagnostics.py` are the standard:
   the reason a line exists, the failure it prevents, what was measured. A

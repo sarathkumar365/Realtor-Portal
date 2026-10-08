@@ -29,6 +29,10 @@ reasons are in the worklog.
 | [13](#13) | No proximity or landmark search | Low | "near Highway 413", "close to the GO" |
 | [14](#14) | A refused filter blames "the tool" and leaks internals | Medium | any unsupported word in a query |
 | [15](#15) | `schema.sql` is not in the built package | Low | only a run from the installed package, not from the source folder |
+| [16](#16) | Single-letter names outside Unbrander | Low | readability only |
+| [17](#17) | Unbrander cannot remove a logo drawn as a gradient fill | Medium | logos with gradient fills; one seen so far |
+| [18](#18) | Unbrander removing a name also removes the words above it, in some fonts | Medium | fonts with oversized glyph boxes; one price list so far |
+| [19](#19) | Unbrander cannot remove a watermark that sits under a plan's labels | Low | faint watermarks behind plan content |
 
 Data problems that are not code: [§ For Sudhanshu](#for-sudhanshu).
 
@@ -529,6 +533,107 @@ rm -rf build
   `schema.sql` cannot go missing the same way.
 
 ---
+
+<a id="16"></a>
+## 16. Single-letter names outside Unbrander
+
+**Symptom.** None for a realtor. A reader meets `p`, `r`, `m`, `e` in the platform and chat
+code and has to work out what each holds.
+
+**Root cause.** The naming rule (working-rules.md, Conventions) came in on 2026-10-07 with
+the Unbrander sweep. `tests/test_naming.py` checks single-letter names only under
+`app/capabilities/unbrander/` and `scripts/unbrand_*.py`, so the rest predates it.
+
+**Reproduce.** Widen `_single_letter_files()` in `tests/test_naming.py` to `APP.rglob("*.py")`
+and run `.venv/bin/python -m pytest -q tests/test_naming.py`.
+
+**Fix I would write.** Rename them file by file in one mechanical change, then widen the
+check to the whole of `app/` and `scripts/`.
+
+---
+
+<a id="17"></a>
+## 17. Unbrander cannot remove a logo drawn as a gradient fill
+
+**Symptom.** On the Bright Side site plan, the Remington logo at the presentation centre and
+the one under the locator map leave a gold or white horseshoe behind after `remove_element`.
+The judge did not report it.
+
+**Root cause.** Those horseshoes are shadings (the PDF `sh` operator) clipped to the logo's
+outline. A shading has no finite box: pymupdf's `get_bboxlog()` reports it as covering the
+whole plane. `apply_redactions` removes line art only when the box covers it
+(`REMOVE_IF_COVERED`), and nothing finite covers an infinite box. The other parts of the
+logo, ordinary filled paths, are removed. Clearing the map image under the logo does not
+help: the horseshoe is not in it.
+
+**Reproduce.**
+
+```bash
+cd aura-chat
+.venv/bin/python -I -c "
+import pymupdf
+page = pymupdf.open('.local/unbrand/remingtongropp/BrightSide-SITE-PLAN-NEW-9-LOTS-JULY-22-2026.pdf')[0]
+print(sum(kind == 'fill-shade' for kind, _ in page.get_bboxlog()), 'shadings')"
+```
+
+Then remove element 8 with `Toolbox.remove_element` and render around (700, 460, 840, 580).
+
+**Fix I would write.** Remove the shading operators whose clip lies inside the element's box,
+by editing the content stream: find each `sh` in the page's (and its forms') content,
+compute its clip from the path before `W n`, and drop the `q ... sh ... Q` group when that
+clip is inside the box. This is content-stream editing, which the skill warns against, so
+only if gradient logos turn out to be common.
+
+<a id="18"></a>
+## 18. Removing a name also removes the words above it, in some fonts
+
+**Symptom.** On the Bright Side price list, removing the sales rep "Louise Beck" also removed
+"By Appointment Only" on the line above. The damage check flags it (`damage`, flag).
+
+**Root cause.** MuPDF's redaction removes a character when its glyph box touches the
+redaction rectangle, and it takes the glyph box from the font's own metrics. In this font
+a glyph box is 55 points tall on 13.5-point lines, so it reaches into the lines above and
+below. Shrinking the rectangle to the middle of the word, using
+`TEXT_ACCURATE_BBOXES` boxes, or `TOOLS.set_small_glyph_heights(True)` all still remove the
+line above: the redaction's own decision ignores them.
+
+**Reproduce.**
+
+```bash
+cd aura-chat
+.venv/bin/python -I -c "
+import pymupdf
+page = pymupdf.open('.local/unbrand/remingtongropp/The-Bright-Side-NET-Price-LIst-Icewater-September-16-2026.pdf')[0]
+for word in page.get_text('words'):
+    if word[4] in ('Louise', 'Beck'):
+        page.add_redact_annot(pymupdf.Rect(word[:4]), fill=None)
+page.apply_redactions(images=0, graphics=0, text=0)
+print('Appointment' in page.get_text())"
+```
+
+It prints `False`.
+
+**Fix I would write.** After `redact_text`, find the source words lost that were not
+targeted (the damage check already lists them) and write them back with `insert_text` at
+their original baseline and size, in the closest base-14 font. It restores the words but
+not the original typeface, so only if this turns out to be common.
+
+<a id="19"></a>
+## 19. A watermark that sits under a plan's labels cannot be removed
+
+**Symptom.** On Bright Side floor plan pages 7, 9 and 14 the faint flower watermark stays;
+on pages 3 and 5 it is removed. The judge reports the ones left.
+
+**Root cause.** An area removal takes everything in its box: the text and every shape
+wholly inside it. Where plan labels or plan lines lie inside the watermark's box, removing
+it would take them too, and the text guard (or the cut-through guard on a box) refuses.
+pymupdf has no way to delete one drawing on its own.
+
+**Reproduce.** Run `scripts/unbrand_model_check.py` on the floor plans and read the refused
+`remove_element` outcomes for pages 7 and 9.
+
+**Fix I would write.** None worth its cost: deleting single drawings means editing the
+content stream. The watermark is faint and carries no name; the approver decides.
 
 ## For Sudhanshu — data, not code
 

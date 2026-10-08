@@ -21,6 +21,8 @@ class Check(StrEnum):
     METADATA = "metadata"
     COVER_UP = "cover_up"
     PAGES = "pages"
+    DAMAGE = "damage"  # source content gone that no action accounts for
+    VISUAL = "visual"  # a model judge looking at the output renders, not a code check
 
 
 class Severity(StrEnum):
@@ -40,11 +42,11 @@ class HitList(BaseModel):
 
     def terms(self) -> list[str]:
         seen: dict[str, str] = {}
-        for t in [self.builder, self.project, *self.short_forms, *self.extras]:
-            t = t.strip()
+        for entry in [self.builder, self.project, *self.short_forms, *self.extras]:
+            term = entry.strip()
             # A term with no letter or digit ("@", "—") would match everywhere.
-            if any(c.isalnum() for c in t):
-                seen.setdefault(t.lower(), t)
+            if any(char.isalnum() for char in term):
+                seen.setdefault(term.lower(), term)
         return list(seen.values())
 
 
@@ -62,4 +64,4 @@ class VerifyReport(BaseModel):
     @property
     def passed(self) -> bool:
         """Flags alone do not stop a document; they travel to the approver."""
-        return not any(f.severity is not Severity.FLAG for f in self.findings)
+        return not any(finding.severity is not Severity.FLAG for finding in self.findings)

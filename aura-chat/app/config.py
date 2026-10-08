@@ -19,6 +19,20 @@ class Settings(BaseSettings):
     llm_model: str = "google/gemini-2.5-flash"
     llm_max_tokens: int = 1500
 
+    # Unbrander's unbrand step: one model sorts the pages, then per page one picks
+    # elements to remove, one judges the output and one repairs what is left.
+    # Chosen by the model check of 2026-10-08 (docs/feature/Unbrander/model-check.md);
+    # the golden set confirms or changes them.
+    unbrander_sort_model: str = "google/gemini-2.5-flash"
+    unbrander_pick_model: str = "google/gemini-3.8-flash"
+    unbrander_judge_model: str = "google/gemini-3.8-flash"
+    unbrander_repair_model: str = "google/gemini-3.8-flash"
+    # Reasoning effort per role ("off", "low", "medium", "high"); a role not named
+    # keeps the model's default. Low thinking took 3.8 Flash's picks from two
+    # judge false alarms to none.
+    unbrander_thinking: dict[str, str] = {"pick": "low", "judge": "low", "repair": "low"}
+    unbrander_max_rounds: int = 2
+
     database_url: str = ""
 
     chat_per_hour: int = 60

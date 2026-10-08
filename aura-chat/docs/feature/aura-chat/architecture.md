@@ -57,7 +57,7 @@ Apps Script.
 
 ### Not chosen
 
-- **LangChain / LangGraph** — built for 300+ integrations and graph orchestration. This agent has 5 tools and one loop. Cost is debuggability: a misbehaving tool call means debugging their abstraction stack, not ours.
+- **LangChain / LangGraph** — built for 300+ integrations and graph orchestration. This agent has 5 tools and one loop. Cost is debuggability: a misbehaving tool call means debugging their abstraction stack, not ours. *(Revisited 2026-10-07: Unbrander's model calls use LangChain, behind the `UnbrandModels` port, and chat moves in U8. See the worklog.)*
 - **Raw `openai` SDK + hand-rolled loop** — ~100 lines, zero framework risk. Defensible; PydanticAI wins on streaming + multi-step tools + validation. If PydanticAI disappoints, this is the fallback and it is cheap.
 
 ---

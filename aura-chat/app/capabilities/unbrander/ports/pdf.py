@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from ..domain import BBox, ImageRef, MarkPosition, PdfFacts, Word
+from ..domain import BBox, ElementRef, MarkPosition, PdfFacts, Word
 
 
 class OcrUnavailable(RuntimeError):
@@ -34,10 +34,26 @@ class EditSession(Protocol):
         """The page as it stands now, not as it was."""
         ...
 
-    def images(self, page: int) -> list[ImageRef]: ...
+    def elements(self, page: int) -> list[ElementRef]:
+        """Every image placement and every group of nearby vector shapes, any
+        size. Which of them a model may pick is policy, in tools.py."""
+        ...
 
-    def render(self, page: int, dpi: int) -> bytes:
-        """PNG."""
+    def groups_covered(self, page: int, box: BBox) -> list[ElementRef]:
+        """The shape groups, of any size, with at least one drawing wholly inside
+        the box: the groups an area removal would take shapes from."""
+        ...
+
+    def shapes_cut(self, page: int, box: BBox) -> int:
+        """How many drawn shapes the box overlaps without covering, leaving out a
+        page-sized background: what an area removal would leave half drawn."""
+        ...
+
+    def render(self, page: int, dpi: int,
+               marks: list[tuple[int, BBox]] | None = None) -> bytes:
+        """JPEG: a 24-page brochure is 38 MB as PNG, over OpenRouter's 30 MB
+        image limit per request, and 7 MB as JPEG. Each mark is drawn on the
+        picture as a box with its number; the PDF is not touched."""
         ...
 
     def redact_text(self, page: int, boxes: list[BBox]) -> None:
@@ -45,10 +61,12 @@ class EditSession(Protocol):
         ...
 
     def redact_area(self, page: int, box: BBox) -> list[Word]:
-        """Removes everything in the box; returns the words that were in it."""
+        """Removes the text in the box, the shapes wholly inside it and the
+        images under it; returns the words that were in it. A shape the box only
+        touches stays: a brand panel behind a logo is not the logo. Raises
+        ToolRejected, before changing anything, when an image in the box cannot be
+        removed without damaging another the box only partly covers."""
         ...
-
-    def delete_image(self, page: int, image_id: int) -> None: ...
 
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
         """Adds the mark, drops pages, strips metadata, and writes the file."""
@@ -56,7 +74,7 @@ class EditSession(Protocol):
 
 
 class PdfEditor(Protocol):
-    """Opens a PDF for the M2 tools. A port, next to PdfInspector, so the tools'
+    """Opens a PDF for the unbrand tools. A port, next to PdfInspector, so the tools'
     guards are tested with a fake and pymupdf stays in one adapter."""
 
     def open(self, pdf: bytes) -> EditSession: ...

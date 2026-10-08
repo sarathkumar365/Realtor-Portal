@@ -27,7 +27,7 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 | D7 | Drive and sheet writes are made **directly by Aura Chat** through the Google Drive and Sheets APIs (revised 2026-10-06; Apps Script route dropped). Credential type depends on where the Unbranded tree lives | LOOP.md, SECURITY.md, `invariants.md` §2 |
 | D8 | PDF libraries: **PyMuPDF** (unmodified, AGPL-3.0) and **reportlab**. Later only if needed: pdfplumber, ocrmypdf | SECURITY.md |
 | D9 | UI is a **separate admin app** (the start of the Aura Agent UI), not the PWA | LOOP.md |
-| D10 | Agent loop stays on PydanticAI while Unbrander is built; **migration to LangChain / LangGraph is phase U8**, after go-live (2026-10-06) | PHASES.md |
+| D10 | Revised 2026-10-07: **Unbrander's model calls use LangChain now** (`langchain-openrouter`); chat stays on PydanticAI until **U8** moves it | PHASES.md |
 | D11 | Five-port cap lifted; new ports still need a stated reason | `AGENTS.md` |
 | D12 | Files between steps live on a **Railway volume** | SECURITY.md |
 | D13 | Project not in the sheet: the admin app asks the admin what to do | AUTONOMY.md |
@@ -35,6 +35,12 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 | D15 | New ports `JobStore` (Postgres) and `GoogleWriter` (Drive + Sheets); the PDF tools are plain code, not a port. Worker runs inside the Aura Chat service | LOOP.md |
 | D16 | M2/M3 model chosen by the golden set: cheapest vision + tool-calling model with zero leaks, via OpenRouter | EVALUATION.md |
 | D17 | Google credential: a **service account**; output is filed in a new **Shared Drive** ("Aura Agent") with the service account as a member — nothing is moved, and the sheet is shared with it as Editor | SECURITY.md |
+| D18 | The pipeline is a **Postgres state machine** (a `status` column, one step function per state), not a LangGraph graph (2026-10-07) | LOOP.md |
+| D19 | A job is held by a **Postgres advisory lock** on the worker's connection, not `FOR UPDATE SKIP LOCKED`; a dead worker's lock frees itself | LOOP.md |
+| D20 | Files on the volume are evicted after a job ends; the period is configurable, **30 days by default** | SECURITY.md |
+| D21 | A job carries the operator's **`instructions`**; they steer the models and never override a guard | LOOP.md, CONTEXT.md |
+| D22 | Errors are categorised; **model API errors are a sub-category of General errors** (transient: retry with backoff; permanent: `FAILED`) | SECURITY.md |
+| D23 | M2 is **plan, execute, judge, repair**: a strong model plans every action, code applies them, code checks and a model judge look at the result, a cheaper model repairs failing pages only. Revised 2026-10-08: **sort, pick, execute, judge, repair**, with elements found by code and picked by number | LOOP.md, CONTEXT.md |
 
 ## Documents
 
@@ -42,7 +48,8 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 |---|---|---|
 | 1. Whiteboard | [WHITEBOARD.md](WHITEBOARD.md) | Decided |
 | Build phases | [PHASES.md](PHASES.md) | Cut 2026-10-06 |
-| 2. Loop and architecture | [LOOP.md](LOOP.md) | Decided (D1–D17); details proposed |
+| Model check | [model-check.md](model-check.md) | One sample, 2026-10-08 |
+| 2. Loop and architecture | [LOOP.md](LOOP.md) | Decided (D1–D23); details proposed |
 | 3–4. Autonomy and decision rule | [AUTONOMY.md](AUTONOMY.md) | Proposed |
 | 5. Context | [CONTEXT.md](CONTEXT.md) | Proposed |
 | 6–7. Failure modes, metrics, evals | [EVALUATION.md](EVALUATION.md) | Proposed |

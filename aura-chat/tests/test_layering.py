@@ -68,7 +68,8 @@ def _capability(f: Path) -> str | None:
     return parts[1] if parts[0] == "capabilities" and len(parts) > 2 else None
 
 
-FORBIDDEN_IN_DOMAIN = ("fastapi", "httpx", "asyncpg", "pydantic_ai", "openai")
+AGENT_FRAMEWORKS = ("pydantic_ai", "langchain", "langgraph")
+FORBIDDEN_IN_DOMAIN = ("fastapi", "httpx", "asyncpg", "openai", *AGENT_FRAMEWORKS)
 
 
 def test_domain_imports_nothing_external():
@@ -86,7 +87,8 @@ def test_ports_declare_only_protocols():
         for mod in _imports(f):
             where = f.relative_to(APP)
             assert not _is_adapter(mod), f"{where} imports {mod}"
-            assert not mod.startswith(("httpx", "asyncpg", "pydantic_ai")), f"{where} imports {mod}"
+            assert not mod.startswith(("httpx", "asyncpg", *AGENT_FRAMEWORKS)), (
+                f"{where} imports {mod}")
 
 
 def test_only_the_container_constructs_adapters():
@@ -111,6 +113,7 @@ def test_tools_depend_only_on_domain_and_ports(capability):
     own = f"app.capabilities.{capability}"
     allowed = ("app.domain", "app.ports", f"{own}.domain", f"{own}.ports")
     for mod in _imports(tools):
+        assert not mod.startswith(AGENT_FRAMEWORKS), f"{capability}/tools.py imports {mod}"
         if mod.startswith("app."):
             assert mod.startswith(allowed), f"{capability}/tools.py imports {mod}"
 

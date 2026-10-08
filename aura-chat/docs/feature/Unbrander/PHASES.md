@@ -12,7 +12,7 @@ that can be shown working. Do not start a phase before the one it depends on is 
 | U5 | Approve, publish, undo | U4 | Engineering |
 | U6 | Metadata extraction (M1) | U5 | Engineering |
 | U7 | Hardening and go-live | U6 | Engineering + operator |
-| U8 | Agent loop migration to LangChain / LangGraph | U7 | Engineering |
+| U8 | Chat agent loop migration to LangChain / LangGraph | U7 | Engineering |
 
 There is no U1: the separate spike was dropped on 2026-10-06 and its model check moved into
 U2 (see the worklog); the other numbers were kept. U2 contains the decision gate: if the
@@ -86,9 +86,17 @@ Production code in Aura Chat. New dependencies `pymupdf` and `reportlab` (D8).
    raw-object sweep, OCR in three modes, number integrity, word provenance, metadata strip,
    cover-up, page integrity (AUTONOMY.md). `scripts/unbrand_verify.py` runs it on a real
    pair by hand. OCR needs the tesseract binary, which the agent's startup script installs.
-3. **Model check — the decision gate.** A minimal tool-calling loop with the M2 prompt
-   adapted from the `unbrand-builder-docs` skill, run on the 3 real sample PDFs with the
-   configured model (Gemini Flash via OpenRouter); a second model only if the first fails.
+3. **Model check — the decision gate.** M2 as sort, pick, execute, judge, repair (LOOP.md,
+   D23, revised 2026-10-08): `unbrand.py`, the `UnbrandModels` port and its LangChain adapter,
+   prompts adapted from the `unbrand-builder-docs` skill. `scripts/unbrand_model_check.py`
+   runs it on the real sample PDFs via OpenRouter, every role on Gemini 2.5 Flash first;
+   `--expect-pages` compares the pages kept with what a person kept. Then a bake-off per role
+   among cost-effective vision models with strict JSON schema on OpenRouter (Gemini 3.x
+   Flash, Claude Haiku, Qwen); each role gets the cheapest model with no leak, no damage and
+   the expected pages. Ask before spending on the bake-off.
+   Done on the one sample, 2026-10-08 ([model-check.md](model-check.md)): sort on Gemini
+   2.5 Flash, pick, judge and repair on Gemini 3.8 Flash with low thinking; a clean pass at
+   $0.069 and 115 s. Still to run on a price list and a site plan.
    Sudhanshu's team reviews the outputs against what they produce by hand. Write a short
    note: leaks, damage, tool calls, wall time and cost per document, tools missing or
    unused. If the output is not clean, the design changes before U3.
@@ -106,9 +114,12 @@ leak, integrity and provenance on every golden case with the chosen model.
 
 - `jobs` table and the job record (LOOP.md) — schema change, reviewed before it is applied.
 - `JobStore` port with its Postgres adapter and a fake in `tests/fakes.py`.
-- Worker inside the Aura Chat service: claims with `FOR UPDATE SKIP LOCKED`, one job at a
-  time, runs the states `RECEIVED` → `UNBRANDING` → `VERIFYING` → `FILED_PRIVATE`.
-- Files on the Railway volume (D12): uploads, working copies, before and after renders.
+- Worker inside the Aura Chat service: holds each job with a Postgres advisory lock (D19),
+  one job at a time, runs the states `RECEIVED` → `UNBRANDING` → `VERIFYING` →
+  `FILED_PRIVATE`. A step is a function of the job's status (D18), safe to rerun.
+- The job's `instructions` (D21) reach M2. Model API errors handled as General errors (D22).
+- Files on the Railway volume (D12): uploads, working copies, before and after renders;
+  evicted `unbrander.retention_days` (default 30) after the job ends (D20).
 - `GoogleWriter` port with its adapter: create folders, upload, keep private. Dry-run mode
   writes only under the test root.
 - Admin-only API: create a job (upload + metadata typed by hand), get a job, list jobs.
@@ -168,7 +179,7 @@ without retyping.
 **Done when:** a week of real use with zero published leaks, and the outcome metrics
 measured against the U0 baseline.
 
-## U8 — Agent loop migration to LangChain / LangGraph
+## U8 — Chat agent loop migration to LangChain / LangGraph
 
 Decided 2026-10-06; runs after Unbrander is live, so the migration has a working system and
 a golden set to be measured against.
@@ -177,8 +188,8 @@ a golden set to be measured against.
   directly. New dependency — approve before adding.
 - Chat agent: a new `AgentRuntime` adapter replaces `agent_pydantic.py`. The port, `tools.py`,
   domain and the SSE contract the PWA reads stay unchanged.
-- Unbrander: M1, M2 and M3 move to the same framework. The pipeline, the job states and the
-  Postgres queue stay as they are; only the model calls inside a step change.
+- Unbrander already uses LangChain for its model calls (D10, revised 2026-10-07); nothing
+  moves there. The pipeline stays a Postgres state machine (D18).
 - Remove PydanticAI once nothing imports it.
 
 **Done when:** `pytest -q` is green; the 50-question chat benchmark scores at least what it

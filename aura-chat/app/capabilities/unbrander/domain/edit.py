@@ -1,6 +1,7 @@
-"""What the M2 tools work with and what they leave on the record."""
+"""What the unbrand tools work with and what they leave on the record."""
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -19,10 +20,16 @@ class MarkPosition(StrEnum):
     BOTTOM_CENTRE = "bottom_centre"
 
 
-class ImageRef(BaseModel):
-    id: int  # the image's xref: one image drawn on several pages has one id
+ElementKind = Literal["image", "shapes", "coloured shapes"]
+
+
+class ElementRef(BaseModel):
+    """Something drawn on a page that can be removed whole: one placement of an
+    image, or a group of vector shapes close together (a logo, a monogram).
+    Found by code so a model never has to say where it is, only which it is."""
+
+    kind: ElementKind
     bbox: BBox
-    pages: list[int]  # every page that draws it, 1-based
 
 
 class Removal(BaseModel):
@@ -31,23 +38,36 @@ class Removal(BaseModel):
     tool: str
     page: int | None = None
     detail: str
+    area: BBox | None = None  # points; what an area action covered, so damage outside it shows
 
 
 Box = tuple[int, int, int, int]  # x0, y0, x1, y1 on a 0-1000 grid over the page
 
 
-class PageImage(BaseModel):
+class Element(BaseModel):
+    """An element as a model sees it: the number drawn on the render, and where."""
+
     id: int
+    kind: ElementKind
     box: Box
 
 
 class Rendered(BaseModel):
-    """What render_page hands the model: the picture, and the images on it so
-    delete_image has ids to name."""
+    """What render_page hands the model: the picture with each element's number
+    drawn on it, and the same elements as a list."""
 
     page: int
-    png: bytes
-    images: list[PageImage]
+    jpeg: bytes
+    elements: list[Element]
+
+
+class TermsResult(BaseModel):
+    """What redact_terms did: matches per term per page, and the terms it could
+    not find in the source's text layer. An absent term does not stop the
+    others: in a real run one wrong variant ("ARISTA’s") cancelled every name."""
+
+    counts: dict[str, dict[int, int]]
+    absent: list[str]
 
 
 class Finished(BaseModel):

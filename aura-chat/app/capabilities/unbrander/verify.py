@@ -1,4 +1,4 @@
-"""The code gate between M2 (clean) and the human.
+"""The code gate between the unbrand step and the human.
 
 Pure: compares the facts of the source PDF with the facts of the cleaned one and
 trusts nothing the model said about its own work. In the spike, Haiku's report
@@ -8,9 +8,12 @@ claimed removals its PDF did not contain.
 import bisect
 import re
 import unicodedata
+from collections import Counter
 
 from .domain import (
+    EMAIL,
     OCR_MODES,
+    PHONE,
     SHORT,
     BBox,
     Check,
@@ -18,6 +21,7 @@ from .domain import (
     HitList,
     PageFacts,
     PdfFacts,
+    Removal,
     Severity,
     VerifyReport,
     term_pattern,
@@ -25,8 +29,8 @@ from .domain import (
 
 GENERIC = {
     "url": re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE),
-    "email": re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),
-    "phone": re.compile(r"\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}\b"),
+    "email": EMAIL,
+    "phone": PHONE,
     "domain": re.compile(r"\b[\w-]+\.(?:com|ca|net|org|homes)\b", re.IGNORECASE),
 }
 
@@ -41,6 +45,14 @@ OCR_FOLD = str.maketrans({"0": "o", "1": "l", "i": "l", "|": "l", "5": "s"})
 OCR_SQUASH = 5   # from this length OCR text is matched with spacing removed
 OCR_FUZZY = 6    # from this length one OCR edit is tolerated
 COVERED = 0.9    # share of a text or image box hidden by a later opaque fill
+# The damage check's picture comparison. A pixel counts as changed when its gray
+# level moved by more than PIXEL_CHANGE; a page is flagged when more than
+# CHANGED_SHARE of it changed outside every removal. Anti-aliasing at the edge of
+# a removal moves a pixel or two, hence the slack around each area.
+PIXEL_CHANGE = 48
+CHANGED_SHARE = 0.002
+AREA_SLACK = 2.0     # points around each removal area
+MARK_STRIP = 50.0    # points at the bottom where the Aura Key mark goes
 
 
 def verify(
@@ -48,6 +60,7 @@ def verify(
     output: PdfFacts,
     hits: HitList,
     dropped_pages: list[int] | None = None,
+    removals: list[Removal] | None = None,
 ) -> VerifyReport:
     terms = hits.terms()
     findings: list[Finding] = []
@@ -60,15 +73,16 @@ def verify(
     findings += _provenance(source, output)
     findings += _metadata(output)
     findings += _pages(source, output, dropped_pages)
+    findings += _damage(source, output, terms, dropped_pages, removals or [])
     return VerifyReport(findings=findings)
 
 
 def _page_text(page: PageFacts) -> tuple[str, list[int]]:
     starts, parts, pos = [], [], 0
-    for w in page.words:
+    for word in page.words:
         starts.append(pos)
-        parts.append(w.text)
-        pos += len(w.text) + 1
+        parts.append(word.text)
+        pos += len(word.text) + 1
     return " ".join(parts), starts
 
 
@@ -82,21 +96,21 @@ def _text_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
     text, starts = _page_text(page)
     out = []
     for term in terms:
-        for m in term_pattern(term).finditer(text):
+        for match in term_pattern(term).finditer(text):
             out.append(Finding(
                 check=Check.TEXT_SWEEP, severity=Severity.RETRY, page=page.number,
-                detail=f"{term!r} in the text layer: {m.group()!r}",
-                bbox=_bbox_at(page, starts, m.start()),
+                detail=f"{term!r} in the text layer: {match.group()!r}",
+                bbox=_bbox_at(page, starts, match.start()),
             ))
     # A flag, not a retry: brochures quote legitimate addresses too (a
     # natural-resources.canada.ca Energy Star link, in the spike). A builder's own
     # URL carries the builder's name, and the hit list catches that above.
     for kind, pattern in GENERIC.items():
-        for m in pattern.finditer(text):
+        for match in pattern.finditer(text):
             out.append(Finding(
                 check=Check.TEXT_SWEEP, severity=Severity.FLAG, page=page.number,
-                detail=f"{kind} in the text layer: {m.group()!r}",
-                bbox=_bbox_at(page, starts, m.start()),
+                detail=f"{kind} in the text layer: {match.group()!r}",
+                bbox=_bbox_at(page, starts, match.start()),
             ))
     return out
 
@@ -109,12 +123,12 @@ def _raw_bytes(output: PdfFacts, terms: list[str]) -> list[Finding]:
     for term in terms:
         if len(term) < 4:
             continue
-        m = term_pattern(term, anchored=False).search(output.object_text)
-        if m:
-            a, b = max(m.start() - 30, 0), m.end() + 30
+        match = term_pattern(term, anchored=False).search(output.object_text)
+        if match:
+            start, end = max(match.start() - 30, 0), match.end() + 30
             out.append(Finding(
                 check=Check.RAW_BYTES, severity=Severity.RETRY,
-                detail=f"{term!r} inside the PDF's objects: {output.object_text[a:b]!r}",
+                detail=f"{term!r} inside the PDF's objects: {output.object_text[start:end]!r}",
             ))
     return out
 
@@ -127,17 +141,18 @@ def _squash(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", _fold(text))
 
 
-def _within_one_edit(a: str, b: str) -> bool:
-    if abs(len(a) - len(b)) > 1:
+def _within_one_edit(first: str, second: str) -> bool:
+    if abs(len(first) - len(second)) > 1:
         return False
-    if len(a) == len(b):
-        return sum(x != y for x, y in zip(a, b)) <= 1
-    if len(a) > len(b):
-        a, b = b, a
+    if len(first) == len(second):
+        return sum(first_char != second_char
+                   for first_char, second_char in zip(first, second)) <= 1
+    if len(first) > len(second):
+        first, second = second, first
     i = 0
-    while i < len(a) and a[i] == b[i]:
+    while i < len(first) and first[i] == second[i]:
         i += 1
-    return a[i:] == b[i + 1:]
+    return first[i:] == second[i + 1:]
 
 
 def _fuzzy_in(haystack: str, needle: str) -> bool:
@@ -145,15 +160,15 @@ def _fuzzy_in(haystack: str, needle: str) -> bool:
     one edit keeps one of the needle's two halves intact."""
     if needle in haystack:
         return True
-    n, half = len(needle), len(needle) // 2
+    needle_length, half = len(needle), len(needle) // 2
     for piece, offset in ((needle[:half], 0), (needle[half:], half)):
         at = haystack.find(piece)
         while at != -1:
             start = at - offset
-            for size in (n - 1, n, n + 1):
-                for s in (start - 1, start, start + 1):
-                    if 0 <= s and s + size <= len(haystack) and _within_one_edit(
-                        haystack[s:s + size], needle
+            for size in (needle_length - 1, needle_length, needle_length + 1):
+                for window_start in (start - 1, start, start + 1):
+                    if 0 <= window_start and window_start + size <= len(haystack) and (
+                        _within_one_edit(haystack[window_start:window_start + size], needle)
                     ):
                         return True
             at = haystack.find(piece, at + 1)
@@ -186,12 +201,13 @@ def _ocr_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
     return out
 
 
-def _area(b: BBox) -> float:
-    return max(b[2] - b[0], 0) * max(b[3] - b[1], 0)
+def _area(bbox: BBox) -> float:
+    return max(bbox[2] - bbox[0], 0) * max(bbox[3] - bbox[1], 0)
 
 
-def _overlap(a: BBox, b: BBox) -> float:
-    return _area((max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])))
+def _overlap(first: BBox, second: BBox) -> float:
+    return _area((max(first[0], second[0]), max(first[1], second[1]),
+                  min(first[2], second[2]), min(first[3], second[3])))
 
 
 def _cover_up(page: PageFacts) -> list[Finding]:
@@ -226,18 +242,19 @@ def _number_key(token: str) -> str:
 
 
 def _numbers_in(facts: PdfFacts) -> set[str]:
-    return {_number_key(t) for p in facts.pages for w in p.words for t in NUMBER.findall(w.text)}
+    return {_number_key(token) for page in facts.pages for word in page.words
+            for token in NUMBER.findall(word.text)}
 
 
 def _numbers(source: PdfFacts, output: PdfFacts) -> list[Finding]:
     known, out = _numbers_in(source), []
     for page in output.pages:
-        for w in page.words:
-            for token in NUMBER.findall(w.text):
+        for word in page.words:
+            for token in NUMBER.findall(word.text):
                 if _number_key(token) not in known:
                     out.append(Finding(
                         check=Check.NUMBERS, severity=Severity.BLOCK, page=page.number,
-                        detail=f"{token!r} is not in the source", bbox=w.bbox,
+                        detail=f"{token!r} is not in the source", bbox=word.bbox,
                     ))
     return out
 
@@ -249,12 +266,12 @@ def _word_key(text: str) -> str:
 
 
 def _provenance(source: PdfFacts, output: PdfFacts) -> list[Finding]:
-    known = {_word_key(w.text) for p in source.pages for w in p.words}
+    known = {_word_key(word.text) for page in source.pages for word in page.words}
     out = []
     for page in output.pages:
-        new = [w for w in page.words if _is_new(_word_key(w.text), known)]
+        new = [word for word in page.words if _is_new(_word_key(word.text), known)]
         if new:
-            listed = ", ".join(repr(w.text) for w in new[:20])
+            listed = ", ".join(repr(word.text) for word in new[:20])
             more = f" and {len(new) - 20} more" if len(new) > 20 else ""
             out.append(Finding(
                 check=Check.PROVENANCE, severity=Severity.FLAG, page=page.number,
@@ -271,7 +288,7 @@ def _is_new(key: str, known: set[str]) -> bool:
 
 
 def _metadata(output: PdfFacts) -> list[Finding]:
-    problems = [f"{k}={v!r}" for k, v in output.metadata.items() if v]
+    problems = [f"{field}={value!r}" for field, value in output.metadata.items() if value]
     if output.xmp.strip():
         problems.append("XMP metadata present")
     for name, count in (("annotations", output.annotations), ("links", output.links),
@@ -288,15 +305,112 @@ def _pages(source: PdfFacts, output: PdfFacts, dropped: list[int] | None) -> lis
         return Finding(check=Check.PAGES, severity=Severity.FLAG, detail=detail, page=page)
 
     gone = set(dropped or [])
-    kept = [p for p in source.pages if p.number not in gone]
+    kept = [page for page in source.pages if page.number not in gone]
     if len(kept) != len(output.pages):
         declared = f"{len(gone)} declared dropped" if dropped is not None else "none declared"
         return [flag(f"source has {len(source.pages)} pages, output {len(output.pages)}; "
                      f"{declared}")]
     out = []
-    for src, dst in zip(kept, output.pages):
-        if abs(src.width - dst.width) > 1 or abs(src.height - dst.height) > 1:
-            out.append(flag(f"size changed from {src.width:.0f}x{src.height:.0f} "
-                            f"(source page {src.number}) to {dst.width:.0f}x{dst.height:.0f}",
-                            dst.number))
+    for source_page, output_page in zip(kept, output.pages):
+        if abs(source_page.width - output_page.width) > 1 \
+                or abs(source_page.height - output_page.height) > 1:
+            out.append(flag(f"size changed from {source_page.width:.0f}x"
+                            f"{source_page.height:.0f} (source page {source_page.number}) to "
+                            f"{output_page.width:.0f}x{output_page.height:.0f}",
+                            output_page.number))
     return out
+
+
+def _damage(source: PdfFacts, output: PdfFacts, terms: list[str], dropped: list[int] | None,
+            removals: list[Removal]) -> list[Finding]:
+    """What the source had and the output lost, beyond the builder's names. Run 6
+    passed every other check while ten floor plans lost labels like "KITCHEN
+    8'0" x 13'0"": nothing compared what was there before."""
+    gone = set(dropped or [])
+    kept = [page for page in source.pages if page.number not in gone]
+    if len(kept) != len(output.pages):
+        return []  # _pages reports it; pages cannot be paired
+    areas: dict[int, list[BBox]] = {}
+    for removal in removals:
+        if removal.area is not None and removal.page is not None:
+            areas.setdefault(removal.page, []).append(removal.area)
+    out = []
+    for source_page, output_page in zip(kept, output.pages):
+        lost = _lost_words(source_page, output_page, terms)
+        if lost:
+            numbered = [word for word in lost if any(char.isdigit() for char in word.text)]
+            listed = ", ".join(repr(word.text) for word in lost[:20])
+            more = f" and {len(lost) - 20} more" if len(lost) > 20 else ""
+            # A lost dimension or price is lost information; a lost word may be a
+            # brand word the hit list does not name, so a person decides.
+            out.append(Finding(
+                check=Check.DAMAGE, severity=Severity.BLOCK if numbered else Severity.FLAG,
+                page=output_page.number,
+                detail=f"words gone from source page {source_page.number}: {listed}{more}",
+                bbox=(numbered or lost)[0].bbox,
+            ))
+        changed = _changed_outside(source_page, output_page, areas.get(source_page.number, []))
+        if changed:
+            share, bbox = changed
+            out.append(Finding(
+                check=Check.DAMAGE, severity=Severity.FLAG, page=output_page.number,
+                detail=f"{share:.1%} of source page {source_page.number} looks different outside "
+                       "every removal",
+                bbox=bbox,
+            ))
+    return out
+
+
+def _lost_words(source_page: PageFacts, output_page: PageFacts, terms: list[str]) -> list:
+    """Source words missing from the output, except what is meant to go: the
+    builder's names and contact details (URLs, emails, phones, domains). Any other
+    word counts, whichever tool took it: in run 7 a repair's redact_terms took the
+    model name "The Carson" and nothing noticed."""
+    text, starts = _page_text(source_page)
+    expected: set[int] = set()
+    matches = [match for term in terms for match in term_pattern(term).finditer(text)]
+    matches += [match for pattern in GENERIC.values() for match in pattern.finditer(text)]
+    for match in matches:
+        expected |= {i for i, start in enumerate(starts)
+                     if start < match.end()
+                     and start + len(source_page.words[i].text) > match.start()}
+    left = Counter(_word_key(word.text) for word in output_page.words)
+    lost = []
+    for i, word in enumerate(source_page.words):
+        key = _word_key(word.text)
+        if i in expected or not key:
+            continue
+        if left[key]:
+            left[key] -= 1
+        else:
+            lost.append(word)
+    return lost
+
+
+def _changed_outside(source_page: PageFacts, output_page: PageFacts,
+                     areas: list[BBox]) -> tuple[float, BBox] | None:
+    """The share of the page whose picture changed outside every removal area and
+    the mark's strip, and where, or None when it is under CHANGED_SHARE."""
+    before, after = source_page.thumbnail, output_page.thumbnail
+    if before is None or after is None or (before.width, before.height) != (
+            after.width, after.height):
+        return None
+    scale = before.width / source_page.width
+    masked = bytearray(before.width * before.height)
+    mark_strip = (0, source_page.height - MARK_STRIP, source_page.width, source_page.height)
+    for x0, y0, x1, y1 in [*areas, mark_strip]:
+        left = max(int((x0 - AREA_SLACK) * scale), 0)
+        right = min(int((x1 + AREA_SLACK) * scale) + 1, before.width)
+        for row in range(max(int((y0 - AREA_SLACK) * scale), 0),
+                         min(int((y1 + AREA_SLACK) * scale) + 1, before.height)):
+            start = row * before.width
+            masked[start + left:start + right] = b"\x01" * max(right - left, 0)
+    changed = [i for i, (old, new, hidden) in enumerate(zip(before.gray, after.gray, masked))
+               if not hidden and abs(old - new) > PIXEL_CHANGE]
+    share = len(changed) / len(masked)
+    if share <= CHANGED_SHARE:
+        return None
+    rows = [i // before.width for i in changed]
+    columns = [i % before.width for i in changed]
+    return share, (min(columns) / scale, min(rows) / scale,
+                   (max(columns) + 1) / scale, (max(rows) + 1) / scale)

@@ -73,11 +73,14 @@ aura-chat/
         ports/             AgentRuntime, ConversationStore, DocumentIndex
         adapters/          agent_pydantic.py (PydanticAI), store_postgres.py, schema.sql
       unbrander/
-        tools.py           the M2 tools and their guards. Imports domain + ports only
+        tools.py           the unbrand tools and their guards. Imports domain + ports only
+        unbrand.py         the unbrand step for one document: sort, pick, apply, judge, repair
+        prompts.py         the sort, pick, judge and repair prompts
         verify.py          the code gate after M2: compares source and cleaned PDF facts
-        domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py
-        ports/             PdfInspector, PdfEditor
+        domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py, actions.py
+        ports/             PdfInspector, PdfEditor, UnbrandModels
         adapters/          pdf_pymupdf.py, pdf_edit_pymupdf.py — the only files that import pymupdf or Pillow
+                           models_langchain.py — UnbrandModels over LangChain and OpenRouter
   tests/
     fakes.py           in-memory adapter per port — tests never touch the network
     test_layering.py   the architecture rules, enforced rather than remembered
@@ -179,6 +182,8 @@ Full rules, with the trigger and check for each:
 - **Don't build ahead of the current phase** — see
   [roadmap.md](aura-chat/docs/feature/aura-chat/roadmap.md). Later ports are declared so tools and
   tests can be written against them, not as an invitation to implement them.
+- **Names say what the thing is.** No plan labels (M2, U3, D16) in code, no
+  invented abbreviations, no single-letter names except `i`, `j`, `_`.
 - **Tests are `pytest` and never touch the network.** Every port has a fake in
   `tests/fakes.py`. Fixing a bug means adding the test that would have caught
   it, in the same change.

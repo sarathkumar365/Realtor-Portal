@@ -4,13 +4,17 @@ The regressions at the bottom are the leaks and false alarms the spike and the
 Claude-chat field reports actually hit.
 """
 
+import pytest
+
 from app.capabilities.unbrander.domain import (
     Check,
     HitList,
     PageFacts,
     Paint,
     PdfFacts,
+    Removal,
     Severity,
+    Thumbnail,
     Word,
 )
 from app.capabilities.unbrander.verify import verify
@@ -33,13 +37,17 @@ SOURCE = facts(page("SouthCal", "by", "Arista", "Homes", "Lot", "12", "Model", "
                     "includes", "9'", "ceilings", "Call", "905-555-0100"))
 
 
+# What redact_terms took out of SOURCE besides the names: the phone number.
+CONTACT = [Removal(tool="redact_terms", page=1, detail="phone", area=(130, 10, 139, 20))]
+KEPT = ("by", "Lot", "12", "Model", "A", "$1,234,567", "includes", "9'", "ceilings", "Call")
+
+
 def checks(report, check: Check):
     return [f for f in report.findings if f.check is check]
 
 
 def test_a_clean_output_passes():
-    out = facts(page("Lot", "12", "Model", "A", "$1,234,567", "includes", "9'", "ceilings"))
-    report = verify(SOURCE, out, HITS)
+    report = verify(SOURCE, facts(page(*KEPT)), HITS, removals=CONTACT)
     assert report.findings == []
     assert report.passed
 
@@ -77,7 +85,8 @@ def test_short_forms_match_only_as_a_whole_case_sensitive_word():
 def test_a_term_with_no_letters_or_digits_is_ignored():
     hits = HitList(builder="Arista Homes", project="SouthCal", extras=["@", " — ", ""])
     assert hits.terms() == ["Arista Homes", "SouthCal"]
-    assert verify(SOURCE, facts(page("Lot", "12"), object_text="<</A 1>>"), hits).findings == []
+    report = verify(SOURCE, facts(page(*KEPT), object_text="<</A 1>>"), hits, removals=CONTACT)
+    assert report.findings == []
 
 
 def test_raw_bytes_finds_names_inside_pdf_objects():
@@ -122,8 +131,8 @@ def test_numbers_compare_by_value_not_format():
 
 
 def test_an_invented_word_is_flagged_not_blocked():
-    report = verify(SOURCE, facts(page("Lot", "12", "luxurious", "vendor", "A", "U", "R", "A")),
-                    HITS)
+    report = verify(SOURCE, facts(page(*KEPT, "luxurious", "vendor", "A", "U", "R", "A")),
+                    HITS, removals=CONTACT)
     found = checks(report, Check.PROVENANCE)
     assert len(found) == 1 and "'luxurious'" in found[0].detail
     assert found[0].severity is Severity.FLAG
@@ -176,3 +185,83 @@ def test_inc_does_not_match_include():
     hits = HitList(builder="Arista Homes Inc", project="SouthCal", extras=["Inc"])
     out = facts(page("Lot", "includes", "9'", "ceilings"))
     assert checks(verify(SOURCE, out, hits), Check.TEXT_SWEEP) == []
+
+
+# Damage: what the source had and the output lost. Run 6 passed every other check
+# while floor plans lost their room labels and dimensions.
+
+def test_a_lost_dimension_blocks():
+    src = facts(page("KITCHEN", "8'0\"", "x", "13'0\"", "SouthCal"))
+    found = checks(verify(src, facts(page("KITCHEN")), HITS), Check.DAMAGE)
+    assert [f.severity for f in found] == [Severity.BLOCK]
+    assert "13" in found[0].detail and "SouthCal" not in found[0].detail
+
+
+def test_a_lost_label_is_flagged():
+    src = facts(page("MUD", "ROOM", "Lot"))
+    found = checks(verify(src, facts(page("Lot")), HITS), Check.DAMAGE)
+    assert [f.severity for f in found] == [Severity.FLAG] and "'MUD'" in found[0].detail
+
+
+def test_a_removed_builder_name_is_not_damage():
+    src = facts(page("Lot", "by", "Arista", "Homes", "SOUTHCAL’s"))
+    assert checks(verify(src, facts(page("Lot", "by")), HITS), Check.DAMAGE) == []
+
+
+def test_a_repeated_word_lost_once_is_still_damage():
+    src = facts(page("BEDROOM", "BEDROOM"))
+    assert len(checks(verify(src, facts(page("BEDROOM")), HITS), Check.DAMAGE)) == 1
+
+
+def picture(*dark: tuple[int, int, int, int], size=(61, 79)) -> Thumbnail:
+    """A white 61x79 thumbnail of a 612x792 page, with dark blocks in pixels."""
+    gray = bytearray(b"\xff" * size[0] * size[1])
+    for x0, y0, x1, y1 in dark:
+        for row in range(y0, y1):
+            gray[row * size[0] + x0:row * size[0] + x1] = b"\x00" * (x1 - x0)
+    return Thumbnail(width=size[0], height=size[1], gray=bytes(gray))
+
+
+def drawn(thumbnail: Thumbnail, *words: str) -> PageFacts:
+    return page(*words).model_copy(update={"thumbnail": thumbnail})
+
+
+def test_a_drawing_gone_outside_every_removal_is_flagged():
+    logo, wall = (50, 70, 56, 72), (0, 10, 30, 12)  # pixels, 10 points each
+    src = facts(drawn(picture(logo, wall), "Lot"))
+    out = facts(drawn(picture(), "Lot"))
+    inside = [Removal(tool="remove_element", page=1, detail="logo", area=(500, 700, 560, 720))]
+    found = checks(verify(src, out, HITS, removals=inside), Check.DAMAGE)
+    assert len(found) == 1 and found[0].severity is Severity.FLAG
+    assert found[0].bbox == pytest.approx((0, 100, 300, 120), abs=10)
+
+
+def test_a_drawing_gone_inside_a_removal_or_the_mark_strip_is_not_damage():
+    logo = (50, 70, 56, 72)
+    src = facts(drawn(picture(logo), "Lot"))
+    out = facts(drawn(picture((40, 76, 60, 78)), "Lot"))  # the mark, in the bottom strip
+    inside = [Removal(tool="remove_element", page=1, detail="logo", area=(500, 700, 560, 720))]
+    assert checks(verify(src, out, HITS, removals=inside), Check.DAMAGE) == []
+
+
+def test_without_pictures_there_is_no_picture_check():
+    assert checks(verify(facts(page("Lot")), facts(page("Lot")), HITS), Check.DAMAGE) == []
+
+
+def test_damage_pairs_pages_after_a_drop():
+    src = facts(page("cover"), page("MUD", "ROOM", number=2))
+    found = checks(verify(src, facts(page("MUD")), HITS, dropped_pages=[1]), Check.DAMAGE)
+    assert [(f.page, "source page 2" in f.detail) for f in found] == [(1, True)]
+
+
+def test_contact_details_gone_are_not_damage():
+    src = facts(page("Lot", "905-555-0100", "sales@arista.com", "www.southcal.ca"))
+    assert checks(verify(src, facts(page("Lot")), HITS), Check.DAMAGE) == []
+
+
+def test_a_model_name_taken_by_redact_terms_is_still_damage():
+    """Run 7: a repair's redact_terms took the model name "The Carson"."""
+    src = facts(page("THE", "CARSON", "ELEV.", "A"))
+    taken = [Removal(tool="redact_terms", page=1, detail="'The Carson'", area=(0, 10, 19, 20))]
+    found = checks(verify(src, facts(page("ELEV.", "A")), HITS, removals=taken), Check.DAMAGE)
+    assert len(found) == 1 and "'CARSON'" in found[0].detail

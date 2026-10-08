@@ -32,6 +32,17 @@ class Paint(BaseModel):
     opaque: bool = False
 
 
+class Thumbnail(BaseModel):
+    """The page rendered small in gray, one byte per pixel, row by row. The damage
+    check compares two of these: counting shapes does not work, because a
+    redaction rewrites the page and merges its drawing commands (2,137 paths
+    became 620 on a Bright Side floor plan that looked the same)."""
+
+    width: int
+    height: int
+    gray: bytes
+
+
 class PageFacts(BaseModel):
     number: int  # 1-based, as a human reads it
     width: float
@@ -39,6 +50,7 @@ class PageFacts(BaseModel):
     words: list[Word] = Field(default_factory=list)
     paint: list[Paint] = Field(default_factory=list)
     ocr: dict[str, str] = Field(default_factory=dict)  # mode -> text; empty when not run
+    thumbnail: Thumbnail | None = None
 
 
 class PdfFacts(BaseModel):

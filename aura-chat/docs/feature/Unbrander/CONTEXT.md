@@ -18,6 +18,16 @@ Three model calls; each gets only what it needs.
 
 ## M2 — Unbrand (per document, fresh context)
 
+Four steps (LOOP.md, D23). What each model call sees:
+
+| Call | Sees |
+|---|---|
+| Plan (strong model) | The rules prompt; the hit list; the operator's `instructions` in their own delimited block; every page's text (as data) and JPEG render, with its image list on the 0–1000 grid |
+| Judge (M3) | The hit list; the render of every output page. No text, no actions |
+| Repair (cheaper model) | The rules prompt; the hit list; the instructions; one output page's text and render; that page's problems (code findings, judge findings, refused actions) |
+
+The table below is the original design and still holds for what is excluded.
+
 | In | Excluded |
 |---|---|
 | A system prompt adapted from the `unbrand-builder-docs` skill (judgement rules only; its code moves into the tools); the M2 tool definitions (LOOP.md); confirmed metadata; the hit list; the document's extracted text; page renders at 100 DPI, fetched through `render_page`; reject notes on a re-run | Other documents, other jobs, Drive and portal tools, any code-execution tool, credentials, network |

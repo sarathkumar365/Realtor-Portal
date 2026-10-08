@@ -10,7 +10,21 @@ import hmac
 import time
 from collections.abc import AsyncIterator
 
-from app.capabilities.unbrander.domain import BBox, ImageRef, MarkPosition, PdfFacts, Word
+from app.capabilities.unbrander.domain import (
+    OCR_MODES,
+    Action,
+    BBox,
+    Brief,
+    ElementRef,
+    Finding,
+    MarkPosition,
+    PageFacts,
+    PageView,
+    PdfFacts,
+    Sorting,
+    Usage,
+    Word,
+)
 from app.domain import (
     Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
 )
@@ -205,13 +219,14 @@ class FakePdfInspector:
 
 
 class FakeEditSession:
-    """Pages as word lists and image lists. Redaction removes the words whose
+    """Pages as word lists and element lists. Redaction removes the words whose
     box it was given or that sit inside the area; every call is logged."""
 
-    def __init__(self, pages: list[list[Word]], images: dict[int, list[ImageRef]] | None = None,
+    def __init__(self, pages: list[list[Word]],
+                 elements: dict[int, list[ElementRef]] | None = None,
                  size: tuple[float, float] = (612, 792)) -> None:
         self.pages = [list(p) for p in pages]
-        self.image_map = images or {}
+        self.element_map = elements or {}
         self.size = size
         self.page_count = len(pages)
         self.calls: list[tuple] = []
@@ -222,12 +237,29 @@ class FakeEditSession:
     def words(self, page: int) -> list[Word]:
         return list(self.pages[page - 1])
 
-    def images(self, page: int) -> list[ImageRef]:
-        return list(self.image_map.get(page, []))
+    def elements(self, page: int) -> list[ElementRef]:
+        return list(self.element_map.get(page, []))
 
-    def render(self, page: int, dpi: int) -> bytes:
-        self.calls.append(("render", page, dpi))
-        return b"png"
+    def groups_covered(self, page: int, box: BBox) -> list[ElementRef]:
+        """Elements the box overlaps: each stands for a group of many drawings,
+        some of which may lie inside the box."""
+        return [ref for ref in self.element_map.get(page, [])
+                if ref.bbox[0] < box[2] and box[0] < ref.bbox[2]
+                and ref.bbox[1] < box[3] and box[1] < ref.bbox[3]]
+
+    def shapes_cut(self, page: int, box: BBox) -> int:
+        """Elements the box overlaps without covering."""
+        def overlaps(ref: ElementRef) -> bool:
+            return (ref.bbox[0] < box[2] and box[0] < ref.bbox[2]
+                    and ref.bbox[1] < box[3] and box[1] < ref.bbox[3])
+        def covered(ref: ElementRef) -> bool:
+            return (box[0] <= ref.bbox[0] and box[1] <= ref.bbox[1]
+                    and ref.bbox[2] <= box[2] and ref.bbox[3] <= box[3])
+        return sum(1 for ref in self.element_map.get(page, []) if overlaps(ref) and not covered(ref))
+
+    def render(self, page: int, dpi: int, marks: list[tuple[int, BBox]] | None = None) -> bytes:
+        self.calls.append(("render", page, dpi, marks))
+        return b"jpeg"
 
     def redact_text(self, page: int, boxes: list[BBox]) -> None:
         self.calls.append(("redact_text", page, boxes))
@@ -242,9 +274,6 @@ class FakeEditSession:
         self.pages[page - 1] = [w for w in self.pages[page - 1] if not inside(w)]
         return lost
 
-    def delete_image(self, page: int, image_id: int) -> None:
-        self.calls.append(("delete_image", page, image_id))
-
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
         self.calls.append(("save", drop, mark))
         return b"%PDF-fake"
@@ -256,3 +285,74 @@ class FakePdfEditor:
 
     def open(self, pdf: bytes) -> FakeEditSession:
         return self.session
+
+
+class FakePdfStore:
+    """PdfEditor and PdfInspector at once, over PDFs held as word lists by their
+    bytes. Every open() starts from what is stored, and save() stores a new PDF,
+    so a pipeline can replay from the source and inspect what it saved."""
+
+    def __init__(self, source: bytes, pages: list[list[Word]],
+                 elements: dict[int, list[ElementRef]] | None = None) -> None:
+        self.source = source
+        self.docs: dict[bytes, list[list[Word]]] = {source: pages}
+        self.elements = elements or {}
+        self.opened: list[bytes] = []
+
+    def open(self, pdf: bytes) -> FakeEditSession:
+        self.opened.append(pdf)
+        store = self
+
+        class Session(FakeEditSession):
+            def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
+                super().save(drop=drop, mark=mark)
+                out = f"out-{len(store.docs)}".encode()
+                store.docs[out] = [page for i, page in enumerate(self.pages, 1) if i not in drop]
+                return out
+
+        return Session(self.docs[pdf],
+                       elements=self.elements if pdf == self.source else {})
+
+    def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts:
+        pages = []
+        for number, words in enumerate(self.docs[pdf], 1):
+            text = " ".join(word.text for word in words)
+            pages.append(PageFacts(number=number, width=612, height=792, words=words,
+                                   ocr={mode: text for mode in OCR_MODES} if ocr else {}))
+        return PdfFacts(pages=pages)
+
+
+class FakeUnbrandModels:
+    """Scripted sort, pick, judge and repair. `pick` and `repair` map a source page
+    to the actions they return. `judge` is called with how many times that page
+    has been judged (1 in the first round) and the page it is shown."""
+
+    def __init__(self, sorting: Sorting, *, pick: dict[int, list[Action]] | None = None,
+                 judge=None, repair: dict[int, list[Action]] | None = None) -> None:
+        self._sorting = sorting
+        self._pick = pick or {}
+        self._judge = judge or (lambda round_number, page: [])
+        self._repair = repair or {}
+        self.usage = {role: Usage() for role in ("sort", "pick", "judge", "repair")}
+        self.briefs: list[Brief] = []
+        self.picked: list[int] = []
+        self.judged: list[int] = []
+        self.judge_views: list[PageView] = []
+        self.repaired: list[tuple[int, list[str]]] = []
+
+    async def sort(self, brief: Brief, pages: list[PageView]) -> Sorting:
+        self.briefs.append(brief)
+        return self._sorting
+
+    async def pick(self, brief: Brief, page: PageView) -> list:
+        self.picked.append(page.page)
+        return list(self._pick.get(page.page, []))
+
+    async def judge(self, brief: Brief, page: PageView) -> list[Finding]:
+        self.judged.append(page.page)
+        self.judge_views.append(page)
+        return self._judge(self.judged.count(page.page), page)
+
+    async def repair(self, brief: Brief, page: PageView, problems: list[str]) -> list[Action]:
+        self.repaired.append((page.page, problems))
+        return list(self._repair.get(page.page, []))

@@ -53,7 +53,8 @@ pass, fail or be unsure.
 | PDF metadata strip | Title, author, subject, keywords, creator, producer, XMP, links, annotations, embedded files cleared | Retry, then block |
 | Cover-up | No opaque shape drawn over 90% or more of earlier text or an image | One targeted retry, then flag |
 | Page integrity | Kept pages keep their size; page count matches the declared drops | Flag |
-| Visual check (M3) | "No branding visible" and "plans intact" on every page | Fail or unsure → flag for the approver |
+| Damage | No source word on a kept page gone except the builder's names and contact details (URL, email, phone, domain), whichever tool took it; no more than 0.2% of the page's picture changed outside every removal and the mark's strip | A lost word with a digit (a dimension, a price) blocks; other lost words and lost shapes flag |
+| Visual check (M3) | The judge reports no branding visible on any page | A finding drives a repair round; what is left after the last round goes to the approver. The judge never clears a code finding |
 
 Flags do not stop the job. They go to the approver, marked on the page they concern. A
 blocked document stops the job's publish until a human resolves it.
@@ -76,10 +77,12 @@ The "not sure" path is always: flag, show the page, let the human decide.
 
 | Budget | Limit | On breach |
 |---|---|---|
-| M2 tool calls per document | ~15 (from the skill; recalibrate after the U2 model check) | Stop, report what is resisting |
+| M2 model calls per document | 1 sort + 1 pick per kept page, 1 judge per kept page in the first round and per repaired page after, + 1 repair per failing page (D23) | Rounds stop at the limit; what is left goes to the approver |
 | Render passes per document | 2, plus a third for failed pages only: at most 3 renders of any one page, enforced in `render_page` | The call is refused |
 | Wall time per document | 10 minutes (PROPOSED) | `FAILED`, notify |
-| Retries | 1 targeted retry per failed check | Flag or block |
+| Model output | sort 8k tokens; pick, judge and repair 2k each | A capped answer does not parse and is asked for once more |
+| Broken connection | 3 tries per call, 2 s then 5 s apart (on top of the SDK's own retry of network errors and 5xx) | The error goes up; the run fails as a General error |
+| Retries | Up to `unbrander_max_rounds` (2) repair rounds, failing pages only, driven by `retry` findings and the judge; a page whose last repair was refused whole is not repaired again | Flag or block |
 | Documents per day | 30 (3× current volume) | Queue holds; alert the operator |
 | Model cost per document | Open — set after first measured runs | Alert |
 

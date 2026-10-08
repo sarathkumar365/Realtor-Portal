@@ -13,6 +13,262 @@ formatting.
 
 ---
 
+## 2026-10-08 — Unbrander review fixes before the first commit of the new pipeline
+
+A review of the sort, pick, judge and repair pipeline found these, all fixed with tests:
+
+- **verify() did not know the sort's terms.** It had only the operator's hit list, so the
+  removal of a name the sort found (a sales rep, "PRESENTATION CENTRE") was flagged as
+  damage, and a sales office address would have blocked the document: its street number
+  is a lost word with a digit. The sort's terms now join the hit list for verify() and
+  the toolboxes of every round.
+- **A big coloured element could take a plan's lines with it.** An area removal takes
+  every shape wholly inside it, and coloured elements may be up to half the page. Over an
+  unlabelled part of a floor plan, nothing saw it: the text guard found no text and the
+  damage check looks only outside removal areas. `remove_element` and `redact_rect` now
+  refuse an area that holds a drawing from the page's own drawing (a black or gray group
+  too big to offer). On the four samples it refuses nothing the models picked.
+- **An image logo beside a transparent image stayed and was reported removed.** pymupdf
+  takes one image mode per redaction; NONE, needed for the transparent image, also kept
+  the logo. That case is now refused before anything changes.
+- **Contacts on a page the guards kept were missed.** Phones and emails were taken from
+  the pages the sort marked keep, not the pages that stayed after a refused drop.
+- **The judge merged two elements with the same description**, so one waited a round.
+- **Every kept page was re-judged each round.** A replay changes only the pages a repair
+  acted on, so later rounds judge only those and reuse the rest.
+
+## 2026-10-08 — Unbrander stops repairing a page once every repair on it is refused
+
+On the Bright Side site plan both repair rounds proposed boxes through the gradient
+horseshoe (known issue 17), the cut-through guard refused them both times, and the
+second round cost about a minute of apply, OCR and judging for nothing. A page whose
+repair actions were all refused now drops out of later repair rounds; when no other
+page needs work the rounds end. Its problems still reach the approver. The rule only
+looks at repair actions, not the first pick: a refused pick says nothing about what a
+repair given the refusal reason might try.
+
+## 2026-10-08 — Unbrander on the Bright Side samples: four fixes, one known issue
+
+The first non-Arista samples (Remington's Bright Side: a 20-page floor-plan set, a site plan,
+a price list) sorted correctly and lost their logos, and showed four problems.
+
+**The damage check counted shapes, and redaction rewrites them.** A floor plan went from
+2,137 paths to 620 after one logo was removed and looked the same; every page was flagged.
+The check now compares a 36 DPI gray render of each kept page before and after, ignoring the
+removal areas and the strip where the mark goes, and flags a page when over 0.2% of it
+changed. Word loss is still checked word by word.
+
+**The price list kept its sales contact block.** The term matcher allowed only spaces,
+hyphens, dots and underscores between letters, so "sales@remingtonbrightside.ca" never
+matched, and with every term absent the whole `redact_terms` was refused. Any one
+non-alphanumeric character now separates. And code now adds every phone number and email on a
+kept page to the terms, as the skill's own hit list did: the sort had listed neither. The
+sales rep's name is still the sort's job.
+
+**Big decorative marks were never offered.** The faint flower watermark across the bottom of
+each floor plan is over 5% of the page, so it had no number, and a freehand box cut half of
+it away on one page. Shape groups up to half the page are now offered; the text guard keeps a
+floor plan of the same size, since it holds room labels. Drawings over half the page are left
+out of the grouping, so a page background no longer joins every shape into one group.
+
+**Then three more** (same day, after a rerun). Shapes are grouped by colour as well as
+distance: black and gray apart from coloured, so a pale watermark a few points from a black
+plan is its own element. Black and gray groups stay capped at 5% of the page, because a plan
+whose labels sit outside its lines has no text for the guard to see; coloured groups may be
+half the page. A `redact_rect` that cuts through a drawn shape is refused, since only shapes
+wholly inside go and a half-removed flower is worse than a whole one. And the words above a
+removed name that vanish with it are a MuPDF glyph-box limit, not fixable by a smaller
+rectangle (known issue 18); a watermark under plan labels cannot be taken alone (19).
+
+**Rejected after testing: clearing a transparent image under a logo.** The leftover
+Remington horseshoes on the site plan looked like part of the map image. Zeroing the image's
+soft mask under the logo cut a white hole in the park and left the horseshoe: it is a
+gradient fill clipped to the logo, which `apply_redactions` cannot remove (known issue 17).
+Rewriting the image's pixels with `replace_image` was worse: it lost the transparency and
+painted solid blocks.
+
+---
+
+## 2026-10-08 — Unbrander: sort pages, pick elements by number, check for damage
+
+Run 6 passed `verify()` and was still unusable: whole brand panels gone, black boxes on page
+3, the small "A" mark missed, repairs landing in the wrong place twice, and the "20'" badge
+text taken off ten floor plans. One cause under most of it: **models were asked to draw
+boxes.** Gemini Flash answers `[ymin, xmin, ymax, xmax]` whatever order is asked (and asking
+for x first makes its boxes worse); Pro's boxes drifted 40% when it saw 24 pages in one call;
+even at best Gemini scores about YOLOv3 level on COCO, and Claude's docs call its coordinates
+approximate. Loose boxes then needed `REMOVE_IF_TOUCHED`, which took every panel a box
+touched.
+
+**Code finds the elements, the model picks numbers.** Each page's image placements and
+groups of vector shapes (pymupdf's `cluster_drawings`, merged within 6 points because it
+split the ARISTA logo in two) are numbered on the render; a model answers with numbers and
+`remove_element` removes the element by its own outline, with `REMOVE_IF_COVERED`. This is
+set-of-mark prompting (Microsoft, 2023) and what Anthropic's tool guidance says: give the
+model ids, not raw values. On the brochure the SC monogram and the ARISTA logo are one
+element each, and the tiny "A" every model missed is on the list. A box stays as the last
+resort, asked for in Gemini's own axis order and turned around in the adapter.
+
+**Sort the pages first.** The skill's own output of the same brochure (made with the skill in
+Claude) kept 13 of 24 pages, the elevations and floor plans, removed two elements
+per page and lost no word. Our prompt dropped only pages that were "marketing and nothing
+else", so run 6 fought the cover, the award page and the portfolio. Now one call sorts every
+page by kind and keeps plans, elevations, site plans, price lists, feature sheets and terms
+(Sarath, 2026-10-08). Code ignores a drop of those kinds, and `drop_page` refuses a page with
+a room dimension or a price. The mark position follows from the kinds, not the model.
+
+**A damage check.** `verify()` compared names and numbers but not what was lost. Now every
+source word on a kept page must survive unless it is a builder name or `redact_terms` took
+it; a lost word with a digit blocks. Shapes and images gone outside every removal flag. On
+run 6's output it blocks ten floor plans and shows the "also removed" lists were wrong: the
+labels they named were still there.
+
+**The black boxes.** pymupdf's `delete_image` leaves a transparent stand-in, and blanking
+part of it by pixels painted it black. `delete_image` is gone (it also emptied the image on
+every page that drew it); an area removal deletes images wholly inside it and leaves a
+transparent image it only overlaps.
+
+**After run 7** (all Flash: the 13 expected pages, no logo left, $0.044, 157 s), two holes
+closed. A repair added `redact_terms` for "The Carson", a model name, and the damage check let
+it through because it trusted whatever `redact_terms` took. Now only the sort names text to
+remove, and the damage check expects only the builder's names and contact details to go.
+Also, the "also removed" lists were still false: rewriting a page moves unchanged words by
+about 1e-4 points, so lost words are now found by text, not by box.
+
+**The model bake-off** (model-check.md): nine runs, under $0.60 in all. Every model found
+every logo once elements were numbered; they differed only in what else they removed. Gemini
+2.5 Flash took the teal band and the "20' TOWNS" badge; Haiku 5.5 picked perfectly but used
+boxes on captions it misread; weak judges called model names branding and the repair boxed
+them out. Gemini 3.8 Flash with low thinking for pick, judge and repair, 2.5 Flash to sort,
+passed clean at $0.069 and 115 s, and those are now the defaults, with a per-role thinking
+setting. Thinking is chosen per role because it hurt Gemini 2.5 Flash's boxes and helped 3.8
+Flash's picks.
+
+**A text guard on area removals.** Every wrong removal in the bake-off was a box or an
+element over text that is content: a model name, a photo caption, the "20' TOWNS" badge. On
+the brochure none of the 16 builder elements holds any text, and almost every element that
+must stay does. Names in the text are removed by `redact_terms` before any area action, so
+`remove_element` and `redact_rect` now refuse an area that still holds any word that is not
+the builder's, before anything changes. A text-free element that should stay (the teal band
+on two elevation pages) is still the model's call.
+
+**Kept, considered and rejected.** Repair stays a separate role from the judge (Sarath).
+Rejected: snapping boxes to edges, OpenCV or a logo detector (the PDF already says where
+everything is), and editing content streams per path (pymupdf has no per-path delete). One
+plan call for the whole document is gone: slowest, dearest, least accurate. Models are
+settings per role, all Flash for now; a bake-off chooses (PHASES.md).
+
+---
+
+## 2026-10-07 — Unbrander: the three failures of live run 5
+
+The call log made each cause visible.
+
+**One wrong term cancelled all text removal.** The planner sent seven terms in one
+redact_terms, including `ARISTA’s`, which the text layer does not have. The guard refused the
+whole call, so "Arista Homes" and "SouthCal" stayed on every page: 51 verify findings and a
+repair on most pages. redact_terms now removes the terms it finds and reports the rest; it
+still refuses when none is found. The prompt also says matching already ignores case and
+tolerates separators, so variants are not needed. Considered and rejected: code removing the
+hit list itself (a project name can be a street name that must stay), and having the model
+call a "remove known names" action with exceptions (more tools for a problem the smaller fix
+solves).
+
+**The judge looped.** Flash at temperature 0 wrote one leak thousands of times until its 65k
+output limit: 269 s, $0.17, unparseable. Output is now capped per role, so a loop fails in
+seconds and the existing retry asks again; leaks are deduplicated; the prompt asks for each
+element once per page. Temperature stays 0.
+
+**A network blip ended the run.** `ssl.SSLError: BAD_RECORD_MAC` on a call that lasted 0.05 s,
+likely a stale pooled connection. The OpenRouter SDK retries `httpx.NetworkError` and
+timeouts only, and httpcore had not wrapped this one. The adapter now retries broken
+connections itself, 3 tries; any other error still raises.
+
+---
+
+## 2026-10-07 — Unbrander model calls survive bad answers; plain names in code
+
+**Strict JSON schema over function calling.** The fourth live run died after 15 minutes
+because Gemini Flash, as judge, answered in prose instead of filling the form; an earlier
+run got a box written as a string. Function calling only asks the model to call a
+form-shaped tool. `method="json_schema", strict=True` makes the provider constrain
+generation to the schema, and OpenRouter lists it for both Gemini models. The schemas became
+strict-compatible (every field required, nullable where optional, no extra fields). The
+item-by-item validation stays, for answers with the right shape and a wrong meaning.
+
+**Retry once, then degrade by role.** A plan with no answer fails the job: there is nothing
+to apply. A repair with no answer adds nothing and its problems stay in the report. A judge
+with no answer becomes one `block` finding, because the output exists and verify() has run;
+a person looks at the pages instead of the run being thrown away.
+
+**A local call log, not LangSmith.** LangSmith is a hosted service: builder pages and text
+would go to a third party, retention is short on the base plan, and it is a new service to
+agree. Langfuse or Phoenix would be a new service to run. A LangChain callback (`CallLog`)
+that appends one JSON line per call to `.local/` is enough to debug model-check runs. It
+writes as each call ends, and the script saves each round as it ends, so a late failure
+keeps the evidence. Revisit a tracer when the golden set needs a UI.
+
+**Plain names in code.** Plan shorthand had leaked into code: a module called `m2.py`,
+docstrings citing "U3" and "D16", locals like `tb`, `a`, `cfg`. Nobody reading the code
+without the plan open can decode those. `m2.py` is now `unbrand.py`, every single-letter and
+abbreviated name in Unbrander became the noun it holds, and the rule is in working-rules.md
+and enforced by `tests/test_naming.py`. The single-letter check covers Unbrander only for
+now; the rest of the app is known issue 16.
+
+---
+
+## 2026-10-07 — Unbrander M2 as plan, execute, judge, repair, on LangChain (U2 step 3)
+
+**Shape.** A strong model sees every page (text and render) once and returns the whole plan
+as tool calls with their inputs and a reason. Code applies them through the tool guards.
+verify() and a model judge look at the output, and a cheaper model repairs only the pages
+still wrong, at most twice. This is orchestrator–workers plus evaluator–optimizer. It
+replaced the first design, one agent loop calling a tool per turn: that needs about ten
+turns that each resend every page, and the skill's own budget (about 15 calls) cannot even
+cover rendering a 24-page brochure once. A cheap per-page executor model was also dropped:
+it would only re-apply the planner's decisions.
+
+**Replay from the source.** Each round applies every action so far to a fresh copy of the
+source. Rounds are deterministic and safe to repeat, the property the U3 worker needs, and
+a repair never stacks on a half-saved file (`finish()` closes the session).
+
+**The judge adds, never clears.** A model judgement can start a repair or reach the
+approver, but `passed` stays the code checks alone. Only `retry` findings drive a repair: a
+`block` (a changed number, OCR not run) is not fixed by removing more.
+
+**LangChain now, for Unbrander only (D10 revised).** Sarath decided the agent stack moves to
+LangChain; Unbrander's model calls are new code, so they start there instead of being
+written twice. Only `langchain-openrouter` is added (it brings `langchain-core`): every call
+is one structured-output call and the loop is our code, so `create_agent` and its middleware
+are not needed yet. Chat stays on PydanticAI until U8. The `UnbrandModels` port keeps the
+framework in one adapter.
+
+**Not LangGraph for the pipeline (D18).** The flow is linear with two human gates. LangGraph's
+checkpoints are hard to query, so the admin app would still need the `jobs` table, and the
+worker, queue and lock are not part of open-source LangGraph. A status column and one step
+function per state is smaller.
+
+**Flat output schema, validated item by item.** The model fills one optional field per tool
+argument rather than a tagged union (which becomes `oneOf`, not accepted by every provider
+behind OpenRouter). Each item is converted to a domain action on its own: in the first real
+run Gemini Flash wrote one box as the string `'618, 780, 628, 830], '`, which failed the
+whole judge answer. Now that item is dropped and listed, and a leak with a bad box is kept
+without the box.
+
+**JPEG renders.** The first real run was refused: 24 pages at 100 DPI are 38 MB as PNG,
+over OpenRouter's 30 MB image limit per request. JPEG at quality 85 is 7 MB. Exact words come
+from the text layer and verify() renders for OCR itself, so the softening only touches what
+the model looks at. The client timeout was raised to 10 minutes: the SDK default cut the
+first plan call short.
+
+**Also decided today, recorded for U3:** an advisory lock per job instead of `SKIP LOCKED`
+(D19; a row lock holds only while a transaction is open, which would hide progress, and a
+dead worker's advisory lock frees itself); volume files evicted after a configurable period,
+30 days by default (D20); the operator's `instructions` on the job (D21); model API errors
+as a sub-category of General errors (D22).
+
+---
+
 ## 2026-10-07 — Unbrander M2 tools (U2 step 1)
 
 The tools the M2 model calls: `render_page`, `get_text`, `redact_terms`, `redact_rect`,

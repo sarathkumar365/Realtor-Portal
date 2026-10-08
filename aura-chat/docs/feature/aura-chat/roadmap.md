@@ -33,7 +33,7 @@ failures.
 | 5 | Document retrieval over pgvector; structured-first | not started |
 | 6 | Audit logging, chat-specific rate limit, latency, 50-question benchmark | **part done** — audit logging (AUR-20) and the rate limit (AUR-21) shipped; latency measured; the benchmark is at 44/50 against a bar of 47 |
 | U | **Unbrander** — builder-document unbranding, the first write feature, with a separate admin app (Aura Agent UI) | **designing** — see [`docs/feature/Unbrander/Docs/agent/`](../Unbrander/INDEX.md). Phases U0–U7 in [`PHASES.md`](../Unbrander/PHASES.md) |
-| L | Move the agent loop from PydanticAI to LangChain / LangGraph | **decided 2026-10-06; phase U8**, after Unbrander goes live — see [`PHASES.md`](../Unbrander/PHASES.md) |
+| L | Move the chat agent loop from PydanticAI to LangChain / LangGraph | **decided 2026-10-06; phase U8**, after Unbrander goes live. Unbrander uses LangChain already (revised 2026-10-07) — see [`PHASES.md`](../Unbrander/PHASES.md) |
 
 Phase 2 shipped one outstanding check: reading real rows needs a realtor token,
 which the session that built it did not have. See

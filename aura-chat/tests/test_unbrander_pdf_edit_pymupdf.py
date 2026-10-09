@@ -5,7 +5,7 @@ import shutil
 import pymupdf
 import pytest
 
-from app.capabilities.unbrander.adapters.pdf_edit_pymupdf import PyMuPdfEditor, _lost_words
+from app.capabilities.unbrander.adapters.pdf_edit_pymupdf import PyMuPdfEditor
 from app.capabilities.unbrander.adapters.pdf_pymupdf import PyMuPdfInspector
 from app.capabilities.unbrander.domain import (
     Brief,
@@ -16,8 +16,9 @@ from app.capabilities.unbrander.domain import (
     Sorting,
     ToolRejected,
     Word,
+    missing,
 )
-from app.capabilities.unbrander.tools import Toolbox
+from app.capabilities.unbrander.tools import Toolbox, number_elements
 from app.capabilities.unbrander.unbrand import unbrand_document
 from app.capabilities.unbrander.verify import verify
 from tests.fakes import FakeUnbrandModels
@@ -189,7 +190,8 @@ def test_toolbox_output_passes_verify():
     hits = HitList(builder="Arista Homes", project="SouthCal")
     inspector = PyMuPdfInspector()
     source = inspector.inspect(pdf, ocr=False)
-    tb = Toolbox(PyMuPdfEditor().open(pdf), source, hits)
+    session = PyMuPdfEditor().open(pdf)
+    tb = Toolbox(session, source, hits, {page: number_elements(session, page) for page in (1, 2)})
     tb.redact_terms(["SouthCal", "Arista Homes"])
     tb.drop_page(2, "duplicate")
     tb.add_mark("bottom_right")
@@ -216,7 +218,8 @@ async def test_the_unbrand_step_on_a_real_pdf_replays_from_the_source_each_round
     models = FakeUnbrandModels(sorting, repair={2: [fix], 3: [fix]})
     inspector = PyMuPdfInspector()
     done = await unbrand_document(pdf, Brief(hits=hits, page_count=3), editor=PyMuPdfEditor(),
-                                  inspector=inspector, models=models, max_rounds=1)
+                                  inspector=inspector, models=models,
+                                  max_repair_rounds=1)
     assert done.rounds == 2 and done.dropped_pages == [1]
     assert {p for p, _ in models.repaired} == {2, 3}
     assert [page_text(done.pdf, i).split()[:2] for i in (0, 1)] == [["page", "2"], ["page", "3"]]
@@ -231,7 +234,7 @@ def test_words_that_only_moved_a_hair_are_not_lost():
               Word(text="ARISTA", bbox=(30, 770, 100, 790))]
     after = [Word(text="LOW", bbox=(665.16839, 544.97393, 672.65686, 549.54766)),
              Word(text="LOW", bbox=(652.24243, 384.97326, 659.73083, 389.54699))]
-    assert [word.text for word in _lost_words(before, after)] == ["ARISTA"]
+    assert [word.text for word in missing(before, after)] == ["ARISTA"]
 
 
 def test_a_coloured_watermark_beside_a_black_plan_is_its_own_element():
@@ -257,8 +260,9 @@ def test_a_watermark_over_plan_lines_covers_the_plan_group_and_is_refused():
     assert ("shapes", (50, 100, 450, 500)) in {
         (group.kind, tuple(round(value) for value in group.bbox)) for group in covered}
     source = PyMuPdfInspector().inspect(pdf, ocr=False)
-    tb = Toolbox(session, source, HitList(builder="Arista Homes", project="SouthCal"))
-    [number] = [number for number, ref in tb.elements(1).items()
+    numbering = {1: number_elements(session, 1)}
+    tb = Toolbox(session, source, HitList(builder="Arista Homes", project="SouthCal"), numbering)
+    [number] = [number for number, ref in numbering[1].items()
                 if ref.kind == "coloured shapes"]
     with pytest.raises(ToolRejected, match="page's own drawing"):
         tb.remove_element(1, number)

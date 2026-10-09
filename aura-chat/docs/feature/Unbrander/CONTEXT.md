@@ -30,7 +30,7 @@ The table below is the original design and still holds for what is excluded.
 
 | In | Excluded |
 |---|---|
-| A system prompt adapted from the `unbrand-builder-docs` skill (judgement rules only; its code moves into the tools); the M2 tool definitions (LOOP.md); confirmed metadata; the hit list; the document's extracted text; page renders at 100 DPI, fetched through `render_page`; reject notes on a re-run | Other documents, other jobs, Drive and portal tools, any code-execution tool, credentials, network |
+| A system prompt adapted from the `unbrand-builder-docs` skill (judgement rules only; its code moves into the tools); the M2 tool definitions (LOOP.md); confirmed metadata; the hit list; the document's extracted text; page renders at 100 DPI, made by `view_page`; reject notes on a re-run | Other documents, other jobs, Drive and portal tools, any code-execution tool, credentials, network |
 
 - **Never compressed or dropped:** the confirmed metadata, the hit list, and the skill's
   "every word must come from the source" rule. These stay at full fidelity for the whole run.

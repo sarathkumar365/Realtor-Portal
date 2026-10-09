@@ -13,6 +13,51 @@ formatting.
 
 ---
 
+## 2026-10-08 — Unbrander cleanup: elements numbered on the source, Toolbox edits only
+
+A review of the unbrander code found that most of its problems came from one leftover:
+`Toolbox` still had the shape of the old design, where a model called tools in a loop
+(views, a render budget, lazy numbering). The pipeline now plans in code and replays
+every round on a fresh `Toolbox`, so those parts were either dead or wrong.
+
+**Elements are numbered once, on the untouched source.** `Toolbox.elements()` used to
+number a page the first time it was asked, and in a round that came after `redact_terms`
+had rewritten the page. Removing text changes a page's drawing commands: on the Bright
+Side floor plans, page 16 went from 13 elements to 15, so a number the model picked
+from the original render named a different element in the round. Now
+`number_elements()` runs once in the plan, and every round, judge view and repair uses
+that numbering. `test_a_picked_number_names_the_sources_element_when_an_edit_renumbers_the_page`
+fails on the old code: it removes the photo instead of the logo.
+
+**Page views moved out of `Toolbox`, and the render cap is gone.** `view_page()` is a
+plain function. The 3-renders-per-page budget never fired, because each round built a
+new `Toolbox`; a failing page really got four renders. A render is local and costs no
+model call, so renders now follow judge and repair calls, and the AUTONOMY.md row says
+so. This also removed the `Rendered` type and the string edit that relabelled page
+numbers.
+
+**The model sees boxes in one order.** It answers `box_2d` as `[ymin, xmin, ymax, xmax]`,
+but the element list sent with each page, and the refusal messages, showed boxes x
+first. The element list and refusal messages now use `box_2d` order, through
+`to_box_2d` / `from_box_2d` in the domain. A refusal still names its box, so a repair
+that proposed several boxes knows which one failed.
+
+**Also:**
+- Steps the model adapter drops as malformed reach `Unbranded.dropped_steps`.
+  `dropped` is now part of the `UnbrandModels` port. Only the steps added during this
+  document are copied, because a models instance outlives one document. Like `usage`,
+  `dropped` assumes one document at a time per instance: the U3 worker must not
+  share an instance between documents running at once.
+- `EditSession.close()` lets the pipeline close the sessions it only looked at.
+- `max_rounds` became `max_repair_rounds`. The config key `unbrander_max_rounds` is
+  unchanged, so the env var stays.
+- Word and box helpers live once, in `domain/text.py`.
+- The page kinds have one source, and the sort prompt's list is built from it.
+
+**Kept as they were:** `ALLOWED_NEW_WORDS` still allows "vendor", "builder" and "the".
+`scripts/unbrand_verify.py` checks the skill's existing outputs, and those outputs use
+the words. U2b moves the list into `Organization`.
+
 ## 2026-10-08 — Unbrander gate passed; one organization per deployment, as a platform profile
 
 **The U2 gate passed.** Sarath reviewed the four cleaned samples (brochure, floor plans,

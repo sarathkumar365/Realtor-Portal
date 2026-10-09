@@ -57,11 +57,16 @@ class PyMuPdfInspector:
             number=page.number + 1,
             width=page.rect.width,
             height=page.rect.height,
-            words=[Word(text=word[4], bbox=tuple(word[:4])) for word in page.get_text("words")],
+            words=page_words(page),
             paint=_paint(page),
             ocr=_ocr(page, tessdata) if tessdata else {},
             thumbnail=_thumbnail(page),
         )
+
+
+def page_words(page: "pymupdf.Page") -> list[Word]:
+    """The page's text layer as words. The editor reads words the same way."""
+    return [Word(text=word[4], bbox=tuple(word[:4])) for word in page.get_text("words")]
 
 
 def _paint(page: "pymupdf.Page") -> list[Paint]:

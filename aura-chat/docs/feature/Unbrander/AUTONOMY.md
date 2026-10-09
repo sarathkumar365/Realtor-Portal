@@ -78,7 +78,7 @@ The "not sure" path is always: flag, show the page, let the human decide.
 | Budget | Limit | On breach |
 |---|---|---|
 | M2 model calls per document | 1 sort + 1 pick per kept page, 1 judge per kept page in the first round and per repaired page after, + 1 repair per failing page (D23) | Rounds stop at the limit; what is left goes to the approver |
-| Render passes per document | 2, plus a third for failed pages only: at most 3 renders of any one page, enforced in `render_page` | The call is refused |
+| Render passes per document | No cap of their own: a render is local and costs no model call. A page is rendered once on the source for the sort and pick, then once per round it is judged or repaired, so renders follow the model-call budget and `unbrander_max_rounds` | — |
 | Wall time per document | 10 minutes (PROPOSED) | `FAILED`, notify |
 | Model output | sort 8k tokens; pick, judge and repair 2k each | A capped answer does not parse and is asked for once more |
 | Broken connection | 3 tries per call, 2 s then 5 s apart (on top of the SDK's own retry of network errors and 5xx) | The error goes up; the run fails as a General error |

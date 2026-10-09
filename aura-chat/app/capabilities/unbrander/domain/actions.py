@@ -6,11 +6,11 @@ them through the Toolbox guards, so a round can be replayed from the source and
 the approver reads every decision with its reason.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field
 
-from .edit import Box, Element, MarkPosition
+from .edit import GridBox, MarkPosition, NumberedElement
 from .verify import HitList
 
 
@@ -23,7 +23,7 @@ class RedactTerms(BaseModel):
 class RedactRect(BaseModel):
     tool: Literal["redact_rect"] = "redact_rect"
     page: int
-    box: Box
+    box: GridBox
     why: str
 
 
@@ -61,11 +61,14 @@ class Outcome(BaseModel):
 
 PageKind = Literal["floor_plan", "elevation", "site_plan", "price_list", "feature_sheet",
                    "terms", "marketing"]
+PAGE_KINDS: tuple[PageKind, ...] = get_args(PageKind)
 # Page kinds a buyer needs. Everything else is the builder's marketing and is
 # dropped: the skill's own output of the spike brochure kept the elevations and
 # floor plans and nothing else (2026-10-08).
-KEPT_KINDS = frozenset({"floor_plan", "elevation", "site_plan", "price_list", "feature_sheet",
-                        "terms"})
+KEPT_KINDS = frozenset(kind for kind in PAGE_KINDS if kind != "marketing")
+# The skill's mark positions: bottom right where a plan fills the page, bottom
+# centre on text pages.
+PLAN_KINDS = frozenset({"floor_plan", "site_plan", "elevation"})
 
 
 class PageSort(BaseModel):
@@ -89,7 +92,7 @@ class PageView(BaseModel):
     page: int
     jpeg: bytes
     text: str  # already wrapped as <document_text> data
-    elements: list[Element]
+    elements: list[NumberedElement]
 
 
 class Brief(BaseModel):

@@ -2,6 +2,8 @@
 
 from .actions import (
     KEPT_KINDS,
+    PAGE_KINDS,
+    PLAN_KINDS,
     Action,
     AddMark,
     Brief,
@@ -17,39 +19,43 @@ from .actions import (
     Usage,
 )
 from .edit import (
-    Box,
-    Element,
-    ElementRef,
+    DrawnElement,
     Finished,
+    GridBox,
     MarkPosition,
+    NumberedElement,
     Removal,
-    Rendered,
     TermsResult,
     ToolRejected,
+    from_box_2d,
+    to_box_2d,
 )
 from .pdf import OCR_MODES, BBox, PageFacts, Paint, PdfFacts, Thumbnail, Word
 from .terms import EMAIL, PHONE, SHORT, term_pattern
+from .text import area, intersects, joined, missing, overlap, union, words_in_span
 from .verify import Check, Finding, HitList, Severity, VerifyReport
 
 __all__ = [
     "EMAIL",
     "KEPT_KINDS",
     "OCR_MODES",
+    "PAGE_KINDS",
     "PHONE",
+    "PLAN_KINDS",
     "SHORT",
     "Action",
     "AddMark",
     "BBox",
-    "Box",
     "Brief",
     "Check",
+    "DrawnElement",
     "DropPage",
-    "Element",
-    "ElementRef",
     "Finding",
     "Finished",
+    "GridBox",
     "HitList",
     "MarkPosition",
+    "NumberedElement",
     "Outcome",
     "PageFacts",
     "PageKind",
@@ -61,7 +67,6 @@ __all__ = [
     "RedactTerms",
     "Removal",
     "RemoveElement",
-    "Rendered",
     "Severity",
     "Sorting",
     "TermsResult",
@@ -70,5 +75,14 @@ __all__ = [
     "Usage",
     "VerifyReport",
     "Word",
+    "area",
+    "from_box_2d",
+    "intersects",
+    "joined",
+    "missing",
+    "overlap",
     "term_pattern",
+    "to_box_2d",
+    "union",
+    "words_in_span",
 ]

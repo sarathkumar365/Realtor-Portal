@@ -8,7 +8,6 @@ claimed removals its PDF did not contain.
 import bisect
 import re
 import unicodedata
-from collections import Counter
 
 from .domain import (
     EMAIL,
@@ -24,14 +23,25 @@ from .domain import (
     Removal,
     Severity,
     VerifyReport,
+    Word,
+    area,
+    joined,
+    missing,
+    overlap,
     term_pattern,
+    words_in_span,
 )
 
+# Domain endings flagged when a bare domain appears without "www" or a scheme.
+# Narrow on purpose: a wider pattern flags every "e.g." and "St.Clair" to the
+# approver, and a builder's own domain carries its name, which the hit list catches.
+FLAGGED_DOMAIN_ENDINGS = ("com", "ca", "net", "org", "homes")
 GENERIC = {
     "url": re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE),
     "email": EMAIL,
     "phone": PHONE,
-    "domain": re.compile(r"\b[\w-]+\.(?:com|ca|net|org|homes)\b", re.IGNORECASE),
+    "domain": re.compile(rf"\b[\w-]+\.(?:{'|'.join(FLAGGED_DOMAIN_ENDINGS)})\b",
+                         re.IGNORECASE),
 }
 
 # Words the cleaned PDF may hold that the source never did: the Aura Key mark,
@@ -53,6 +63,12 @@ PIXEL_CHANGE = 48
 CHANGED_SHARE = 0.002
 AREA_SLACK = 2.0     # points around each removal area
 MARK_STRIP = 50.0    # points at the bottom where the Aura Key mark goes
+# Object names run words together, so the raw-bytes sweep matches unanchored;
+# terms shorter than this would match inside unrelated names.
+RAW_BYTES_MIN_LENGTH = 4
+CONTEXT_CHARS = 30   # characters quoted either side of a raw-bytes match
+LISTED_WORDS = 20    # words quoted in one finding; the rest are counted
+SIZE_TOLERANCE = 1.0  # points a kept page's width or height may move
 
 
 def verify(
@@ -83,15 +99,6 @@ def verify(
     return VerifyReport(findings=findings)
 
 
-def _page_text(page: PageFacts) -> tuple[str, list[int]]:
-    starts, parts, pos = [], [], 0
-    for word in page.words:
-        starts.append(pos)
-        parts.append(word.text)
-        pos += len(word.text) + 1
-    return " ".join(parts), starts
-
-
 def _bbox_at(page: PageFacts, starts: list[int], offset: int) -> BBox | None:
     if not page.words:
         return None
@@ -99,7 +106,7 @@ def _bbox_at(page: PageFacts, starts: list[int], offset: int) -> BBox | None:
 
 
 def _text_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
-    text, starts = _page_text(page)
+    text, starts = joined(page.words)
     out = []
     for term in terms:
         for match in term_pattern(term).finditer(text):
@@ -123,15 +130,15 @@ def _text_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
 
 def _raw_bytes(output: PdfFacts, terms: list[str]) -> list[Finding]:
     """Unanchored: object names run words together ("ARISTA_LOGO", "SouthCalDT").
-    Terms under four characters would match inside unrelated names, so they are
-    left to the text and OCR sweeps."""
+    Shorter terms are left to the text and OCR sweeps."""
     out = []
     for term in terms:
-        if len(term) < 4:
+        if len(term) < RAW_BYTES_MIN_LENGTH:
             continue
         match = term_pattern(term, anchored=False).search(output.object_text)
         if match:
-            start, end = max(match.start() - 30, 0), match.end() + 30
+            start = max(match.start() - CONTEXT_CHARS, 0)
+            end = match.end() + CONTEXT_CHARS
             out.append(Finding(
                 check=Check.RAW_BYTES, severity=Severity.RETRY,
                 detail=f"{term!r} inside the PDF's objects: {output.object_text[start:end]!r}",
@@ -207,15 +214,6 @@ def _ocr_sweep(page: PageFacts, terms: list[str]) -> list[Finding]:
     return out
 
 
-def _area(bbox: BBox) -> float:
-    return max(bbox[2] - bbox[0], 0) * max(bbox[3] - bbox[1], 0)
-
-
-def _overlap(first: BBox, second: BBox) -> float:
-    return _area((max(first[0], second[0]), max(first[1], second[1]),
-                  min(first[2], second[2]), min(first[3], second[3])))
-
-
 def _cover_up(page: PageFacts) -> list[Finding]:
     out, below = [], []
     for item in page.paint:
@@ -226,8 +224,8 @@ def _cover_up(page: PageFacts) -> list[Finding]:
             continue
         visible = []
         for under in below:
-            size = _area(under.bbox)
-            if size and _overlap(item.bbox, under.bbox) / size >= COVERED:
+            size = area(under.bbox)
+            if size and overlap(item.bbox, under.bbox) / size >= COVERED:
                 out.append(Finding(
                     check=Check.COVER_UP, severity=Severity.RETRY, page=page.number,
                     detail=f"opaque shape drawn over {under.kind}: hidden, not removed",
@@ -277,11 +275,9 @@ def _provenance(source: PdfFacts, output: PdfFacts) -> list[Finding]:
     for page in output.pages:
         new = [word for word in page.words if _is_new(_word_key(word.text), known)]
         if new:
-            listed = ", ".join(repr(word.text) for word in new[:20])
-            more = f" and {len(new) - 20} more" if len(new) > 20 else ""
             out.append(Finding(
                 check=Check.PROVENANCE, severity=Severity.FLAG, page=page.number,
-                detail=f"words not in the source: {listed}{more}", bbox=new[0].bbox,
+                detail=f"words not in the source: {_listed(new)}", bbox=new[0].bbox,
             ))
     return out
 
@@ -306,20 +302,37 @@ def _metadata(output: PdfFacts) -> list[Finding]:
     return [Finding(check=Check.METADATA, severity=Severity.RETRY, detail="; ".join(problems))]
 
 
+def _listed(words: list) -> str:
+    listed = ", ".join(repr(word.text) for word in words[:LISTED_WORDS])
+    more = f" and {len(words) - LISTED_WORDS} more" if len(words) > LISTED_WORDS else ""
+    return listed + more
+
+
+def _paired(source: PdfFacts, output: PdfFacts,
+            dropped: list[int] | None) -> list[tuple[PageFacts, PageFacts]] | None:
+    """Each kept source page with the output page made from it, or None when the
+    counts do not match and pages cannot be paired."""
+    gone = set(dropped or [])
+    kept = [page for page in source.pages if page.number not in gone]
+    if len(kept) != len(output.pages):
+        return None
+    return list(zip(kept, output.pages))
+
+
 def _pages(source: PdfFacts, output: PdfFacts, dropped: list[int] | None) -> list[Finding]:
     def flag(detail: str, page: int | None = None) -> Finding:
         return Finding(check=Check.PAGES, severity=Severity.FLAG, detail=detail, page=page)
 
-    gone = set(dropped or [])
-    kept = [page for page in source.pages if page.number not in gone]
-    if len(kept) != len(output.pages):
-        declared = f"{len(gone)} declared dropped" if dropped is not None else "none declared"
+    pairs = _paired(source, output, dropped)
+    if pairs is None:
+        declared = (f"{len(set(dropped))} declared dropped" if dropped is not None
+                    else "none declared")
         return [flag(f"source has {len(source.pages)} pages, output {len(output.pages)}; "
                      f"{declared}")]
     out = []
-    for source_page, output_page in zip(kept, output.pages):
-        if abs(source_page.width - output_page.width) > 1 \
-                or abs(source_page.height - output_page.height) > 1:
+    for source_page, output_page in pairs:
+        if abs(source_page.width - output_page.width) > SIZE_TOLERANCE \
+                or abs(source_page.height - output_page.height) > SIZE_TOLERANCE:
             out.append(flag(f"size changed from {source_page.width:.0f}x"
                             f"{source_page.height:.0f} (source page {source_page.number}) to "
                             f"{output_page.width:.0f}x{output_page.height:.0f}",
@@ -332,27 +345,24 @@ def _damage(source: PdfFacts, output: PdfFacts, terms: list[str], dropped: list[
     """What the source had and the output lost, beyond the builder's names. Run 6
     passed every other check while ten floor plans lost labels like "KITCHEN
     8'0" x 13'0"": nothing compared what was there before."""
-    gone = set(dropped or [])
-    kept = [page for page in source.pages if page.number not in gone]
-    if len(kept) != len(output.pages):
-        return []  # _pages reports it; pages cannot be paired
+    pairs = _paired(source, output, dropped)
+    if pairs is None:
+        return []  # _pages reports it
     areas: dict[int, list[BBox]] = {}
     for removal in removals:
         if removal.area is not None and removal.page is not None:
             areas.setdefault(removal.page, []).append(removal.area)
     out = []
-    for source_page, output_page in zip(kept, output.pages):
+    for source_page, output_page in pairs:
         lost = _lost_words(source_page, output_page, terms)
         if lost:
             numbered = [word for word in lost if any(char.isdigit() for char in word.text)]
-            listed = ", ".join(repr(word.text) for word in lost[:20])
-            more = f" and {len(lost) - 20} more" if len(lost) > 20 else ""
             # A lost dimension or price is lost information; a lost word may be a
             # brand word the hit list does not name, so a person decides.
             out.append(Finding(
                 check=Check.DAMAGE, severity=Severity.BLOCK if numbered else Severity.FLAG,
                 page=output_page.number,
-                detail=f"words gone from source page {source_page.number}: {listed}{more}",
+                detail=f"words gone from source page {source_page.number}: {_listed(lost)}",
                 bbox=(numbered or lost)[0].bbox,
             ))
         changed = _changed_outside(source_page, output_page, areas.get(source_page.number, []))
@@ -367,30 +377,21 @@ def _damage(source: PdfFacts, output: PdfFacts, terms: list[str], dropped: list[
     return out
 
 
-def _lost_words(source_page: PageFacts, output_page: PageFacts, terms: list[str]) -> list:
+def _lost_words(source_page: PageFacts, output_page: PageFacts,
+                terms: list[str]) -> list[Word]:
     """Source words missing from the output, except what is meant to go: the
     builder's names and contact details (URLs, emails, phones, domains). Any other
     word counts, whichever tool took it: in run 7 a repair's redact_terms took the
     model name "The Carson" and nothing noticed."""
-    text, starts = _page_text(source_page)
+    words = source_page.words
+    text, starts = joined(words)
     expected: set[int] = set()
     matches = [match for term in terms for match in term_pattern(term).finditer(text)]
     matches += [match for pattern in GENERIC.values() for match in pattern.finditer(text)]
     for match in matches:
-        expected |= {i for i, start in enumerate(starts)
-                     if start < match.end()
-                     and start + len(source_page.words[i].text) > match.start()}
-    left = Counter(_word_key(word.text) for word in output_page.words)
-    lost = []
-    for i, word in enumerate(source_page.words):
-        key = _word_key(word.text)
-        if i in expected or not key:
-            continue
-        if left[key]:
-            left[key] -= 1
-        else:
-            lost.append(word)
-    return lost
+        expected |= words_in_span(starts, words, match.start(), match.end())
+    counted = [word for i, word in enumerate(words) if i not in expected and _word_key(word.text)]
+    return missing(counted, output_page.words, key=_word_key)
 
 
 def _changed_outside(source_page: PageFacts, output_page: PageFacts,

@@ -23,10 +23,11 @@ class MarkPosition(StrEnum):
 ElementKind = Literal["image", "shapes", "coloured shapes"]
 
 
-class ElementRef(BaseModel):
+class DrawnElement(BaseModel):
     """Something drawn on a page that can be removed whole: one placement of an
     image, or a group of vector shapes close together (a logo, a monogram).
-    Found by code so a model never has to say where it is, only which it is."""
+    Found by code so a model never has to say where it is, only which it is.
+    `bbox` is in points."""
 
     kind: ElementKind
     bbox: BBox
@@ -41,24 +42,27 @@ class Removal(BaseModel):
     area: BBox | None = None  # points; what an area action covered, so damage outside it shows
 
 
-Box = tuple[int, int, int, int]  # x0, y0, x1, y1 on a 0-1000 grid over the page
+GridBox = tuple[int, int, int, int]  # x0, y0, x1, y1 on a 0-1000 grid over the page
 
 
-class Element(BaseModel):
+def to_box_2d(box: GridBox) -> list[int]:
+    """[ymin, xmin, ymax, xmax]: the order Gemini answers boxes in, so the order
+    of every box a model is shown, in a list or in a refusal."""
+    x0, y0, x1, y1 = box
+    return [y0, x0, y1, x1]
+
+
+def from_box_2d(box_2d: list[int]) -> GridBox:
+    ymin, xmin, ymax, xmax = box_2d
+    return (xmin, ymin, xmax, ymax)
+
+
+class NumberedElement(BaseModel):
     """An element as a model sees it: the number drawn on the render, and where."""
 
     id: int
     kind: ElementKind
-    box: Box
-
-
-class Rendered(BaseModel):
-    """What render_page hands the model: the picture with each element's number
-    drawn on it, and the same elements as a list."""
-
-    page: int
-    jpeg: bytes
-    elements: list[Element]
+    box: GridBox
 
 
 class TermsResult(BaseModel):

@@ -5,12 +5,12 @@ learned on real builder PDFs. `import pymupdf`, never the legacy `fitz` alias.
 """
 
 import io
-from collections import Counter
 
 import pymupdf
 from PIL import Image, ImageDraw, ImageFont
 
-from ..domain import BBox, ElementRef, MarkPosition, ToolRejected, Word
+from ..domain import BBox, DrawnElement, MarkPosition, ToolRejected, Word, missing
+from .pdf_pymupdf import page_words
 
 # A word box is shrunk before it is redacted: MuPDF removes every glyph whose box
 # touches the rect. Sideways by a hair, so the next word keeps its first letter.
@@ -61,19 +61,18 @@ class PyMuPdfSession:
         return rect.width, rect.height
 
     def words(self, page: int) -> list[Word]:
-        return [Word(text=word[4], bbox=tuple(word[:4]))
-                for word in self._page(page).get_text("words")]
+        return page_words(self._page(page))
 
-    def elements(self, page: int) -> list[ElementRef]:
+    def elements(self, page: int) -> list[DrawnElement]:
         pdf_page = self._page(page)
         out = [group for group, _ in _shape_groups(pdf_page)]
         # get_images lists an xref once per XObject that uses it; each placement once.
         for xref in dict.fromkeys(image[0] for image in pdf_page.get_images(full=True)):
-            out += [ElementRef(kind="image", bbox=tuple(rect))
+            out += [DrawnElement(kind="image", bbox=tuple(rect))
                     for rect in pdf_page.get_image_rects(xref)]
         return out
 
-    def groups_covered(self, page: int, box: BBox) -> list[ElementRef]:
+    def groups_covered(self, page: int, box: BBox) -> list[DrawnElement]:
         return [group for group, members in _shape_groups(self._page(page))
                 if any(_inside(member, box) for member in members)]
 
@@ -134,7 +133,10 @@ class PyMuPdfSession:
         pdf_page.apply_redactions(images=image_mode,
                                   graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_COVERED,
                                   text=pymupdf.PDF_REDACT_TEXT_REMOVE)
-        return _lost_words(before, self.words(page))
+        # By text, not by box: rewriting a page's content moves unchanged words
+        # by about 1e-4 points, and comparing boxes reported ten floor plans'
+        # labels as removed when none were (run 7).
+        return missing(before, self.words(page))
 
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
         doc = self._doc
@@ -160,19 +162,9 @@ class PyMuPdfSession:
         finally:
             doc.close()
 
-
-def _lost_words(before: list[Word], after: list[Word]) -> list[Word]:
-    """By text, not by box: rewriting a page's content moves unchanged words by
-    about 1e-4 points, and comparing boxes reported ten floor plans' labels as
-    removed when none were (run 7)."""
-    left = Counter(word.text for word in after)
-    lost = []
-    for word in before:
-        if left[word.text]:
-            left[word.text] -= 1
-        else:
-            lost.append(word)
-    return lost
+    def close(self) -> None:
+        if not self._doc.is_closed:
+            self._doc.close()
 
 
 def _image_mode(page: "pymupdf.Page", box: "pymupdf.Rect") -> int:
@@ -198,7 +190,7 @@ def _image_mode(page: "pymupdf.Page", box: "pymupdf.Rect") -> int:
     return pymupdf.PDF_REDACT_IMAGE_PIXELS
 
 
-def _shape_groups(page: "pymupdf.Page") -> list[tuple[ElementRef, list["pymupdf.Rect"]]]:
+def _shape_groups(page: "pymupdf.Page") -> list[tuple[DrawnElement, list["pymupdf.Rect"]]]:
     """Every group of nearby shapes, with the boxes of the drawings in it."""
     # A page-sized background would join every shape into one group.
     limit = BACKGROUND_SHARE * page.rect.get_area()
@@ -214,7 +206,7 @@ def _shape_groups(page: "pymupdf.Page") -> list[tuple[ElementRef, list["pymupdf.
         for group in _merged(page.cluster_drawings(drawings=same) if same else [],
                              ELEMENT_GAP):
             bbox = tuple(group)
-            out.append((ElementRef(kind=kind, bbox=bbox),
+            out.append((DrawnElement(kind=kind, bbox=bbox),
                         [drawing["rect"] for drawing in same if _inside(drawing["rect"], bbox)]))
     return out
 

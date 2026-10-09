@@ -12,6 +12,9 @@ class UnbrandModels(Protocol):
     """
 
     usage: dict[str, Usage]  # per role: "sort", "pick", "judge", "repair"
+    # Answers or parts of answers that did not fit the schema and were left out,
+    # one line each, for the approver: a dropped step is a decision nobody saw.
+    dropped: list[str]
 
     async def sort(self, brief: Brief, pages: list[PageView]) -> Sorting:
         """Every page at once: what each is, which stay, the names in the text."""

@@ -15,7 +15,7 @@ from app.capabilities.unbrander.domain import (
     Action,
     BBox,
     Brief,
-    ElementRef,
+    DrawnElement,
     Finding,
     MarkPosition,
     PageFacts,
@@ -223,13 +223,14 @@ class FakeEditSession:
     box it was given or that sit inside the area; every call is logged."""
 
     def __init__(self, pages: list[list[Word]],
-                 elements: dict[int, list[ElementRef]] | None = None,
+                 elements: dict[int, list[DrawnElement]] | None = None,
                  size: tuple[float, float] = (612, 792)) -> None:
         self.pages = [list(p) for p in pages]
         self.element_map = elements or {}
         self.size = size
         self.page_count = len(pages)
         self.calls: list[tuple] = []
+        self.closed = False
 
     def page_size(self, page: int) -> tuple[float, float]:
         return self.size
@@ -237,10 +238,10 @@ class FakeEditSession:
     def words(self, page: int) -> list[Word]:
         return list(self.pages[page - 1])
 
-    def elements(self, page: int) -> list[ElementRef]:
+    def elements(self, page: int) -> list[DrawnElement]:
         return list(self.element_map.get(page, []))
 
-    def groups_covered(self, page: int, box: BBox) -> list[ElementRef]:
+    def groups_covered(self, page: int, box: BBox) -> list[DrawnElement]:
         """Elements the box overlaps: each stands for a group of many drawings,
         some of which may lie inside the box."""
         return [ref for ref in self.element_map.get(page, [])
@@ -249,10 +250,10 @@ class FakeEditSession:
 
     def shapes_cut(self, page: int, box: BBox) -> int:
         """Elements the box overlaps without covering."""
-        def overlaps(ref: ElementRef) -> bool:
+        def overlaps(ref: DrawnElement) -> bool:
             return (ref.bbox[0] < box[2] and box[0] < ref.bbox[2]
                     and ref.bbox[1] < box[3] and box[1] < ref.bbox[3])
-        def covered(ref: ElementRef) -> bool:
+        def covered(ref: DrawnElement) -> bool:
             return (box[0] <= ref.bbox[0] and box[1] <= ref.bbox[1]
                     and ref.bbox[2] <= box[2] and ref.bbox[3] <= box[3])
         return sum(1 for ref in self.element_map.get(page, []) if overlaps(ref) and not covered(ref))
@@ -276,7 +277,12 @@ class FakeEditSession:
 
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
         self.calls.append(("save", drop, mark))
+        self.closed = True
         return b"%PDF-fake"
+
+    def close(self) -> None:
+        self.calls.append(("close",))
+        self.closed = True
 
 
 class FakePdfEditor:
@@ -293,11 +299,12 @@ class FakePdfStore:
     so a pipeline can replay from the source and inspect what it saved."""
 
     def __init__(self, source: bytes, pages: list[list[Word]],
-                 elements: dict[int, list[ElementRef]] | None = None) -> None:
+                 elements: dict[int, list[DrawnElement]] | None = None) -> None:
         self.source = source
         self.docs: dict[bytes, list[list[Word]]] = {source: pages}
         self.elements = elements or {}
         self.opened: list[bytes] = []
+        self.sessions: list[FakeEditSession] = []
 
     def open(self, pdf: bytes) -> FakeEditSession:
         self.opened.append(pdf)
@@ -310,8 +317,10 @@ class FakePdfStore:
                 store.docs[out] = [page for i, page in enumerate(self.pages, 1) if i not in drop]
                 return out
 
-        return Session(self.docs[pdf],
-                       elements=self.elements if pdf == self.source else {})
+        session = Session(self.docs[pdf],
+                          elements=self.elements if pdf == self.source else {})
+        self.sessions.append(session)
+        return session
 
     def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts:
         pages = []
@@ -334,6 +343,7 @@ class FakeUnbrandModels:
         self._judge = judge or (lambda round_number, page: [])
         self._repair = repair or {}
         self.usage = {role: Usage() for role in ("sort", "pick", "judge", "repair")}
+        self.dropped: list[str] = []
         self.briefs: list[Brief] = []
         self.picked: list[int] = []
         self.judged: list[int] = []

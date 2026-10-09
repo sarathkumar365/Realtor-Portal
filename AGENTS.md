@@ -73,11 +73,12 @@ aura-chat/
         ports/             AgentRuntime, ConversationStore, DocumentIndex
         adapters/          agent_pydantic.py (PydanticAI), store_postgres.py, schema.sql
       unbrander/
-        tools.py           the unbrand tools and their guards. Imports domain + ports only
+        tools.py           the unbrand tools and their guards, element numbering, page views. Imports domain + ports only
         unbrand.py         the unbrand step for one document: sort, pick, apply, judge, repair
         prompts.py         the sort, pick, judge and repair prompts
         verify.py          the code gate after M2: compares source and cleaned PDF facts
-        domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py, actions.py
+        domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py, actions.py,
+                           text.py — word and box helpers the tools, verify() and the editor share
         ports/             PdfInspector, PdfEditor, UnbrandModels
         adapters/          pdf_pymupdf.py, pdf_edit_pymupdf.py — the only files that import pymupdf or Pillow
                            models_langchain.py — UnbrandModels over LangChain and OpenRouter

@@ -11,7 +11,10 @@ Flash answered boxes in its own axis order whatever was asked, and Pro's boxes
 drifted when it saw 24 pages at once (run 6).
 """
 
-from .domain import Brief
+from .domain import KEPT_KINDS, PAGE_KINDS, Brief
+
+# Every kind but marketing, in PageKind's order: the sort answers in these names.
+_KEPT_KIND_LIST = ", ".join(kind for kind in PAGE_KINDS if kind in KEPT_KINDS)
 
 BRANDING = """\
 You remove builder branding from real-estate sales documents (floor plans, site
@@ -60,7 +63,7 @@ How to act:
 def sort_prompt(brief: Brief) -> str:
     return f"""{BRANDING}
 You see every page of one document: its render and its text. Decide for each page:
-- kind: floor_plan, elevation, site_plan, price_list, feature_sheet, terms, or
+- kind: {_KEPT_KIND_LIST}, or
   marketing (cover, about the builder, community or lifestyle, award and
   portfolio pages, back cover).
 - keep: true for every kind except marketing. A page with a plan, an elevation, a

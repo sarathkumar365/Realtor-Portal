@@ -101,7 +101,7 @@ async def main() -> int:
     started = time.monotonic()
     done = await unbrand_document(pdf, brief, editor=PyMuPdfEditor(),
                                   inspector=PyMuPdfInspector(), models=models,
-                                  max_rounds=args.max_rounds, on_round=save_round)
+                                  max_repair_rounds=args.max_rounds, on_round=save_round)
     seconds = time.monotonic() - started
 
     kept = [page for page in range(1, pages + 1) if page not in done.dropped_pages]
@@ -119,14 +119,14 @@ async def main() -> int:
                    "judge": args.judge_model, "repair": args.repair_model},
         "thinking": thinking,
         "usage": {role: usage.model_dump() for role, usage in models.usage.items()},
-        "dropped_steps": models.dropped,
+        "dropped_steps": done.dropped_steps,
     }
     (out / "run.json").write_text(json.dumps(run, indent=2))
 
     for outcome in done.outcomes:
         mark = "ok " if outcome.ok else "NO "
         print(f"{mark} {outcome.action.model_dump(exclude={'why'})}  {outcome.detail}".rstrip())
-    for step in models.dropped:
+    for step in done.dropped_steps:
         print(f"dropped step: {step}")
     print("\nverify:\n" + _lines(done.report.findings, indent="  "), end="")
     print("judge:\n" + _lines(done.judge, indent="  "), end="")

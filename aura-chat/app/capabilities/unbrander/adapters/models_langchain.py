@@ -41,6 +41,8 @@ from ..domain import (
     Severity,
     Sorting,
     Usage,
+    from_box_2d,
+    to_box_2d,
 )
 from ..prompts import judge_prompt, pick_prompt, repair_prompt, sort_prompt
 
@@ -293,7 +295,7 @@ class LangChainUnbrandModels:
                 else:
                     box = step.box_2d or []
                     fields |= {"page": page,
-                               "box": (box[1], box[0], box[3], box[2]) if len(box) == 4 else box}
+                               "box": from_box_2d(box) if len(box) == 4 else box}
                 out.append(_action.validate_python(fields))
             except ValidationError as error:
                 self.dropped.append(f"step {item!r:.200}: {error.errors()[0]['msg']}")
@@ -329,7 +331,9 @@ def _page_blocks(pages: list[PageView], *, with_text: bool = True,
     for view in pages:
         head = f"Page {view.page}."
         if with_elements:
-            listed = "; ".join(f"{element.id} {element.kind} at {list(element.box)}"
+            # In box_2d order, the order the model answers in: a list shown x
+            # first beside a prompt asking for y first invites copied numbers.
+            listed = "; ".join(f"{element.id} {element.kind} box_2d {to_box_2d(element.box)}"
                                for element in view.elements)
             head += f" Elements: {listed or 'none'}."
         blocks.append({"type": "text", "text": f"{head}\n{view.text}" if with_text else head})

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from ..domain import BBox, ElementRef, MarkPosition, PdfFacts, Word
+from ..domain import BBox, DrawnElement, MarkPosition, PdfFacts, Word
 
 
 class OcrUnavailable(RuntimeError):
@@ -34,12 +34,12 @@ class EditSession(Protocol):
         """The page as it stands now, not as it was."""
         ...
 
-    def elements(self, page: int) -> list[ElementRef]:
+    def elements(self, page: int) -> list[DrawnElement]:
         """Every image placement and every group of nearby vector shapes, any
         size. Which of them a model may pick is policy, in tools.py."""
         ...
 
-    def groups_covered(self, page: int, box: BBox) -> list[ElementRef]:
+    def groups_covered(self, page: int, box: BBox) -> list[DrawnElement]:
         """The shape groups, of any size, with at least one drawing wholly inside
         the box: the groups an area removal would take shapes from."""
         ...
@@ -69,7 +69,12 @@ class EditSession(Protocol):
         ...
 
     def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
-        """Adds the mark, drops pages, strips metadata, and writes the file."""
+        """Adds the mark, drops pages, strips metadata, writes the file and
+        closes the session."""
+        ...
+
+    def close(self) -> None:
+        """Closes a session that was only looked at. Safe after save()."""
         ...
 
 

@@ -18,8 +18,8 @@ from app.capabilities.unbrander.adapters.models_langchain import (
 from app.capabilities.unbrander.domain import (
     Brief,
     Check,
-    Element,
     HitList,
+    NumberedElement,
     PageSort,
     PageView,
     RedactRect,
@@ -30,7 +30,7 @@ from app.capabilities.unbrander.domain import (
 BRIEF = Brief(hits=HitList(builder="Arista Homes", project="SouthCal"), page_count=2)
 PAGES = [PageView(page=page, jpeg=b"\xff\xd8" * 600,
                   text=f'<document_text page="{page}">x</document_text>',
-                  elements=[Element(id=9, kind="image", box=(10, 10, 90, 60))])
+                  elements=[NumberedElement(id=9, kind="image", box=(10, 10, 90, 60))])
          for page in (1, 3)]
 PAGE = PAGES[1]
 NO_STEP_FIELDS = {"element_id": None, "box_2d": None}
@@ -157,7 +157,9 @@ async def test_pages_go_to_the_model_as_text_and_images_in_the_user_message():
     system, user = fakes["pick"].seen[0]
     assert "SouthCal" in system.content
     assert [block["type"] for block in user.content] == ["text", "image"]
-    assert "Page 3. Elements: 9 image at [10, 10, 90, 60]" in user.content[0]["text"]
+    # The element's box is x first in the domain, (10, 10, 90, 60); the model is
+    # shown it in the box_2d order it answers in.
+    assert "Page 3. Elements: 9 image box_2d [10, 10, 60, 90]" in user.content[0]["text"]
 
 
 async def test_the_sort_sees_pages_without_the_element_list():

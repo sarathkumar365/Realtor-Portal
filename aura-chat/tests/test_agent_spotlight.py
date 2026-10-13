@@ -10,6 +10,7 @@ was the *most* expensive project in the city.
 
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 
+from app.domain import Organization
 from tests.test_agent import a_project, drain, runtime, scripted, viewed
 
 CHEAP = a_project(id="AK-CHEAP", name="Cheap", starting_price=370_990)
@@ -68,7 +69,8 @@ async def test_the_model_still_receives_both_records_whatever_is_carded():
     from app.capabilities.chat.adapters.agent_pydantic import PydanticAgentRuntime
 
     rt = PydanticAgentRuntime(
-        api_key="", model_name="test", model=FunctionModel(stream_function=capture)
+        api_key="", model_name="test", organization=Organization(),
+        model=FunctionModel(stream_function=capture),
     )
     await drain(rt, viewed([CHEAP, DEAR]))
     transcript = " ".join(seen)

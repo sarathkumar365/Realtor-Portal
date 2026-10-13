@@ -26,7 +26,7 @@ from app.capabilities.unbrander.domain import (
     Word,
 )
 from app.domain import (
-    Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
+    Brand, Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
 )
 
 TEST_SECRET = "test-secret-not-a-real-key"
@@ -275,7 +275,7 @@ class FakeEditSession:
         self.pages[page - 1] = [w for w in self.pages[page - 1] if not inside(w)]
         return lost
 
-    def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
+    def save(self, *, drop: list[int], mark: MarkPosition | None, brand: Brand) -> bytes:
         self.calls.append(("save", drop, mark))
         self.closed = True
         return b"%PDF-fake"
@@ -311,8 +311,9 @@ class FakePdfStore:
         store = self
 
         class Session(FakeEditSession):
-            def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
-                super().save(drop=drop, mark=mark)
+            def save(self, *, drop: list[int], mark: MarkPosition | None,
+                     brand: Brand) -> bytes:
+                super().save(drop=drop, mark=mark, brand=brand)
                 out = f"out-{len(store.docs)}".encode()
                 store.docs[out] = [page for i, page in enumerate(self.pages, 1) if i not in drop]
                 return out

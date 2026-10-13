@@ -1,5 +1,6 @@
 from .identity import ChatMode, Claims, Role
 from .matching import matches, sort_key
+from .organization import Brand, MarkWord, Organization
 from .project import (
     CONFIDENTIAL_FIELDS,
     MAX_SUMMARY_NAMES,
@@ -17,9 +18,12 @@ __all__ = [
     "CONFIDENTIAL_FIELDS",
     "MAX_SUMMARY_NAMES",
     "STRICTEST",
+    "Brand",
     "ChatMode",
     "Claims",
     "InventorySummary",
+    "MarkWord",
+    "Organization",
     "Project",
     "ProjectFilters",
     "Role",

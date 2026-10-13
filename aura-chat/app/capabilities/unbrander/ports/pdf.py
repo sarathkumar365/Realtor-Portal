@@ -1,5 +1,7 @@
 from typing import Protocol
 
+from app.domain import Brand
+
 from ..domain import BBox, DrawnElement, MarkPosition, PdfFacts, Word
 
 
@@ -68,8 +70,8 @@ class EditSession(Protocol):
         removed without damaging another the box only partly covers."""
         ...
 
-    def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
-        """Adds the mark, drops pages, strips metadata, writes the file and
+    def save(self, *, drop: list[int], mark: MarkPosition | None, brand: Brand) -> bytes:
+        """Adds the brand's mark at `mark`, drops pages, strips metadata, writes the file and
         closes the session."""
         ...
 

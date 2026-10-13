@@ -17,7 +17,13 @@ from app.capabilities.unbrander.domain import (
     Thumbnail,
     Word,
 )
-from app.capabilities.unbrander.verify import verify
+from app.capabilities.unbrander.verify import verify as verify_with_brand
+from app.domain import Brand, MarkWord
+
+
+def verify(*args, brand: Brand | None = None, **kwargs):
+    """verify() with the default brand unless a test names another."""
+    return verify_with_brand(*args, brand=brand or Brand(), **kwargs)
 
 HITS = HitList(builder="Arista Homes", project="SouthCal", short_forms=["AH"])
 CLEAN_OCR = {"normal": "Lot 12 Model A", "inverted": "", "light": ""}
@@ -137,6 +143,15 @@ def test_an_invented_word_is_flagged_not_blocked():
     assert len(found) == 1 and "'luxurious'" in found[0].detail
     assert found[0].severity is Severity.FLAG
     assert report.passed
+
+
+def test_the_marks_words_come_from_the_brand():
+    out = facts(page(*KEPT, "NORTH", "STAR"))
+    north_star = Brand(mark_words=(MarkWord(text="NORTH", colour="#123456"),
+                                   MarkWord(text="STAR", colour="#ABCDEF")))
+    assert checks(verify(SOURCE, out, HITS, removals=CONTACT, brand=north_star),
+                  Check.PROVENANCE) == []
+    assert checks(verify(SOURCE, out, HITS, removals=CONTACT), Check.PROVENANCE)
 
 
 def test_ligatures_are_not_new_words():

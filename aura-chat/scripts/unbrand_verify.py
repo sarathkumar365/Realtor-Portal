@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.capabilities.unbrander.adapters.pdf_pymupdf import PyMuPdfInspector
 from app.capabilities.unbrander.domain import HitList
 from app.capabilities.unbrander.verify import verify
+from app.domain import Organization
 
 
 def main() -> int:
@@ -38,7 +39,8 @@ def main() -> int:
     cleaned = inspector.inspect(Path(args.cleaned).read_bytes(), ocr=not args.no_ocr)
     hits = HitList(builder=args.builder, project=args.project,
                    short_forms=args.short, extras=args.extra)
-    report = verify(source, cleaned, hits, dropped_pages=args.dropped)
+    report = verify(source, cleaned, hits, dropped_pages=args.dropped,
+                    brand=Organization().brand)
 
     for finding in report.findings:
         where = f"p{finding.page}" if finding.page else "doc"

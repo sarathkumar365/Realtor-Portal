@@ -214,7 +214,7 @@ once for Client Mode:
 agent = Agent(
     model,                                            # OpenAIChatModel via OpenRouter
     deps_type=Deps,                                   # a TYPE, not a value
-    instructions=system_prompt(client_mode=...),      # from prompts.py
+    instructions=system_prompt(organization, client_mode=...),  # from prompts.py
     retries=1,
     model_settings=ModelSettings(max_tokens=1500),
 )

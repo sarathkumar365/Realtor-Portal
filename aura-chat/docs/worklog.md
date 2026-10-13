@@ -13,6 +13,52 @@ formatting.
 
 ---
 
+## 2026-10-13 — Organization profile: the brokerage named once (U2b)
+
+`app/domain/organization.py` holds `Organization` and `Brand`, and today's values are its
+defaults. It is the only file in `app/` that names the brokerage or holds its colours
+and font. `test_the_brokerage_is_named_only_in_the_organization_profile` enforces this.
+The test searches for "Aura Key" and "Key Realty", not "Aura": Aura is the product's
+name (Aura Chat, the `aura` command, the assistant, the `aura.*` loggers), and it stays.
+
+**The brand travels with the document, not with the editor.** `EditSession.save()`
+takes the `Brand`, and the pipeline passes `brief.organization.brand` both to it and to
+verify(). The rejected option was setting the brand once when the PyMuPDF editor is
+built. U3 stores with each job the brand it was marked with, so the mark has to come
+from the job. An editor built with one brand could draw a different mark than the one
+verify() allows.
+
+**verify():** the allowed new words are now the brand's mark words plus "vendor",
+"builder" and "the" (`SUBSTITUTE_WORDS`). The substitutes belong to Unbrander, not to the
+brand. The mark strip is computed as `margin + 2 × size`. That is 51 pt for the
+defaults, against a fixed 50 before. On the three Remington outputs, verify() gives the
+same findings before and after this change.
+
+**The CLI does not read the profile.** It runs on the realtor's machine and never sees
+the container. Having it fetch the name from the server would add an API field just to
+show a label. Its two lines that named the brokerage are now neutral: "Portal sign-in"
+and "your brokerage's pre-construction projects".
+
+**No silent defaults.** `Brief.organization`, verify()'s `brand` and the chat
+runtime's `organization` are all required. The first version defaulted the first two
+to `Organization()`, and review caught the risk: a U3 worker that forgot to pass the
+profile would mark a second brokerage's documents AURA KEY REALTY, with no error.
+`Container.organization` is the one place a default is filled in.
+
+**The prompts are not format templates.** The organization's names are concatenated
+in front of the unchanged prose, rather than filled in with `str.format`. With
+`format`, a literal brace added to a prompt later (a JSON example, say) would break
+every request. With the default profile, both prompts are byte-identical to before.
+
+**Mark words accept any Unicode letter**, not just A–Z, so a French name such as
+"ÉLITE" is valid.
+
+**Left for U3:** the chat runtime caches one agent per mode, and that agent holds the
+profile. When the profile becomes editable at runtime, saving it has to rebuild those
+agents, or chat keeps the old name until restart.
+
+---
+
 ## 2026-10-08 — Unbrander cleanup: elements numbered on the source, Toolbox edits only
 
 A review of the unbrander code found that most of its problems came from one leftover:

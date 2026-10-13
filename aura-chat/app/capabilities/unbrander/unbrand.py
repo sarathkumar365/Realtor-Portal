@@ -110,7 +110,7 @@ async def unbrand_document(
         clock = _Clock()
         session = editor.open(pdf)
         try:
-            toolbox = Toolbox(session, source, brief.hits, numbering)
+            toolbox = Toolbox(session, source, brief.hits, numbering, brief.organization.brand)
             outcomes = [_apply(toolbox, action) for action in actions]
             done = toolbox.finish()
         finally:
@@ -119,7 +119,8 @@ async def unbrand_document(
         output = inspector.inspect(done.pdf, ocr=True)
         # Removing a sales office address the sort named is not damage.
         report = verify(source, output, brief.hits, dropped_pages=done.dropped_pages,
-                        removals=done.removals, removed_terms=sorting.terms)
+                        removals=done.removals, removed_terms=sorting.terms,
+                        brand=brief.organization.brand)
         clock.lap("verify")
 
         kept = [page for page in pages if page not in done.dropped_pages]
@@ -179,7 +180,7 @@ async def _plan(pdf: bytes, brief: Brief, source: PdfFacts, pages: list[int],
         numbering = {page: number_elements(session, page) for page in pages}
         views = {page: view_page(session, page, numbering[page]) for page in pages}
         sorting = await models.sort(brief, list(views.values()))
-        kept = _kept(Toolbox(session, source, brief.hits, numbering),
+        kept = _kept(Toolbox(session, source, brief.hits, numbering, brief.organization.brand),
                      _sorted_actions(sorting, pages), pages)
     finally:
         session.close()
@@ -237,7 +238,7 @@ def _sorted_actions(sorting: Sorting, pages: list[int]) -> list[Action]:
     kept_kinds = {kinds[page].kind for page in pages if page in kinds and kinds[page].keep}
     position = (MarkPosition.BOTTOM_RIGHT if kept_kinds & PLAN_KINDS or not kept_kinds
                 else MarkPosition.BOTTOM_CENTRE)
-    out.append(AddMark(position=position, why="Aura Key mark; position by page type"))
+    out.append(AddMark(position=position, why="our mark; position by page type"))
     return out
 
 

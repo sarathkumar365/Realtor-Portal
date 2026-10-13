@@ -10,6 +10,8 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field
 
+from app.domain import Organization
+
 from .edit import GridBox, MarkPosition, NumberedElement
 from .verify import HitList
 
@@ -99,6 +101,7 @@ class Brief(BaseModel):
     hits: HitList
     page_count: int
     instructions: str | None = None  # the operator's request; never overrides a guard
+    organization: Organization
 
 
 class Usage(BaseModel):

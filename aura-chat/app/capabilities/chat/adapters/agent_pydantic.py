@@ -24,7 +24,7 @@ from pydantic_ai.usage import UsageLimits
 from app.capabilities.chat import tools
 from app.capabilities.chat.domain import Turn
 from app.capabilities.chat.prompts import system_prompt
-from app.domain import ChatMode, Claims, Project
+from app.domain import ChatMode, Claims, Organization, Project
 from app.ports import ProjectRepo
 
 MAX_STEPS = 6
@@ -96,11 +96,12 @@ def _for_client(p: Project) -> dict[str, Any]:
     }
 
 
-def build_agent(model: Model | str, *, client_mode: bool, max_tokens: int = 1500) -> Agent:
+def build_agent(model: Model | str, organization: Organization, *, client_mode: bool,
+                max_tokens: int = 1500) -> Agent:
     agent = Agent(
         model,
         deps_type=Deps,
-        instructions=system_prompt(client_mode=client_mode),
+        instructions=system_prompt(organization, client_mode=client_mode),
         retries=1,
         model_settings=ModelSettings(max_tokens=max_tokens),
     )
@@ -233,10 +234,12 @@ class PydanticAgentRuntime:
         *,
         api_key: str,
         model_name: str,
+        organization: Organization,
         model: Model | None = None,
         max_tokens: int = 1500,
     ) -> None:
         self._api_key = api_key
+        self._organization = organization
         self._model_name = model_name
         self._max_tokens = max_tokens
         self._model = model
@@ -256,7 +259,8 @@ class PydanticAgentRuntime:
         """Two agents at most: the instructions differ by mode, nothing else."""
         if client_mode not in self._agents:
             self._agents[client_mode] = build_agent(
-                self._model_for(), client_mode=client_mode, max_tokens=self._max_tokens
+                self._model_for(), self._organization, client_mode=client_mode,
+                max_tokens=self._max_tokens
             )
         return self._agents[client_mode]
 

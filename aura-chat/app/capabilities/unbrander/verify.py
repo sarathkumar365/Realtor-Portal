@@ -9,6 +9,8 @@ import bisect
 import re
 import unicodedata
 
+from app.domain import Brand
+
 from .domain import (
     EMAIL,
     OCR_MODES,
@@ -44,9 +46,9 @@ GENERIC = {
                          re.IGNORECASE),
 }
 
-# Words the cleaned PDF may hold that the source never did: the Aura Key mark,
-# and the substitutes the skill uses when a builder name is cut from a sentence.
-ALLOWED_NEW_WORDS = {"aura", "key", "realty", "vendor", "builder", "the"}
+# Words the cleaned PDF may hold that the source never did, besides the mark's:
+# the substitutes the skill uses when a builder name is cut from a sentence.
+SUBSTITUTE_WORDS = {"vendor", "builder", "the"}
 
 # OCR misreads, folded the same way on both sides before matching. "rn" for "m"
 # is two edits, more than the fuzzy match allows, so it is folded instead.
@@ -62,7 +64,6 @@ COVERED = 0.9    # share of a text or image box hidden by a later opaque fill
 PIXEL_CHANGE = 48
 CHANGED_SHARE = 0.002
 AREA_SLACK = 2.0     # points around each removal area
-MARK_STRIP = 50.0    # points at the bottom where the Aura Key mark goes
 # Object names run words together, so the raw-bytes sweep matches unanchored;
 # terms shorter than this would match inside unrelated names.
 RAW_BYTES_MIN_LENGTH = 4
@@ -78,6 +79,8 @@ def verify(
     dropped_pages: list[int] | None = None,
     removals: list[Removal] | None = None,
     removed_terms: list[str] | None = None,
+    *,
+    brand: Brand,
 ) -> VerifyReport:
     """`removed_terms` are names removed on purpose beyond the hit list (the
     sort's): their absence is not damage. They are not swept for: a short one
@@ -91,11 +94,11 @@ def verify(
         findings += _cover_up(page)
     findings += _raw_bytes(output, terms)
     findings += _numbers(source, output)
-    findings += _provenance(source, output)
+    findings += _provenance(source, output, brand)
     findings += _metadata(output)
     findings += _pages(source, output, dropped_pages)
     findings += _damage(source, output, [*terms, *(removed_terms or [])], dropped_pages,
-                        removals or [])
+                        removals or [], brand)
     return VerifyReport(findings=findings)
 
 
@@ -269,8 +272,9 @@ def _word_key(text: str) -> str:
     return re.sub(r"^[^\w]+|[^\w]+$", "", text)
 
 
-def _provenance(source: PdfFacts, output: PdfFacts) -> list[Finding]:
+def _provenance(source: PdfFacts, output: PdfFacts, brand: Brand) -> list[Finding]:
     known = {_word_key(word.text) for page in source.pages for word in page.words}
+    known |= SUBSTITUTE_WORDS | {_word_key(word.text) for word in brand.mark_words}
     out = []
     for page in output.pages:
         new = [word for word in page.words if _is_new(_word_key(word.text), known)]
@@ -283,7 +287,7 @@ def _provenance(source: PdfFacts, output: PdfFacts) -> list[Finding]:
 
 
 def _is_new(key: str, known: set[str]) -> bool:
-    if not key or key in known or key in ALLOWED_NEW_WORDS:
+    if not key or key in known:
         return False
     # The mark is set letter by letter; numbers have their own check.
     return not (len(key) == 1 or NUMBER.fullmatch(key))
@@ -341,7 +345,7 @@ def _pages(source: PdfFacts, output: PdfFacts, dropped: list[int] | None) -> lis
 
 
 def _damage(source: PdfFacts, output: PdfFacts, terms: list[str], dropped: list[int] | None,
-            removals: list[Removal]) -> list[Finding]:
+            removals: list[Removal], brand: Brand) -> list[Finding]:
     """What the source had and the output lost, beyond the builder's names. Run 6
     passed every other check while ten floor plans lost labels like "KITCHEN
     8'0" x 13'0"": nothing compared what was there before."""
@@ -365,7 +369,8 @@ def _damage(source: PdfFacts, output: PdfFacts, terms: list[str], dropped: list[
                 detail=f"words gone from source page {source_page.number}: {_listed(lost)}",
                 bbox=(numbered or lost)[0].bbox,
             ))
-        changed = _changed_outside(source_page, output_page, areas.get(source_page.number, []))
+        changed = _changed_outside(source_page, output_page, areas.get(source_page.number, []),
+                                   _mark_strip(brand))
         if changed:
             share, bbox = changed
             out.append(Finding(
@@ -394,8 +399,14 @@ def _lost_words(source_page: PageFacts, output_page: PageFacts,
     return missing(counted, output_page.words, key=_word_key)
 
 
+def _mark_strip(brand: Brand) -> float:
+    """Points at the bottom of a page where the mark goes: its margin, its
+    height, and as much again for the descenders and anti-aliasing."""
+    return brand.margin + 2 * brand.size
+
+
 def _changed_outside(source_page: PageFacts, output_page: PageFacts,
-                     areas: list[BBox]) -> tuple[float, BBox] | None:
+                     areas: list[BBox], mark_strip_height: float) -> tuple[float, BBox] | None:
     """The share of the page whose picture changed outside every removal area and
     the mark's strip, and where, or None when it is under CHANGED_SHARE."""
     before, after = source_page.thumbnail, output_page.thumbnail
@@ -404,7 +415,8 @@ def _changed_outside(source_page: PageFacts, output_page: PageFacts,
         return None
     scale = before.width / source_page.width
     masked = bytearray(before.width * before.height)
-    mark_strip = (0, source_page.height - MARK_STRIP, source_page.width, source_page.height)
+    mark_strip = (0, source_page.height - mark_strip_height, source_page.width,
+                  source_page.height)
     for x0, y0, x1, y1 in [*areas, mark_strip]:
         left = max(int((x0 - AREA_SLACK) * scale), 0)
         right = min(int((x1 + AREA_SLACK) * scale) + 1, before.width)

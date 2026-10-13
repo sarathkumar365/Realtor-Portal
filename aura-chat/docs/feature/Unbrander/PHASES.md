@@ -153,6 +153,14 @@ platform object, so that later phases can make it editable without touching capa
 only in `organization.py`; and the existing cleaned outputs still pass
 `scripts/unbrand_verify.py` with the default profile. No live model run is needed.
 
+**Done 2026-10-13.** The three Remington outputs give the same verify() findings before
+and after, and all pass. The `aura` CLI runs on the realtor's machine, outside the
+container, so its two lines that named the brokerage now say "Portal sign-in" and "your
+brokerage" instead of reading the profile. Unbrander has no place in the container yet:
+the `Brief` carries the profile, which is required, and the U3 worker fills it from
+the container. The chat runtime caches agents with the profile in them, so U3's save
+has to rebuild them.
+
 ## U3 — Pipeline to `FILED_PRIVATE` (dry run)
 
 - `jobs` table and the job record (LOOP.md) — schema change, reviewed before it is applied.

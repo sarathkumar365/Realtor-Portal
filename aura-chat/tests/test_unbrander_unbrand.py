@@ -23,6 +23,7 @@ from app.capabilities.unbrander.domain import (
     Word,
 )
 from app.capabilities.unbrander.unbrand import RoundResult, unbrand_document
+from app.domain import Organization
 from tests.fakes import FakePdfStore, FakeUnbrandModels
 
 SOURCE = b"source"
@@ -42,7 +43,8 @@ def store(*pages: str, elements=None) -> FakePdfStore:
 
 
 def brief(page_count: int, instructions: str | None = None) -> Brief:
-    return Brief(hits=HITS, page_count=page_count, instructions=instructions)
+    return Brief(hits=HITS, page_count=page_count, instructions=instructions,
+                 organization=Organization())
 
 
 def texts(pdfs: FakePdfStore, pdf: bytes) -> list[str]:
@@ -71,7 +73,7 @@ async def test_the_sort_drops_marketing_removes_terms_and_places_the_mark():
     assert done.dropped_pages == [1]
     assert texts(pdfs, done.pdf) == ["Lot 12", "Model A"]
     assert done.actions[-1] == AddMark(position=MarkPosition.BOTTOM_RIGHT,
-                                       why="Aura Key mark; position by page type")
+                                       why="our mark; position by page type")
     assert models.picked == [2, 3]  # dropped pages are never picked
     assert done.report.passed and done.rounds == 1
 
@@ -80,7 +82,7 @@ async def test_text_pages_get_the_mark_bottom_centre():
     models = FakeUnbrandModels(sorting("feature_sheet", terms=()))
     done = await run(store("Granite 9' ceilings"), models, 1)
     assert done.actions == [AddMark(position=MarkPosition.BOTTOM_CENTRE,
-                                    why="Aura Key mark; position by page type")]
+                                    why="our mark; position by page type")]
 
 
 async def test_a_page_with_dimensions_is_not_dropped_whatever_the_sort_says():

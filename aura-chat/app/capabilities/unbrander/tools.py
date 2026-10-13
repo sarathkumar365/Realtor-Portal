@@ -12,6 +12,8 @@ render DPI. Imports domain and ports only.
 
 import re
 
+from app.domain import Brand
+
 from .domain import (
     BBox,
     DrawnElement,
@@ -100,8 +102,9 @@ class Toolbox:
     number_elements(); every round of a document gets the same one."""
 
     def __init__(self, session: EditSession, source: PdfFacts, hits: HitList,
-                 elements: Numbering) -> None:
+                 elements: Numbering, brand: Brand) -> None:
         self._session = session
+        self._brand = brand
         self._source_text = {page.number: joined(page.words)[0] for page in source.pages}
         self._hits = hits.terms()
         self._elements = elements
@@ -223,7 +226,7 @@ class Toolbox:
         self._check_open()
         self._finished = True
         dropped = sorted(self._dropped)
-        pdf = self._session.save(drop=dropped, mark=self._mark)
+        pdf = self._session.save(drop=dropped, mark=self._mark, brand=self._brand)
         return Finished(pdf=pdf, removals=list(self.removals), dropped_pages=dropped)
 
     def _check_no_content_text(self, page: int, covered: BBox, what: str) -> None:

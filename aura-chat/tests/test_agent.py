@@ -17,7 +17,7 @@ from app.capabilities.chat.adapters.agent_pydantic import (
     PydanticAgentRuntime,
     _for_model,
 )
-from app.domain import ChatMode, Claims, Project, Role, Viewer
+from app.domain import ChatMode, Claims, Organization, Project, Role, Viewer
 from tests.fakes import FakeProjectRepo
 
 AUTH = "tok"
@@ -68,7 +68,8 @@ def scripted(*turns):
 
 
 def runtime(model) -> PydanticAgentRuntime:
-    return PydanticAgentRuntime(api_key="", model_name="test", model=model)
+    return PydanticAgentRuntime(api_key="", model_name="test", organization=Organization(),
+                                model=model)
 
 
 def viewed(projects, mode=ChatMode.REALTOR):
@@ -189,7 +190,8 @@ async def test_the_model_and_agent_are_built_once_not_per_request():
     """A provider owns an AsyncOpenAI client and its connection pool, and
     nothing here closes one: building them per message leaks a pool per
     question until the process runs out of sockets."""
-    rt = PydanticAgentRuntime(api_key="k", model_name="openai/gpt-4o-mini")
+    rt = PydanticAgentRuntime(api_key="k", model_name="openai/gpt-4o-mini",
+                              organization=Organization())
     first, second = rt._model_for(), rt._model_for()
     assert first is second
 
@@ -236,7 +238,8 @@ async def test_healthy_does_not_spend_money():
     """A completion would be the stronger check and would bill on every uptime
     probe."""
     assert await runtime(scripted()).healthy() is True
-    assert await PydanticAgentRuntime(api_key="", model_name="x").healthy() is False
+    assert await PydanticAgentRuntime(api_key="", model_name="x",
+                                organization=Organization()).healthy() is False
 
 
 async def test_a_named_project_is_found_without_an_id():
@@ -254,7 +257,6 @@ async def test_a_named_project_is_found_without_an_id():
 async def test_an_ambiguous_name_returns_candidates_not_a_denial():
     """Two Brampton projects really are both called Mayfield Village. The
     realtor needs to be asked which, not told neither exists."""
-    from app.capabilities.chat.adapters.agent_pydantic import build_agent
 
     twins = [
         a_project(id="AK-1", name="Mayfield Village", builder="Royal Pine"),

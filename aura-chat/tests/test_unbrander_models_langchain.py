@@ -26,8 +26,10 @@ from app.capabilities.unbrander.domain import (
     RemoveElement,
     Severity,
 )
+from app.domain import Organization
 
-BRIEF = Brief(hits=HitList(builder="Arista Homes", project="SouthCal"), page_count=2)
+BRIEF = Brief(hits=HitList(builder="Arista Homes", project="SouthCal"), page_count=2,
+              organization=Organization())
 PAGES = [PageView(page=page, jpeg=b"\xff\xd8" * 600,
                   text=f'<document_text page="{page}">x</document_text>',
                   elements=[NumberedElement(id=9, kind="image", box=(10, 10, 90, 60))])

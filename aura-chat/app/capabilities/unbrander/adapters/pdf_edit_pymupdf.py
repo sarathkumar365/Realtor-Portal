@@ -9,6 +9,8 @@ import io
 import pymupdf
 from PIL import Image, ImageDraw, ImageFont
 
+from app.domain import Brand
+
 from ..domain import BBox, DrawnElement, MarkPosition, ToolRejected, Word, missing
 from .pdf_pymupdf import page_words
 
@@ -33,14 +35,8 @@ NEUTRAL_SPREAD = 0.15   # RGB channels closer than this are a shade of gray
 MARK_COLOUR = (220, 0, 0)
 LABEL_SIZE = 26  # pixels; Pillow's default 10 is unreadable on a 2300-pixel-wide render
 
-MARGIN = 36  # points from the page edge
-MARK_SIZE = 7.5
-MARK_TRACKING = 1.6
-MARK_OPACITY = 0.55
-NAVY = (0.055, 0.102, 0.141)  # #0E1A24
-GOLD = (0.788, 0.635, 0.153)  # #C9A227
-MARK = (("AURA", NAVY), ("KEY", GOLD), ("REALTY", NAVY))
-MARK_FONT = "times-roman"
+# The brand's font family as PyMuPDF names its base-14 regular face.
+BASE14 = {"Times": "times-roman", "Helvetica": "helvetica", "Courier": "courier"}
 
 
 class PyMuPdfEditor:
@@ -138,12 +134,12 @@ class PyMuPdfSession:
         # labels as removed when none were (run 7).
         return missing(before, self.words(page))
 
-    def save(self, *, drop: list[int], mark: MarkPosition | None) -> bytes:
+    def save(self, *, drop: list[int], mark: MarkPosition | None, brand: Brand) -> bytes:
         doc = self._doc
         if mark is not None:
             for page in doc:
                 if page.number + 1 not in drop:
-                    _wordmark(page, mark)
+                    _wordmark(page, mark, brand)
         if drop:
             doc.delete_pages(sorted(page_number - 1 for page_number in drop))
         for page in doc:
@@ -246,23 +242,29 @@ def _merged(rects: list["pymupdf.Rect"], gap: float) -> list["pymupdf.Rect"]:
     return groups
 
 
-def _wordmark(page: "pymupdf.Page", position: MarkPosition) -> None:
+def _rgb(colour: str) -> tuple[float, float, float]:
+    return tuple(int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+
+
+def _wordmark(page: "pymupdf.Page", position: MarkPosition, brand: Brand) -> None:
     """Placed as the page is seen. page.rect is the rotated (visible) page, but
     insert_text works in unrotated space, so each point is derotated and the
     letters are turned with the page to read upright."""
-    letters = [(ch, color) for word, color in MARK for ch in word]
-    width = sum(pymupdf.get_text_length(ch, MARK_FONT, MARK_SIZE) + MARK_TRACKING
-                for ch, _ in letters) + MARK_SIZE * 0.5 * (len(MARK) - 1)
-    left = (page.rect.width - MARGIN - width if position is MarkPosition.BOTTOM_RIGHT
+    font, size, tracking = BASE14[brand.font], brand.size, brand.tracking
+    words = brand.mark_words
+    width = sum(pymupdf.get_text_length(ch, font, size) + tracking
+                for word in words for ch in word.text) + size * 0.5 * (len(words) - 1)
+    left = (page.rect.width - brand.margin - width if position is MarkPosition.BOTTOM_RIGHT
             else (page.rect.width - width) / 2)
-    baseline = page.rect.height - MARGIN
-    for word, color in MARK:
-        for ch in word:
+    baseline = page.rect.height - brand.margin
+    for word in words:
+        color = _rgb(word.colour)
+        for ch in word.text:
             page.insert_text(pymupdf.Point(left, baseline) * page.derotation_matrix, ch,
-                             fontname=MARK_FONT, fontsize=MARK_SIZE, color=color,
-                             fill_opacity=MARK_OPACITY, rotate=page.rotation)
-            left += pymupdf.get_text_length(ch, MARK_FONT, MARK_SIZE) + MARK_TRACKING
-        left += MARK_SIZE * 0.5
+                             fontname=font, fontsize=size, color=color,
+                             fill_opacity=brand.opacity, rotate=page.rotation)
+            left += pymupdf.get_text_length(ch, font, size) + tracking
+        left += size * 0.5
 
 
 def _strip_object_metadata(doc: "pymupdf.Document") -> None:

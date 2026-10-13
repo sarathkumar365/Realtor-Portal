@@ -46,6 +46,7 @@ from — see §6. Design docs for each capability live in `aura-chat/docs/featur
 aura-chat/
   app/                 the shared platform
     domain/            Project, ProjectFilters, Claims, Role, ChatMode, Viewer
+                       organization.py — Organization, Brand: who the agent works for
                        matching.py — filter + sort semantics, source-agnostic
                        Pure Pydantic. Imports nothing external.
     ports/             AuthVerifier, ProjectRepo. Protocols only — each one a stated reason

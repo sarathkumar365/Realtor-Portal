@@ -21,7 +21,10 @@ from app.capabilities.unbrander.domain import (
 from app.capabilities.unbrander.tools import Toolbox, number_elements
 from app.capabilities.unbrander.unbrand import unbrand_document
 from app.capabilities.unbrander.verify import verify
+from app.domain import Brand, MarkWord, Organization
 from tests.fakes import FakeUnbrandModels
+
+BRAND = Brand()
 
 has_tesseract = shutil.which("tesseract") is not None
 
@@ -51,7 +54,7 @@ def test_redact_text_removes_the_word_from_text_and_bytes_and_keeps_line_art():
     session = PyMuPdfEditor().open(build(draw))
     target = next(w for w in session.words(1) if w.text == "SouthCal")
     session.redact_text(1, [target.bbox])
-    out = session.save(drop=[], mark=None)
+    out = session.save(drop=[], mark=None, brand=BRAND)
     assert "SouthCal" not in page_text(out)
     assert "Living" in page_text(out) and "Room" in page_text(out)
     assert b"SouthCal" not in pymupdf.open(stream=out).tobytes(expand=255)
@@ -80,7 +83,7 @@ def test_redact_area_clears_image_pixels_and_reports_words_lost():
     session = PyMuPdfEditor().open(build(draw))
     lost = session.redact_area(1, (380, 0, 612, 140))
     assert [w.text for w in lost] == ["Presentation", "Centre"]
-    with pymupdf.open(stream=session.save(drop=[], mark=None)) as doc:
+    with pymupdf.open(stream=session.save(drop=[], mark=None, brand=BRAND)) as doc:
         pixmap = doc[0].get_pixmap(clip=pymupdf.Rect(450, 40, 500, 80))
         assert set(pixmap.samples) == {255}  # white: the red logo is gone
         assert "Lot 12" in doc[0].get_text()
@@ -105,7 +108,7 @@ def test_redact_area_leaves_a_panel_it_only_touches():
         page.draw_rect(pymupdf.Rect(400, 700, 470, 720), color=None, fill=(1, 1, 1))
     session = PyMuPdfEditor().open(build(draw))
     session.redact_area(1, (399, 699, 471, 721))
-    with pymupdf.open(stream=session.save(drop=[], mark=None)) as doc:
+    with pymupdf.open(stream=session.save(drop=[], mark=None, brand=BRAND)) as doc:
         rects = [tuple(round(v) for v in d["rect"]) for d in doc[0].get_drawings()]
     assert (0, 650, 612, 792) in rects and (400, 700, 470, 720) not in rects
 
@@ -118,7 +121,7 @@ def test_redact_area_over_a_transparent_image_leaves_no_black():
         page.delete_image(xref)
     session = PyMuPdfEditor().open(build(draw))
     session.redact_area(1, (90, 90, 200, 210))  # part of the image
-    with pymupdf.open(stream=session.save(drop=[], mark=None)) as doc:
+    with pymupdf.open(stream=session.save(drop=[], mark=None, brand=BRAND)) as doc:
         pixmap = doc[0].get_pixmap(clip=pymupdf.Rect(100, 100, 300, 200))
     assert min(pixmap.samples) > 200  # white, not black
 
@@ -133,7 +136,7 @@ def test_a_numbered_render_is_the_same_size_as_a_plain_one():
 
 def test_save_drops_pages_and_marks_every_kept_page_in_the_same_place():
     pdf = build(lambda d, p: p.insert_text((72, 72), f"Page {p.number + 1}"), pages=3)
-    out = PyMuPdfEditor().open(pdf).save(drop=[2], mark=MarkPosition.BOTTOM_RIGHT)
+    out = PyMuPdfEditor().open(pdf).save(drop=[2], mark=MarkPosition.BOTTOM_RIGHT, brand=BRAND)
     with pymupdf.open(stream=out) as doc:
         assert [p.get_text().split()[:2] for p in doc] == [["Page", "1"], ["Page", "3"]]
         spots = [p.search_for("A")[-1] for p in doc]
@@ -144,14 +147,14 @@ def test_save_drops_pages_and_marks_every_kept_page_in_the_same_place():
 def test_save_keeps_the_invisible_ocr_layer_of_a_scan():
     def draw(doc, page):
         page.insert_text((72, 100), "The Aspen $1,234,990", render_mode=3)
-    out = PyMuPdfEditor().open(build(draw)).save(drop=[], mark=None)
+    out = PyMuPdfEditor().open(build(draw)).save(drop=[], mark=None, brand=BRAND)
     assert "$1,234,990" in page_text(out)
 
 
 @pytest.mark.parametrize("rotation", [90, 180, 270])
 def test_mark_sits_bottom_right_as_a_rotated_page_is_seen(rotation):
     pdf = build(lambda d, p: p.set_rotation(rotation))
-    out = PyMuPdfEditor().open(pdf).save(drop=[], mark=MarkPosition.BOTTOM_RIGHT)
+    out = PyMuPdfEditor().open(pdf).save(drop=[], mark=MarkPosition.BOTTOM_RIGHT, brand=BRAND)
     with pymupdf.open(stream=out) as doc:
         page = doc[0]
         seen = page.search_for("Y")[-1] * page.rotation_matrix  # the last letter
@@ -171,7 +174,7 @@ def test_save_strips_metadata_everywhere():
         doc.update_object(meta, "<</Type/Metadata/Subtype/XML>>")
         doc.update_stream(meta, b"<rdf:li>/Volumes/ARISTA/SouthCal_DT</rdf:li>")
         doc.xref_set_key(xref, "Metadata", f"{meta} 0 R")
-    out = PyMuPdfEditor().open(build(draw)).save(drop=[], mark=None)
+    out = PyMuPdfEditor().open(build(draw)).save(drop=[], mark=None, brand=BRAND)
     facts = PyMuPdfInspector().inspect(out, ocr=False)
     assert facts.metadata.keys() <= {"producer", "creator"}  # pymupdf may stamp itself
     assert "SouthCal" not in facts.xmp
@@ -191,15 +194,36 @@ def test_toolbox_output_passes_verify():
     inspector = PyMuPdfInspector()
     source = inspector.inspect(pdf, ocr=False)
     session = PyMuPdfEditor().open(pdf)
-    tb = Toolbox(session, source, hits, {page: number_elements(session, page) for page in (1, 2)})
+    tb = Toolbox(session, source, hits, {page: number_elements(session, page) for page in (1, 2)},
+                 BRAND)
     tb.redact_terms(["SouthCal", "Arista Homes"])
     tb.drop_page(2, "duplicate")
     tb.add_mark("bottom_right")
     done = tb.finish()
     report = verify(source, inspector.inspect(done.pdf, ocr=has_tesseract), hits,
-                    dropped_pages=done.dropped_pages)
+                    dropped_pages=done.dropped_pages, brand=BRAND)
     assert [f for f in report.findings if f.severity != "flag"] == []
     assert report.passed
+
+
+def test_another_brands_mark_is_drawn_and_passes_verify():
+    brand = Brand(mark_words=(MarkWord(text="NORTH", colour="#123456"),
+                              MarkWord(text="STAR", colour="#ABCDEF")), font="Courier")
+    pdf = build(lambda d, p: p.insert_text((72, 100), "The Aspen  $1,234,990", fontsize=14))
+    out = PyMuPdfEditor().open(pdf).save(drop=[], mark=MarkPosition.BOTTOM_CENTRE, brand=brand)
+    with pymupdf.open(stream=out) as doc:
+        letters = [span for block in doc[0].get_text("dict")["blocks"]
+                   for line in block.get("lines", []) for span in line["spans"]
+                   if span["origin"][1] > 700]
+    assert "".join(span["text"] for span in letters).replace(" ", "") == "NORTHSTAR"
+    assert {span["font"] for span in letters} == {"Courier"}
+    assert letters[0]["color"] == 0x123456 and letters[-1]["color"] == 0xABCDEF
+    inspector = PyMuPdfInspector()
+    report = verify(inspector.inspect(pdf, ocr=has_tesseract),
+                    inspector.inspect(out, ocr=has_tesseract),
+                    HitList(builder="Arista Homes", project="SouthCal"), brand=brand)
+    # Without tesseract, the OCR sweep blocks every page; that is its own test.
+    assert [finding for finding in report.findings if finding.check != "ocr_sweep"] == []
 
 
 @pytest.mark.skipif(not has_tesseract, reason="the unbrand step always runs verify with OCR")
@@ -217,7 +241,7 @@ async def test_the_unbrand_step_on_a_real_pdf_replays_from_the_source_each_round
     fix = RedactTerms(terms=["Arista Homes"], why="builder")
     models = FakeUnbrandModels(sorting, repair={2: [fix], 3: [fix]})
     inspector = PyMuPdfInspector()
-    done = await unbrand_document(pdf, Brief(hits=hits, page_count=3), editor=PyMuPdfEditor(),
+    done = await unbrand_document(pdf, Brief(hits=hits, page_count=3, organization=Organization()), editor=PyMuPdfEditor(),
                                   inspector=inspector, models=models,
                                   max_repair_rounds=1)
     assert done.rounds == 2 and done.dropped_pages == [1]
@@ -261,7 +285,8 @@ def test_a_watermark_over_plan_lines_covers_the_plan_group_and_is_refused():
         (group.kind, tuple(round(value) for value in group.bbox)) for group in covered}
     source = PyMuPdfInspector().inspect(pdf, ocr=False)
     numbering = {1: number_elements(session, 1)}
-    tb = Toolbox(session, source, HitList(builder="Arista Homes", project="SouthCal"), numbering)
+    tb = Toolbox(session, source, HitList(builder="Arista Homes", project="SouthCal"), numbering,
+                 BRAND)
     [number] = [number for number, ref in numbering[1].items()
                 if ref.kind == "coloured shapes"]
     with pytest.raises(ToolRejected, match="page's own drawing"):
@@ -279,5 +304,5 @@ def test_a_whole_image_beside_part_of_a_transparent_one_is_refused_untouched():
     session = PyMuPdfEditor().open(build(draw))
     with pytest.raises(ToolRejected, match="transparent"):
         session.redact_area(1, (250, 140, 360, 180))
-    with pymupdf.open(stream=session.save(drop=[], mark=None)) as doc:
+    with pymupdf.open(stream=session.save(drop=[], mark=None, brand=BRAND)) as doc:
         assert len(doc[0].get_images()) == 2

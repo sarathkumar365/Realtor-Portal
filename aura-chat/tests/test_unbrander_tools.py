@@ -12,7 +12,10 @@ from app.capabilities.unbrander.domain import (
     Word,
 )
 from app.capabilities.unbrander.tools import Toolbox, number_elements, view_page
+from app.domain import Brand
 from tests.fakes import FakeEditSession, FakePdfEditor
+
+BRAND = Brand()
 
 HITS = HitList(builder="Arista Homes", project="SouthCal", short_forms=["AH"])
 
@@ -31,7 +34,7 @@ def toolbox(*pages: str, elements=None) -> tuple[Toolbox, FakeEditSession]:
                              for i, p in enumerate(pages, start=1)])
     opened = FakePdfEditor(session).open(b"%PDF")
     numbering = {page: number_elements(opened, page) for page in range(1, len(pages) + 1)}
-    return Toolbox(opened, source, HITS, numbering), session
+    return Toolbox(opened, source, HITS, numbering, BRAND), session
 
 
 def session_of(*pages: str, elements=None) -> FakeEditSession:
@@ -243,7 +246,7 @@ def test_remove_element_uses_the_numbering_it_was_given():
     session = session_of("Arista Homes", elements={1: [LOGO]})
     source = PdfFacts(pages=[PageFacts(number=1, width=612, height=792,
                                        words=words("Arista Homes"))])
-    tb = Toolbox(session, source, HITS, {1: {1: LOGO}})
+    tb = Toolbox(session, source, HITS, {1: {1: LOGO}}, BRAND)
     session.element_map = {1: [PHOTO, LOGO]}  # the page re-read after an edit
     tb.remove_element(1, 1)
     assert session.calls[-1] == ("redact_area", 1, (44, 94, 206, 116))

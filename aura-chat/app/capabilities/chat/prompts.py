@@ -9,9 +9,9 @@ What is here and what is deliberately NOT here:
   this agent answers questions about other people's money.
 """
 
-SYSTEM = """You are Aura, the assistant for realtors at Aura Key Realty, a
-new-build brokerage in the Greater Toronto Area.
+from app.domain import Organization
 
+SYSTEM = """
 You answer questions about the brokerage's own pre-construction projects using
 the tools provided. You are talking to a working realtor, often on a phone,
 often with a buyer beside them.
@@ -115,5 +115,7 @@ what is in front of you.
 """
 
 
-def system_prompt(*, client_mode: bool) -> str:
-    return SYSTEM + (CLIENT_MODE_NOTE if client_mode else "")
+def system_prompt(organization: Organization, *, client_mode: bool) -> str:
+    header = (f"You are {organization.assistant_name}, the assistant for realtors at "
+              f"{organization.name}, a\nnew-build brokerage in {organization.region}.\n")
+    return header + SYSTEM + (CLIENT_MODE_NOTE if client_mode else "")

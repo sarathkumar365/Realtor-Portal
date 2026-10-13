@@ -75,7 +75,7 @@ async def do_login(base: str) -> int:
     """
     import getpass
 
-    print(c("Aura Key portal sign-in", BOLD))
+    print(c("Portal sign-in", BOLD))
     user = input("Portal ID: ").strip()
     if not user:
         print(c("cancelled", GREY))
@@ -373,7 +373,7 @@ async def repl(base: str, token: str, *, mode: str, dev: bool, raw: bool) -> int
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="aura",
-        description="Ask Aura about Aura Key Realty's pre-construction projects.",
+        description="Ask Aura about your brokerage's pre-construction projects.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

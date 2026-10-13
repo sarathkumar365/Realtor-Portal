@@ -477,8 +477,8 @@ answer is stored in a `finally`
 exact unique name, and returns `None` on ambiguity rather than guessing between
 two projects that share a name.
 
-**`app/capabilities/chat/prompts.py`** (119) — `SYSTEM` the rules · `CLIENT_MODE_NOTE` appended in
-Client Mode · `system_prompt(client_mode=)`
+**`app/capabilities/chat/prompts.py`** (119) — `SYSTEM` the rules, with the organization's names filled in · `CLIENT_MODE_NOTE` appended in
+Client Mode · `system_prompt(organization, client_mode=)`
 
 **`app/diagnostics.py`** (234) — `Check` / `Report` one result and the whole ·
 `shallow()` what `/health` runs · `deep()` what `/doctor` runs · `_timed()` runs

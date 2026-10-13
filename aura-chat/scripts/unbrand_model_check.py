@@ -37,6 +37,7 @@ from app.capabilities.unbrander.adapters.pdf_pymupdf import PyMuPdfInspector
 from app.capabilities.unbrander.domain import Brief, Check, Finding, HitList, Severity
 from app.capabilities.unbrander.unbrand import RoundResult, unbrand_document
 from app.config import load
+from app.domain import Organization
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -79,7 +80,8 @@ async def main() -> int:
 
     brief = Brief(hits=HitList(builder=args.builder, project=args.project,
                                short_forms=args.short),
-                  page_count=pages, instructions=args.instructions)
+                  page_count=pages, instructions=args.instructions,
+                  organization=Organization())
     models = LangChainUnbrandModels(api_key=config.openrouter_api_key,
                                     sort_model=args.sort_model, pick_model=args.pick_model,
                                     judge_model=args.judge_model, repair_model=args.repair_model,

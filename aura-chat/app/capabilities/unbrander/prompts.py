@@ -17,9 +17,7 @@ from .domain import KEPT_KINDS, PAGE_KINDS, Brief
 _KEPT_KIND_LIST = ", ".join(kind for kind in PAGE_KINDS if kind in KEPT_KINDS)
 
 BRANDING = """\
-You remove builder branding from real-estate sales documents (floor plans, site
-plans, price lists, feature sheets) for Aura Key Realty, so they can be shared
-with buyers. Our code applies your answer and refuses unsafe actions.
+Our code applies your answer and refuses unsafe actions.
 
 What is branding, and goes:
 - The builder's name, the project's name, their short forms and initials.
@@ -61,7 +59,7 @@ How to act:
 
 
 def sort_prompt(brief: Brief) -> str:
-    return f"""{BRANDING}
+    return f"""{_branding(brief)}
 You see every page of one document: its render and its text. Decide for each page:
 - kind: {_KEPT_KIND_LIST}, or
   marketing (cover, about the builder, community or lifestyle, award and
@@ -82,7 +80,7 @@ street name, a town, a model name or a common word.
 
 
 def pick_prompt(brief: Brief) -> str:
-    return f"""{BRANDING}
+    return f"""{_branding(brief)}
 {ELEMENTS}
 You see one page that stays in the document. Names and contact details in its text
 are removed separately; you remove drawn branding. Return the actions that remove
@@ -93,7 +91,7 @@ it, or an empty list if there is none.
 
 def repair_prompt(brief: Brief, problems: list[str]) -> str:
     listed = "\n".join(f"- {problem}" for problem in problems)
-    return f"""{BRANDING}
+    return f"""{_branding(brief)}
 {ELEMENTS}
 An earlier pass left problems on this page. You see the page as it is now; the
 numbered elements are those still on it. Return only the further actions needed
@@ -109,18 +107,24 @@ Problems found on this page:
 
 def judge_prompt(brief: Brief) -> str:
     return f"""You check one page of a builder document that has already been unbranded for
-Aura Key Realty. Red numbered boxes are drawn on it by our code around the elements
+{brief.organization.name}. Red numbered boxes are drawn on it by our code around the elements
 still on the page; they are not part of the document.
 
 List any builder branding still visible: a logo, monogram, crest, QR code, or the
 builder's or project's name or contact details. Give the element number when the
-branding is inside a numbered box, otherwise null. The small "AURA KEY REALTY"
+branding is inside a numbered box, otherwise null. The small "{brief.organization.brand.mark_text}"
 mark is ours and is not branding. Model names, product-line badges such as
 "20' TOWNS", certification logos, bands of colour and the fine-print disclaimer are
 not branding. List each distinct element once. Return an empty list if the page is
 clean.
 
 {_hits(brief)}"""
+
+
+def _branding(brief: Brief) -> str:
+    return ("You remove builder branding from real-estate sales documents (floor plans, site\n"
+            f"plans, price lists, feature sheets) for {brief.organization.name}, so they can be "
+            "shared\nwith buyers. " + BRANDING)
 
 
 def _hits(brief: Brief) -> str:

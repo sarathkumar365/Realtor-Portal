@@ -2,7 +2,7 @@ from typing import Protocol
 
 from app.domain import Brand
 
-from ..domain import BBox, DrawnElement, MarkPosition, PdfFacts, Word
+from ..domain import BBox, DrawnElement, MarkPosition, PdfFacts, Screening, Word
 
 
 class OcrUnavailable(RuntimeError):
@@ -17,6 +17,10 @@ class PdfInspector(Protocol):
     """
 
     def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts: ...
+
+    def screen(self, pdf: bytes) -> Screening:
+        """Never raises: bytes that do not open come back as not readable."""
+        ...
 
 
 class EditSession(Protocol):

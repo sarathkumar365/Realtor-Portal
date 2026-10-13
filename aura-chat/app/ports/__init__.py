@@ -7,6 +7,7 @@ framework and the database driver are not ports.
 """
 
 from .auth import AuthVerifier
+from .organization import OrganizationStore
 from .projects import ProjectRepo
 
-__all__ = ["AuthVerifier", "ProjectRepo"]
+__all__ = ["AuthVerifier", "OrganizationStore", "ProjectRepo"]

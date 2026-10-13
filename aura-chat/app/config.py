@@ -32,6 +32,25 @@ class Settings(BaseSettings):
     # judge false alarms to none.
     unbrander_thinking: dict[str, str] = {"pick": "low", "judge": "low", "repair": "low"}
     unbrander_max_rounds: int = 2
+    # The job worker. Off by default so a deploy never starts spending on models,
+    # and dry run by default so output goes to the test folder, never the real tree.
+    unbrander_enabled: bool = False
+    unbrander_dry_run: bool = True
+    # Uploads, working copies and renders; a Railway volume in production.
+    unbrander_data_dir: str = ".local/unbrander"
+    unbrander_retention_days: int = 30
+    # Input guardrails and budgets (SECURITY.md, AUTONOMY.md).
+    unbrander_max_file_mb: int = 50
+    unbrander_max_pages: int = 60
+    unbrander_docs_per_day: int = 30
+    unbrander_doc_timeout_min: int = 10
+
+    # The service account's JSON key, as text. Environment only: never on the
+    # volume, never in a model's context (SECURITY.md).
+    google_service_account_json: str = ""
+    drive_shared_drive_id: str = ""
+    drive_root_folder_id: str = ""
+    drive_test_root_folder_id: str = ""
 
     database_url: str = ""
 

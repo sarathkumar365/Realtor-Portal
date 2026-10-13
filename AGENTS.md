@@ -49,15 +49,16 @@ aura-chat/
                        organization.py — Organization, Brand: who the agent works for
                        matching.py — filter + sort semantics, source-agnostic
                        Pure Pydantic. Imports nothing external.
-    ports/             AuthVerifier, ProjectRepo. Protocols only — each one a stated reason
+    ports/             AuthVerifier, ProjectRepo, OrganizationStore. Protocols only — each one a stated reason
     adapters/          One implementation per port
       portal_client.py     HTTP client for the exec API
       auth_portal_hmac.py  the portal's token, verified here
       projects_exec.py     ProjectRepo over aiindex — no column name escapes it
       projects_redacting.py  ProjectRepo as one viewer may see it (Client Mode)
+      organization_postgres.py  OrganizationStore: the one-row editable profile
       parsing.py           sheet text -> money, percent, dates, slugs
     container.py       Composition root — the ONLY file that constructs an adapter
-    api.py             FastAPI routes (/login, /health, /doctor, /me)
+    api.py             FastAPI routes (/login, /health, /doctor, /me, /admin/organization)
     diagnostics.py     the checks behind /health and /doctor
     limits.py          rate limits
     config.py          the ONLY module that reads the environment
@@ -78,11 +79,17 @@ aura-chat/
         unbrand.py         the unbrand step for one document: sort, pick, apply, judge, repair
         prompts.py         the sort, pick, judge and repair prompts
         verify.py          the code gate after M2: compares source and cleaned PDF facts
+        intake.py          upload checks, before any model call or job row
+        worker.py          the job worker: RECEIVED → UNBRANDING → FILING → FILED_PRIVATE
+        files.py           a job's files on the volume
+        routes.py          the admin job API (/admin/unbrander/jobs)
         domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py, actions.py,
-                           text.py — word and box helpers the tools, verify() and the editor share
-        ports/             PdfInspector, PdfEditor, UnbrandModels
+                           text.py — word and box helpers the tools, verify() and the editor share;
+                           job.py — Job, JobDocument, JobEvent, statuses, the Drive folder rule
+        ports/             PdfInspector, PdfEditor, UnbrandModels, JobStore, GoogleWriter
         adapters/          pdf_pymupdf.py, pdf_edit_pymupdf.py — the only files that import pymupdf or Pillow
                            models_langchain.py — UnbrandModels over LangChain and OpenRouter
+                           jobs_postgres.py, schema.sql — JobStore; drive_google.py — GoogleWriter
   tests/
     fakes.py           in-memory adapter per port — tests never touch the network
     test_layering.py   the architecture rules, enforced rather than remembered

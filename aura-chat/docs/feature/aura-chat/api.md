@@ -23,6 +23,10 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `GET` | `/feedback.csv` | bearer, **admin** | The same queue as a spreadsheet |
 | `GET` | `/conversations` | bearer | This realtor's threads |
 | `GET` | `/conversations/{id}` | bearer | One thread |
+| `GET` · `PUT` | `/admin/organization` | bearer, **admin** | The organization profile |
+| `POST` | `/admin/unbrander/jobs` | bearer, **admin** | Upload a project's PDFs |
+| `GET` | `/admin/unbrander/jobs` | bearer, **admin** | Jobs, newest first |
+| `GET` | `/admin/unbrander/jobs/{id}` | bearer, **admin** | One job, its documents and audit log |
 
 Every bearer route takes `Authorization: Bearer <portal session token>` — the
 same token the PWA already holds. There is no second credential and no service
@@ -176,6 +180,52 @@ existed. Telling those apart is itself a disclosure (AUR-40).
 
 `503` — with the same sentence whether the store is unconfigured or unreachable
 — means history is gone, not that chat is. Asking still works.
+
+### `GET /admin/organization` · `PUT /admin/organization` — admin only
+
+The profile in use: `{"name", "short_name", "assistant_name", "region", "brand":
+{"mark_words": [{"text", "colour"}], "font", "size", "tracking", "opacity",
+"margin"}}`. With nothing saved, the defaults in `app/domain/organization.py`.
+
+`PUT` takes the whole profile, saves it and uses it at once: the chat runtime is
+rebuilt, because it caches agents with the brokerage's name in their prompt, and
+every new Unbrander job copies it. Jobs already uploaded keep the profile they
+were given. `422` for a colour that is not `#RRGGBB`, a font other than Times,
+Helvetica or Courier, or a mark word with anything but letters. `503` with no
+database.
+
+### `POST /admin/unbrander/jobs` — admin only
+
+Multipart: `files` (1 to 10 PDFs), `project`, `builder`, `city`, and optionally
+`short_forms` (comma-separated), `province` (default Ontario) and `instructions`
+(free text for the models; it never overrides a guard).
+
+→ `202 {"job_id", "status": "RECEIVED"}`. Every file is checked before anything is
+kept, and one refusal refuses the upload: `413` over `UNBRANDER_MAX_FILE_MB`;
+`422` for a file that is not a PDF by its content, does not open, is
+password-protected, has more than `UNBRANDER_MAX_PAGES` pages, or carries
+JavaScript, embedded files or launch actions (refused, not stripped). The
+message names the file. Accepted while the worker is switched off: the job waits
+in `RECEIVED`.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOK" \
+  -F files=@prices.pdf -F files=@plans.pdf \
+  -F project=SouthCal -F builder="Arista Homes" -F short_forms=AH -F city=Vaughan \
+  localhost:8000/admin/unbrander/jobs
+```
+
+### `GET /admin/unbrander/jobs?status=&limit=50` · `GET /admin/unbrander/jobs/{id}` — admin only
+
+The list is newest first, without documents or the profile copy. One job comes
+with `documents` (status, `doc_type`, `dropped_pages`, `removed_items`,
+`findings`, `rounds`, `usage`, `cost_usd`, `drive_file_id`) and `events`, its
+audit log, oldest first. Job statuses: `RECEIVED`, `UNBRANDING`, `FILING`,
+`FILED_PRIVATE`, `FAILED`. Document statuses: `PENDING`, `UNBRANDING`, `VERIFIED`,
+`BLOCKED` (failed verify(); kept on the volume, never filed), `FILED`, `FAILED`.
+
+`/doctor` reports three Unbrander checks: `ocr`, `job_store` and
+`unbrander_worker`. They are critical only while the worker runs.
 
 ---
 

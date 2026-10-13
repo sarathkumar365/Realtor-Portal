@@ -5,11 +5,12 @@ import pymupdf or Pillow.
 """
 
 import re
+from pathlib import Path
 
 import pymupdf
 from PIL import Image, ImageOps
 
-from ..domain import OCR_MODES, PageFacts, Paint, PdfFacts, Thumbnail, Word
+from ..domain import OCR_MODES, PageFacts, Paint, PdfFacts, Screening, Thumbnail, Word
 from ..ports import OcrUnavailable
 
 OCR_DPI = 150
@@ -26,6 +27,11 @@ METADATA_KEYS = ("title", "author", "subject", "keywords", "creator", "producer"
 # A hex string, not the second "<" of a dictionary's "<<". A trailing ">>" is
 # fine: a hex string often ends the dictionary it sits in.
 HEX_STRING = re.compile(r"(?<!<)<([0-9A-Fa-f\s]+)>")
+# Active content, found by its key in any object's definition. "/JS\b" does not
+# match "/JSON": the word boundary needs a non-letter after the S.
+JAVASCRIPT = re.compile(r"/(JavaScript|JS)\b")
+LAUNCH = re.compile(r"/Launch\b")
+EMBEDDED_FILE = re.compile(r"/EmbeddedFile\b")
 
 
 class PyMuPdfInspector:
@@ -45,6 +51,34 @@ class PyMuPdfInspector:
                 embedded_files=doc.embfile_count(),
                 object_text=_object_text(doc),
             )
+
+    def screen(self, pdf: bytes) -> Screening:
+        try:
+            doc = pymupdf.open(stream=pdf, filetype="pdf")
+        except pymupdf.FileDataError:
+            return Screening(readable=False)
+        with doc:
+            if doc.needs_pass:
+                return Screening(readable=True, encrypted=True)
+            objects = "\n".join(definition for _, definition in _objects(doc))
+            return Screening(
+                readable=True,
+                page_count=doc.page_count,
+                javascript=bool(JAVASCRIPT.search(objects)),
+                embedded_files=doc.embfile_count() > 0 or bool(EMBEDDED_FILE.search(objects)),
+                launch_action=bool(LAUNCH.search(objects)),
+            )
+
+    def ocr_problem(self) -> str | None:
+        """Why OCR cannot run here, or None when it can. Checked at boot and by
+        /doctor, so a deploy without OCR fails before the first PDF does."""
+        try:
+            tessdata = self._find_tessdata()
+        except OcrUnavailable as error:
+            return str(error)
+        if not (Path(tessdata) / "eng.traineddata").exists():
+            return f"no English language data in {tessdata}"
+        return None
 
     def _find_tessdata(self) -> str:
         try:
@@ -114,15 +148,21 @@ def _object_text(doc: "pymupdf.Document") -> str:
     fonts, pixels) are left to the text and OCR sweeps. Hex strings, plain or UTF-16, are
     decoded so a name stored as <FEFF0053...> is searchable like a plain one."""
     parts = [layer["name"] for layer in (doc.get_ocgs() or {}).values()]
-    for xref in range(1, doc.xref_length()):
-        try:
-            parts.append(doc.xref_object(xref, compressed=True))
-            if doc.xref_get_key(xref, "Type") == ("name", "/Metadata"):
-                parts.append((doc.xref_stream(xref) or b"").decode("utf-8", "replace"))
-        except RuntimeError:  # a free or broken entry in a damaged xref table
-            continue
+    for xref, definition in _objects(doc):
+        parts.append(definition)
+        if doc.xref_get_key(xref, "Type") == ("name", "/Metadata"):
+            parts.append((doc.xref_stream(xref) or b"").decode("utf-8", "replace"))
     text = "\n".join(parts)
     return HEX_STRING.sub(lambda match: _decode_hex(match.group(1)), text)
+
+
+def _objects(doc: "pymupdf.Document"):
+    """(xref, definition) for every object that reads."""
+    for xref in range(1, doc.xref_length()):
+        try:
+            yield xref, doc.xref_object(xref, compressed=True)
+        except RuntimeError:  # a free or broken entry in a damaged xref table
+            continue
 
 
 def _decode_hex(hex_body: str) -> str:

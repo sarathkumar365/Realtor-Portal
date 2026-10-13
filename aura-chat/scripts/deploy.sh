@@ -10,6 +10,15 @@ set -euo pipefail
 BASE="${AURA_BASE:-https://aura-chat-production-0711.up.railway.app}"
 cd "$(git rev-parse --show-toplevel)"
 
+# Unbrander's OCR needs tesseract in the image. Railpack installs apt packages
+# named in this service variable; without it the worker refuses to start.
+if ! railway variables --service aura-chat --kv 2>/dev/null \
+    | grep -q '^RAILPACK_DEPLOY_APT_PACKAGES=.*tesseract-ocr'; then
+  echo "WARNING: RAILPACK_DEPLOY_APT_PACKAGES does not include tesseract-ocr;"
+  echo "         set it before turning UNBRANDER_ENABLED on:"
+  echo "         railway variables --service aura-chat --set RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr"
+fi
+
 echo "deploying from $(pwd) (service root directory = /aura-chat)"
 railway up --service aura-chat --detach
 

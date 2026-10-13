@@ -13,6 +13,7 @@ from app.api import router
 from app.capabilities.chat.conversations import router as conversations_router
 from app.capabilities.chat.feedback import router as feedback_router
 from app.capabilities.chat.routes import router as chat_router
+from app.capabilities.unbrander.routes import router as unbrander_router
 from app.config import Settings, load
 from app.limits import Limits
 
@@ -24,12 +25,15 @@ async def lifespan(app: FastAPI):
     Tests set app.state.container before the app starts; building over it here
     would silently replace their fakes with real adapters reading the real
     environment, which is a confusing way to discover you have no .env file.
-    Whoever supplied the container owns closing it.
+    Whoever supplied the container owns closing it. start() runs either way: it
+    loads the saved profile and starts the job worker, and a test's container has
+    neither unless the test gives it one.
     """
     owned = getattr(app.state, "container", None) is None
     if owned:
         app.state.container = container_mod.build()
     try:
+        await app.state.container.start()
         yield
     finally:
         if owned:
@@ -76,7 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=cfg.origins,
         allow_origin_regex=cfg.allowed_origin_regex or None,
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type"],
         expose_headers=["X-Request-Id", "Retry-After"],
     )
@@ -97,6 +101,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(chat_router)
     app.include_router(feedback_router)
     app.include_router(conversations_router)
+    app.include_router(unbrander_router)
     return app
 
 

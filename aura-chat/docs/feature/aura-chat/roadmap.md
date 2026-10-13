@@ -56,8 +56,11 @@ not on this list, that is a design decision — ask.
 | ~~`app/capabilities/chat/adapters/store_postgres.py`~~ | 4 | **written** — `ConversationStore` on Railway Postgres |
 | `app/capabilities/chat/adapters/docs_pgvector.py` | 5 | `DocumentIndex` |
 | ~~`app/domain/organization.py`~~ | U2b | **written** — `Organization` and `Brand`: who the agent works for, with today's values as defaults |
-| `app/ports/organization.py` | U3 | `OrganizationStore`: read and save the one organization profile |
-| `app/adapters/organization_postgres.py` | U3 | `OrganizationStore` on Postgres, one-row `organization` table |
+| ~~`app/ports/organization.py`~~ | U3 | **written** — `OrganizationStore`: read and save the one organization profile |
+| ~~`app/adapters/organization_postgres.py`~~ | U3 | **written** — `OrganizationStore` on Postgres, one-row `organization` table |
+| ~~`app/capabilities/unbrander/` `worker.py`, `intake.py`, `files.py`, `routes.py`~~ | U3 | **written** — the job worker, upload checks, volume files, admin job API (named in the approved U3 plan) |
+| ~~`app/capabilities/unbrander/ports/jobs.py`, `ports/drive.py`, `domain/job.py`~~ | U3 | **written** — `JobStore`, `GoogleWriter`, the job model |
+| ~~`app/capabilities/unbrander/adapters/jobs_postgres.py`, `drive_google.py`~~ | U3 | **written** — their adapters |
 
 **`app/adapters/filters.py` was planned and deliberately not built.** Filtering
 became `app/domain/matching.py` (`matches`, `sort_key` — pure, source-agnostic,

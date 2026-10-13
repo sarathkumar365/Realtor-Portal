@@ -416,7 +416,7 @@ each, which is why the whole suite runs with no network.
 | `projects_redacting.py` | A `ProjectRepo` that wraps another and can only return what its `Viewer` may see. |
 | `auth_portal_hmac.py` | Verifies the portal's token signature; asks the portal about liveness. |
 | `agent_pydantic.py` | `AgentRuntime`. **The only file that imports an agent framework.** |
-| `store_postgres.py` | `ConversationStore` on Postgres. **The only file that imports a database driver.** `schema.sql` beside it is applied on every boot, idempotently — that is the whole migration system. |
+| `store_postgres.py` | `ConversationStore` on Postgres. **Database drivers are imported only in adapters** (this one, and Unbrander's `jobs_postgres.py`). `schema.sql` beside it is applied on every boot, idempotently — that is the whole migration system. |
 | `parsing.py` | `"$899,900"` → `899900`. Pure, and the messiest code in the service. |
 
 ### The rest

@@ -9,24 +9,36 @@ import hashlib
 import hmac
 import time
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from app.capabilities.unbrander.domain import (
+    ENDED,
     OCR_MODES,
     Action,
     BBox,
     Brief,
     DrawnElement,
+    DocumentStatus,
     Finding,
+    Job,
+    JobDocument,
+    JobEvent,
+    JobStatus,
     MarkPosition,
+    NewJob,
     PageFacts,
     PageView,
     PdfFacts,
+    Screening,
     Sorting,
     Usage,
     Word,
 )
+from app.capabilities.unbrander.ports import DriveWriteFailed
 from app.domain import (
-    Brand, Claims, ChatMode, InventorySummary, Project, ProjectFilters, Role, SearchPage, Tally,
+    Brand, Claims, ChatMode, InventorySummary, Organization, Project, ProjectFilters, Role,
+    SearchPage, Tally,
 )
 
 TEST_SECRET = "test-secret-not-a-real-key"
@@ -207,15 +219,20 @@ class FakeAgentRuntime:
 
 
 class FakePdfInspector:
-    """Hands back facts given up front, keyed by the PDF bytes."""
+    """Hands back facts and screenings given up front, keyed by the PDF bytes."""
 
-    def __init__(self, facts: dict[bytes, PdfFacts]) -> None:
-        self.facts = facts
+    def __init__(self, facts: dict[bytes, PdfFacts] | None = None,
+                 screenings: dict[bytes, Screening] | None = None) -> None:
+        self.facts = facts or {}
+        self.screenings = screenings or {}
         self.calls: list[tuple[bytes, bool]] = []
 
     def inspect(self, pdf: bytes, *, ocr: bool) -> PdfFacts:
         self.calls.append((pdf, ocr))
         return self.facts[pdf]
+
+    def screen(self, pdf: bytes) -> Screening:
+        return self.screenings[pdf]
 
 
 class FakeEditSession:
@@ -367,3 +384,151 @@ class FakeUnbrandModels:
     async def repair(self, brief: Brief, page: PageView, problems: list[str]) -> list[Action]:
         self.repaired.append((page.page, problems))
         return list(self._repair.get(page.page, []))
+
+
+class FakeJobStore:
+    """In memory, with the real store's rules: claim holds a job until the block
+    ends and never hands out a held or ended one; ended_at is stamped by status."""
+
+    def __init__(self) -> None:
+        self.jobs: dict[str, Job] = {}
+        self.event_log: list[JobEvent] = []
+        self.held: set[str] = set()
+        self.up = True                       # flip to make every call raise
+
+    def _live(self) -> None:
+        if not self.up:
+            raise RuntimeError("connection refused")
+
+    async def create(self, job: NewJob) -> Job:
+        self._live()
+        job_id = job.id
+        now = datetime.now(UTC)
+        self.jobs[job_id] = Job(
+            status=JobStatus.RECEIVED, created_at=now, updated_at=now,
+            **job.model_dump(exclude={"documents", "organization"}),
+            organization=job.organization,
+            documents=[JobDocument(id=f"{job_id}-doc{position}", job_id=job_id, position=position,
+                                   status=DocumentStatus.PENDING, **document.model_dump())
+                       for position, document in enumerate(job.documents, start=1)],
+        )
+        return self.jobs[job_id].model_copy(deep=True)
+
+    async def get(self, job_id: str) -> Job | None:
+        self._live()
+        job = self.jobs.get(job_id)
+        return job.model_copy(deep=True) if job else None
+
+    async def recent(self, *, status: JobStatus | None = None, limit: int = 50) -> list[Job]:
+        self._live()
+        jobs = [job for job in reversed(self.jobs.values()) if status is None or job.status is status]
+        return [job.model_copy(update={"documents": []}) for job in jobs[:limit]]
+
+    async def set_status(self, job_id: str, status: JobStatus, *, error: str | None = None) -> None:
+        self._live()
+        job = self.jobs[job_id]
+        job.status, job.error = status, error
+        if status in ENDED:
+            job.ended_at = datetime.now(UTC)
+
+    async def set_drive_folder(self, job_id: str, folder_id: str) -> None:
+        self._live()
+        self.jobs[job_id].drive_folder_id = folder_id
+
+    async def update_document(self, document: JobDocument) -> None:
+        self._live()
+        documents = self.jobs[document.job_id].documents
+        stored = next(index for index, kept in enumerate(documents) if kept.id == document.id)
+        upload_facts = documents[stored].model_dump(
+            include={"job_id", "position", "filename", "sha256", "page_count"})
+        documents[stored] = document.model_copy(update=upload_facts, deep=True)
+
+    async def add_event(self, event: JobEvent) -> None:
+        self._live()
+        self.event_log.append(event.model_copy(update={"at": datetime.now(UTC)}))
+
+    async def events(self, job_id: str) -> list[JobEvent]:
+        self._live()
+        return [event for event in self.event_log if event.job_id == job_id]
+
+    async def documents_started_since(self, since: datetime) -> int:
+        self._live()
+        return sum(1 for job in self.jobs.values() for document in job.documents
+                   if document.started_at and document.started_at >= since)
+
+    async def ended_before(self, before: datetime) -> list[str]:
+        self._live()
+        return [job.id for job in self.jobs.values() if job.ended_at and job.ended_at < before]
+
+    @asynccontextmanager
+    async def claim(self) -> AsyncIterator[Job | None]:
+        self._live()
+        open_jobs = sorted((job for job in self.jobs.values()
+                            if job.status not in ENDED and job.id not in self.held),
+                           key=lambda job: job.created_at)
+        if not open_jobs:
+            yield None
+            return
+        job_id = open_jobs[0].id
+        self.held.add(job_id)
+        try:
+            yield await self.get(job_id)
+        finally:
+            self.held.discard(job_id)
+
+    async def healthy(self) -> bool:
+        return self.up
+
+
+class FakeGoogleWriter:
+    """A Drive in a dict: folders by (parent, name), files by folder. `fail_uploads`
+    makes that many uploads raise first, to test a FILING step that stops halfway."""
+
+    def __init__(self) -> None:
+        self.folders: dict[tuple[str, str], str] = {}
+        self.files: dict[str, list[tuple[str, bytes]]] = {}
+        self.uploads: list[str] = []
+        self.fail_uploads = 0
+
+    async def find_or_create_folder(self, parent_id: str, name: str) -> tuple[str, bool]:
+        existed = (parent_id, name) in self.folders
+        if not existed:
+            self.folders[(parent_id, name)] = f"folder{len(self.folders) + 1}"
+        return self.folders[(parent_id, name)], existed
+
+    async def upload_pdf(self, folder_id: str, name: str, data: bytes) -> str:
+        if self.fail_uploads:
+            self.fail_uploads -= 1
+            raise DriveWriteFailed("Drive PUT failed 3 times: HTTP 503")
+        self.files.setdefault(folder_id, []).append((name, data))
+        self.uploads.append(name)
+        return f"file{len(self.uploads)}"
+
+    def path_of(self, folder_id: str) -> list[str]:
+        """Folder names from the root down to `folder_id`."""
+        by_id = {child: (parent, name) for (parent, name), child in self.folders.items()}
+        path = []
+        while folder_id in by_id:
+            folder_id, name = by_id[folder_id]
+            path.insert(0, name)
+        return path
+
+
+class FakeOrganizationStore:
+    def __init__(self, saved: Organization | None = None) -> None:
+        self.saved = saved
+        self.saved_by: str | None = None
+        self.up = True
+
+    async def load(self) -> Organization | None:
+        if not self.up:
+            raise RuntimeError("connection refused")
+        return self.saved
+
+    async def save(self, organization: Organization, *, by: str) -> None:
+        if not self.up:
+            raise RuntimeError("connection refused")
+        self.saved, self.saved_by = organization, by
+
+    async def healthy(self) -> bool:
+        return self.up

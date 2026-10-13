@@ -74,6 +74,25 @@ Every one is read in `app/config.py` and nowhere else. `.env` is git-ignored;
 | `DOCTOR_PER_HOUR` | `30` | `/doctor` calls per client IP. It answers unverified callers on purpose, and `?fresh=1` costs a portal call. |
 | `DATABASE_URL` | *(none — history off)* | Postgres for conversations, messages and feedback. Unset is a supported state: `/doctor` reports it, `/health` stays up, and chat falls back to the history the client sends. On Railway it is `${{Postgres.DATABASE_URL}}`, which resolves to the private network, so the database is never publicly reachable. Schema: [`schema.md`](schema.md). |
 
+**Unbrander** (all optional while `UNBRANDER_ENABLED` is false; uploads still queue
+whenever `DATABASE_URL` is set):
+
+| Variable | Default | What it does |
+|---|---|---|
+| `UNBRANDER_ENABLED` | `false` | Starts the job worker. Off by default so a deploy never starts model spend. When true, the service **refuses to boot** unless `DATABASE_URL`, `OPENROUTER_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON` and the three `DRIVE_*` ids are set and OCR can run. |
+| `UNBRANDER_DRY_RUN` | `true` | Files under `DRIVE_TEST_ROOT_FOLDER_ID`, never the real tree. |
+| `UNBRANDER_DATA_DIR` | `.local/unbrander` | Uploads and cleaned outputs. On Railway, a volume mount path such as `/data/unbrander`: the container's own disk is lost on every deploy. |
+| `UNBRANDER_RETENTION_DAYS` | `30` | Volume files are deleted this long after a job ends. |
+| `UNBRANDER_MAX_FILE_MB` · `_MAX_PAGES` | `50` · `60` | Upload limits. |
+| `UNBRANDER_DOCS_PER_DAY` | `30` | Documents started per UTC day; past it, jobs wait. |
+| `UNBRANDER_DOC_TIMEOUT_MIN` | `10` | One document's budget; over it, the document fails. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | *(none)* | The service account key, the whole JSON on one line. Secret: a Railway variable, never a file on the volume. |
+| `DRIVE_SHARED_DRIVE_ID` · `DRIVE_ROOT_FOLDER_ID` · `DRIVE_TEST_ROOT_FOLDER_ID` | *(none)* | The "Aura Agent" Shared Drive and its `Unbranded` and `Test` folders; the ids are in `.env.example`. |
+
+The service account must be a **Content manager** member of the Shared Drive, and the
+drive must allow people outside the organisation (a service account counts as outside).
+Check it can write with `scripts/check_drive.py`.
+
 Two things are deliberately **not** settings: the `aiindex` cache window
 (`ExecApiProjectRepo.TTL_S`, 5 minutes) and the result caps in `tools.py`
 (`MAX_RESULTS`, `MAX_COMPARE`). They are tuning decisions with reasons written
@@ -223,6 +242,14 @@ That is the harness, not a defect. It is fine for the chat, the history panel
 and the reports screen, none of which touch the portal's data actions. For
 anything that does, use **A. Real everything** above with a real Portal ID.
 
+### Unbrander, locally
+
+`scripts/setup.sh` makes the venv, installs tesseract and checks OCR. With
+`DATABASE_URL` set, uploads work and wait in `RECEIVED`; to run them, also set
+`OPENROUTER_API_KEY`, the key and `DRIVE_*` ids, and `UNBRANDER_ENABLED=true`. Dry run
+stays on, so output lands in the Drive `Test` folder. Each document costs model calls
+(about $0.07 for the 8-page sample in [model-check.md](../Unbrander/model-check.md)).
+
 ### B. No portal account, no API key
 
 For UI work. Adds `dev/serve.mjs` for a fixture sign-in, and needs a stub for
@@ -299,6 +326,12 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    runs fine and silently keeps no history — `/doctor` reports
    `conversation_store: not wired yet` and that is the only sign.
 
+2c. **Unbrander**, only when turning the worker on: set
+   `RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr` (OCR; `deploy.sh` warns when it is
+   missing), attach a volume and point `UNBRANDER_DATA_DIR` into it, set the key and
+   the `DRIVE_*` ids, then `UNBRANDER_ENABLED=true`. A missing piece stops the boot
+   with its name in the log, rather than failing the first PDF. `/doctor` then shows
+   `ocr`, `job_store` and `unbrander_worker` ok.
 3. `GET /health` should answer `{"status":"ok","ok":true}` from the internet.
 4. `GET /doctor` with a real token is the actual readiness check — it proves the
    portal accepts our auth *and* that project data comes back.

@@ -13,6 +13,79 @@ formatting.
 
 ---
 
+## 2026-10-13 — Unbrander pipeline to FILED_PRIVATE (U3)
+
+A job is one project with 1..N PDFs. An admin uploads them to `POST
+/admin/unbrander/jobs`; a worker inside the service takes each job from `RECEIVED`
+through `UNBRANDING` and `FILING` to `FILED_PRIVATE` in the Drive `Test` folder. The
+organization profile is now stored and editable (`PUT /admin/organization`).
+
+**No `VERIFYING` state, and a `FILING` one.** `unbrand_document` already runs verify()
+in every round, so a separate verify step would do nothing. Uploading to Drive is the
+step that can stop halfway, and a restart has to finish the uploads without paying for
+the models again; `drive_file_id` on each document makes the repeat skip what is up.
+
+**The unbrand step runs in a thread with its own event loop.** The PDF work is plain
+synchronous pymupdf; on the service's loop it froze every chat answer for as long as a
+document took. The models are built inside that thread so their HTTP clients belong to
+its loop, and the 10-minute budget is a `wait_for` inside it: a timeout outside would
+abandon a thread that keeps spending.
+
+**The job id is minted with the upload, not by the store**, so the files are on the
+volume before the row exists and the worker never claims a job without its PDFs.
+
+**A document's type is the most common kind among the pages the sort kept**; the admin
+types none. Elevations count as floor plans, because builders print them on the plan
+sheets and the only question asked of the type is "is this a floor plan" (for the
+`Floor Plans/` folder). M1 replaces this in U6.
+
+**Filed PDFs are named by type** ("Price List.pdf", "Floor Plan 2.pdf"), never by the
+upload's name: "Arista_SouthCal_Pricelist.pdf" is branding too.
+
+**Audit log is its own append-only table** with few typed columns (`actor`, `action`,
+`result`) and the rest in `detail` JSON, and no cascade from the job. Per-model-call
+rows were rejected: the models adapter counts usage per role per document, which is
+what the budget needs, and per call would have meant new hooks in the adapter.
+
+**Cut from the first table design:** `source` (WhatsApp intake is "later"; nothing read
+it) and `existing_folder` (an existing project folder is logged as an event; publishing
+has to check Drive again anyway). Later phases add columns with `ADD COLUMN IF NOT
+EXISTS` in the same `schema.sql`.
+
+**`UNBRANDER_ENABLED` defaults to false and dry run to true**, so a deploy never starts
+model spend or files into the real tree by accident. Uploads queue while it is off.
+Turned on with a piece missing (a key, a Drive id, OCR), the service refuses to boot
+and names the piece, rather than failing the first PDF.
+
+**Active content is refused, not stripped.** Stripping is a later change; a refusal
+costs a re-export.
+
+**Drive through httpx, not google-api-python-client.** `google-auth` only signs the
+service account's token request. Uploads are resumable, because Google's multipart
+upload is for files of 5 MB or less and a cleaned brochure is often more.
+
+**Volume files are not a port.** `JobFiles` is plain pathlib, like the database driver
+and the HTTP framework.
+
+**The daily cap counts UTC days**, so it resets at 8 pm in Toronto in summer. At 30 a
+day against 5 to 10 real documents, the hour does not matter; change it if the cap ever
+binds.
+
+**Fixed in review.** A database down at boot no longer stops the service: the saved
+profile is read in `Container.start()`, and a failed read now serves the defaults (chat
+ran without the database before, and still does). A job whose files are gone from the
+volume now fails with that reason instead of being retried every 5 s forever at the head
+of the queue. An oversized upload is refused from its spooled size, before it is read
+into memory. A folder the same job made before a restart is no longer logged as an
+"existing project folder". A failed audit write after the job is created is logged, not
+answered with a 500 that invites a duplicate upload.
+
+Known and left: each store (chat, jobs, organization) opens its own connection pool,
+up to 12 connections between them, with the same lazy-pool code copied three times; one
+pool shared from the container is a later cleanup. A crash between Drive accepting a
+file and `drive_file_id` being saved uploads that file again on restart, leaving two
+copies in the private folder; rare, visible, and harmless before publishing.
+
 ## 2026-10-13 — Organization profile: the brokerage named once (U2b)
 
 `app/domain/organization.py` holds `Organization` and `Brand`, and today's values are its

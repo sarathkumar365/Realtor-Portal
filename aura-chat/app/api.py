@@ -1,5 +1,6 @@
 """HTTP surface. Routes depend on ports via the container, never on adapters."""
 
+import json
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -7,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app import diagnostics, limits
 from app.container import Container
-from app.domain import Claims
+from app.domain import Claims, Organization
 
 router = APIRouter()
 log = logging.getLogger("aura.auth")
@@ -116,3 +117,35 @@ async def doctor(
 async def me(claims: Claims = Depends(current_claims)) -> dict:
     """Proves the auth path end to end without touching project data."""
     return {"user": claims.user, "role": claims.role, "admin": claims.is_admin}
+
+
+def _admin_only(claims: Claims) -> None:
+    if not claims.is_admin:
+        raise HTTPException(status_code=403, detail="admin only")
+
+
+@router.get("/admin/organization")
+async def get_organization(request: Request, claims: Claims = Depends(current_claims)) -> dict:
+    """The profile in use: the saved one, or the defaults. Admin only."""
+    _admin_only(claims)
+    return container(request).organization.model_dump(mode="json")
+
+
+@router.put("/admin/organization")
+async def put_organization(
+    body: Organization, request: Request, claims: Claims = Depends(current_claims)
+) -> dict:
+    """Save the profile and use it at once, in chat and in every new Unbrander job.
+    Jobs already uploaded keep the profile they were given. Admin only."""
+    _admin_only(claims)
+    c = container(request)
+    if c.organization_store is None:
+        raise HTTPException(status_code=503, detail="no database is configured")
+    try:
+        await c.save_organization(body, by=claims.user)
+    except Exception as exc:
+        log.warning("could not save the organization: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=503, detail="could not save the profile") from exc
+    logging.getLogger("aura.audit").info(json.dumps(
+        {"event": "organization saved", "user": claims.user, "name": body.name}))
+    return body.model_dump(mode="json")

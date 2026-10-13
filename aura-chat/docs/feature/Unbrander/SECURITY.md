@@ -110,7 +110,7 @@ Model calls also log the model, prompt version, token count and cost.
 
 **Stop:**
 
-- Global switch `unbrander.enabled` in configuration. When off, new jobs queue and nothing
+- Global switch `UNBRANDER_ENABLED` in configuration. When off, new jobs queue and nothing
   publishes.
 - Per-job cancel in the UI, at any state before `PUBLISHED`.
 
@@ -122,7 +122,7 @@ Model calls also log the model, prompt version, token count and cost.
 4. Return the job to `AWAITING_APPROVAL` with the reason.
 
 **Retention:** files on the volume (uploads, working copies, renders) are evicted
-`unbrander.retention_days` after the job ends (D20; default 30). A job waiting for a human
+`UNBRANDER_RETENTION_DAYS` after the job ends (D20; default 30). A job waiting for a human
 keeps its files. The job row, its audit log and the Drive copies stay. The original upload
 goes too: Sarath accepted on 2026-10-07 that a published file can no longer be traced to its
 original after the retention period.
@@ -143,18 +143,25 @@ failed.
 
 ## Configuration
 
+Environment variables, read in `app/config.py` (names as written there; built in U3):
+
 ```
-unbrander.enabled
-drive.unbranded_root_folder_id
-drive.test_root_folder_id
-drive.province_default            ("Ontario")
-drive.cities[]                    (allowed city folders)
-drive.subfolders.floor_plans      ("Floor Plans")
-limits.max_file_mb, limits.max_pages, limits.docs_per_day, limits.doc_timeout_min
-unbrander.retention_days          (30)
-unbrander_sort_model, unbrander_pick_model, unbrander_judge_model, unbrander_repair_model, unbrander_max_rounds
-intake.adapters[]                 (["ui"]; "whatsapp" later)
+UNBRANDER_ENABLED                 (false)  the worker; uploads queue while it is off
+UNBRANDER_DRY_RUN                 (true)   file under the test root
+UNBRANDER_DATA_DIR                (.local/unbrander; a Railway volume in production)
+UNBRANDER_RETENTION_DAYS          (30)
+UNBRANDER_MAX_FILE_MB             (50)
+UNBRANDER_MAX_PAGES               (60)
+UNBRANDER_DOCS_PER_DAY            (30)
+UNBRANDER_DOC_TIMEOUT_MIN         (10)
+GOOGLE_SERVICE_ACCOUNT_JSON       the key, secret
+DRIVE_SHARED_DRIVE_ID, DRIVE_ROOT_FOLDER_ID, DRIVE_TEST_ROOT_FOLDER_ID
+UNBRANDER_SORT_MODEL, _PICK_MODEL, _JUDGE_MODEL, _REPAIR_MODEL, _THINKING, _MAX_ROUNDS
 ```
+
+Not settings yet: the province defaults to "Ontario" on the upload form; the allowed
+city list (cities are typed by the admin until U6); the floor plan folder name
+("Floor Plans", in code); intake adapters (the admin upload is the only one).
 
 ## Open questions
 

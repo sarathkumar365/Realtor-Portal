@@ -156,9 +156,29 @@ async def deep(c: Container, *, auth: str, claims: Claims | None, fresh: bool = 
         else Check("document_index", None, "not wired yet", critical=False)
     )
     report.checks.append(data_quality(c))
+    report.checks.extend(await _unbrander_checks(c))
     if claims is None:
         _redact(report)
     return report
+
+
+async def _unbrander_checks(c: Container) -> list[Check]:
+    """Critical only while the worker runs: with it off, Unbrander is idle and
+    chat does not depend on any of this."""
+    running = c.worker is not None
+    if c.ocr_problem is None:
+        ocr = Check("ocr", None, "not wired", critical=False)
+    else:
+        problem = c.ocr_problem()
+        ocr = Check("ocr", problem is None, problem or "", critical=running)
+    return [
+        ocr,
+        await _timed("job_store", c.jobs.healthy(), critical=running)
+        if c.jobs is not None
+        else Check("job_store", None, "no database configured", critical=False),
+        Check("unbrander_worker", running if c.settings.unbrander_enabled else None,
+              "" if c.settings.unbrander_enabled else "switched off", critical=False),
+    ]
 
 
 # Only these two may speak freely to a caller whose token did not verify: they

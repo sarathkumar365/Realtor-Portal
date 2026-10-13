@@ -1,4 +1,4 @@
-"""ConversationStore on Postgres. The only file that imports a database driver."""
+"""ConversationStore on Postgres. Database drivers are imported only in adapters."""
 
 import asyncio
 import json

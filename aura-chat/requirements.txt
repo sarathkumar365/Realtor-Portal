@@ -18,3 +18,5 @@ asyncpg>=0.30
 pymupdf>=1.25
 pillow>=11
 langchain-openrouter>=0.2.9
+google-auth>=2.40
+python-multipart>=0.0.20

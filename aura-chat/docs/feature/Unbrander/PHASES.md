@@ -166,11 +166,11 @@ has to rebuild them.
 - `jobs` table and the job record (LOOP.md) — schema change, reviewed before it is applied.
 - `JobStore` port with its Postgres adapter and a fake in `tests/fakes.py`.
 - Worker inside the Aura Chat service: holds each job with a Postgres advisory lock (D19),
-  one job at a time, runs the states `RECEIVED` → `UNBRANDING` → `VERIFYING` →
-  `FILED_PRIVATE`. A step is a function of the job's status (D18), safe to rerun.
+  one job at a time, runs the states `RECEIVED` → `UNBRANDING` → `FILING` →
+  `FILED_PRIVATE` (or `FAILED`). A step is a function of the job's status (D18), safe to rerun.
 - The job's `instructions` (D21) reach M2. Model API errors handled as General errors (D22).
 - Files on the Railway volume (D12): uploads, working copies, before and after renders;
-  evicted `unbrander.retention_days` (default 30) after the job ends (D20).
+  evicted `UNBRANDER_RETENTION_DAYS` (default 30) after the job ends (D20).
 - `GoogleWriter` port with its adapter: create folders, upload, keep private. Dry-run mode
   writes only under the test root.
 - Admin-only API: create a job (upload + metadata typed by hand), get a job, list jobs.
@@ -182,7 +182,7 @@ has to rebuild them.
   families, mark words as letters only. With no row, the defaults from U2b apply. Each
   job stores a copy of the brand it was marked with, so a later change does not rewrite
   how a past output is explained.
-- Input guardrails, budgets, audit log, `unbrander.enabled` switch (SECURITY.md).
+- Input guardrails, budgets, audit log, `UNBRANDER_ENABLED` switch (SECURITY.md).
 - System dependencies: tesseract on Railway (`RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr`),
   a local setup script (venv, pip install, `brew install tesseract`, `.env`), and a
   tesseract check in `/doctor`, so a deploy without OCR fails at boot rather than at the
@@ -191,6 +191,22 @@ has to rebuild them.
 **Done when:** an upload by `curl` with an admin token produces a job that reaches
 `FILED_PRIVATE`, with the files in the test folder of the Shared Drive and every action in
 the audit log.
+
+**Built 2026-10-13; the Drive step is not yet run against Google.** Decided while
+planning (the worklog has the reasons): one job is one project with 1..N PDFs; no
+`VERIFYING` state — verify() runs inside every unbrand round, and `FILING` is a state of
+its own so a restart mid-upload does not pay for the models again; a document's type is
+the most common kind among the pages the sort kept (the admin types none; M1 replaces it
+in U6); the audit log is its own append-only table, `unbrander_job_events`; filed PDFs are
+named by type ("Price List.pdf"), never by the builder's file name.
+
+Verified: `pytest -q` green (570); `scripts/check_jobs.py` against a local Postgres; over
+HTTP on a local server with a local Postgres, an admin upload, a realtor's refusal, a
+non-PDF refusal, the job read back, `/doctor`'s `ocr` and `job_store` checks, and a saved
+profile surviving a restart; the worker on that job with the real PDF tools and OCR,
+scripted models and an in-memory Drive, to `FILED_PRIVATE`. Left for when the service
+account key is in `.env`: `scripts/check_drive.py`, then the done-when above with real
+models and the real Drive.
 
 ## U4 — Admin app
 

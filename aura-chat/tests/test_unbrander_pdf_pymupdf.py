@@ -106,3 +106,50 @@ def test_ocr_reads_white_ink_on_a_teal_panel():
     assert page.words == []
     assert set(page.ocr) == {"normal", "inverted", "light"}
     assert "SOUTHCAL" in page.ocr["light"].upper().replace(" ", "")
+
+
+def screen(pdf: bytes):
+    return PyMuPdfInspector().screen(pdf)
+
+
+def plain_pdf(pages: int = 1) -> bytes:
+    doc = pymupdf.open()
+    for _ in range(pages):
+        doc.new_page().insert_text((72, 72), "Lot 12")
+    return doc.tobytes()
+
+
+def with_open_action(action: str) -> bytes:
+    doc = pymupdf.open(stream=plain_pdf())
+    doc.xref_set_key(doc.pdf_catalog(), "OpenAction", action)
+    return doc.tobytes()
+
+
+def test_screening_a_plain_pdf_finds_nothing_active():
+    screening = screen(plain_pdf(pages=3))
+    assert (screening.readable, screening.encrypted, screening.page_count) == (True, False, 3)
+    assert not (screening.javascript or screening.embedded_files or screening.launch_action)
+
+
+def test_screening_finds_javascript():
+    assert screen(with_open_action("<</S/JavaScript/JS(app.alert(1))>>")).javascript
+
+
+def test_screening_finds_a_launch_action():
+    assert screen(with_open_action("<</S/Launch/F(calc.exe)>>")).launch_action
+
+
+def test_screening_finds_an_embedded_file():
+    doc = pymupdf.open(stream=plain_pdf())
+    doc.embfile_add("price.xlsx", b"hidden")
+    assert screen(doc.tobytes()).embedded_files
+
+
+def test_screening_reports_a_password():
+    doc = pymupdf.open(stream=plain_pdf())
+    locked = doc.tobytes(encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw="user", owner_pw="owner")
+    assert screen(locked).encrypted
+
+
+def test_screening_bytes_that_are_not_a_pdf_says_so_and_does_not_raise():
+    assert not screen(b"%PDF-1.7 and then nothing").readable

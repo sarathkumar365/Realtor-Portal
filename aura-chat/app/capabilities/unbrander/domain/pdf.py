@@ -53,6 +53,17 @@ class PageFacts(BaseModel):
     thumbnail: Thumbnail | None = None
 
 
+class Screening(BaseModel):
+    """What an upload is, read before any model sees it: enough to refuse it."""
+
+    readable: bool  # opened as a PDF at all
+    encrypted: bool = False  # needs a password to open
+    page_count: int = 0
+    javascript: bool = False
+    embedded_files: bool = False
+    launch_action: bool = False
+
+
 class PdfFacts(BaseModel):
     pages: list[PageFacts]
     metadata: dict[str, str] = Field(default_factory=dict)  # title, author, ... non-empty only

@@ -27,13 +27,16 @@ UI upload ──► RECEIVED
                │
                ▼
            UNBRANDING (per document) .. M2: sort, pick, judge, repair (below);
-               │                         the tools are our code, run in Aura Chat
+               │                         the tools are our code, run in Aura Chat.
+               │                         verify() runs inside every round (text sweep,
+               │                         word provenance, number integrity, metadata
+               │                         strip); a document that fails it is BLOCKED
                ▼
-           VERIFYING .................. code: text sweep, word provenance, number integrity,
-               │                         PDF metadata strip
-               │                         model (M3): visual check of the rendered pages
+           FILING ..................... code: create folders, upload to Drive, private.
+               │                         Its own state so a restart mid-upload finishes
+               │                         the uploads without paying for the models again
                ▼
-           FILED_PRIVATE .............. code: create folders, upload to Drive, link private
+           FILED_PRIVATE
                │
                ▼
            AWAITING_APPROVAL .......... human: approve or reject with a reason
@@ -72,8 +75,8 @@ Any step can move the job to `FAILED` (see OPERATIONS in SECURITY.md).
   upload is the v1 adapter; a WhatsApp listener is a later adapter that creates the same
   record. Nothing after `RECEIVED` knows the source.
 - **Queue is Postgres** (decision D6). Job records live in a `jobs` table in the existing
-  Railway Postgres. A worker claims the next job with `SELECT … FOR UPDATE SKIP LOCKED`. No
-  new service. At 5 to 10 documents a day one worker is enough.
+  Railway Postgres. A worker holds a job with a Postgres advisory lock on its own connection
+  (D19), so a dead worker's hold ends with its connection. No new service. At 5 to 10 documents a day one worker is enough.
 
 ## M2: sort, pick, execute, judge, repair (decision D23, revised 2026-10-08)
 

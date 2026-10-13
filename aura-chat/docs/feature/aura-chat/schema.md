@@ -1,6 +1,8 @@
 # Aura Chat — database schema
 
-Three tables, on Railway Postgres. AUR-88.
+Three tables for chat, on Railway Postgres (AUR-88). Unbrander's three tables and
+the organization profile are at the end: [Unbrander](#unbrander-jobs) and
+[Organization](#organization).
 
 Source of truth is [`../../aura-chat/app/capabilities/chat/adapters/schema.sql`](../../../app/capabilities/chat/adapters/schema.sql),
 applied at startup on every boot. It is idempotent (`CREATE TABLE IF NOT EXISTS`),
@@ -186,3 +188,34 @@ both end up correct.
 so a restored report points at an answer only by coincidence of the same string.
 That is the same before and after a restore — see the note on the `feedback`
 table above — but it is worth knowing before trying to join the two.
+
+
+## Unbrander jobs
+
+Source of truth: [`schema.sql`](../../../app/capabilities/unbrander/adapters/schema.sql)
+beside `jobs_postgres.py`, applied on first use like chat's.
+
+| Table | One row per | Notes |
+|---|---|---|
+| `unbrander_jobs` | upload of one project | `status` is the state machine the worker reads; `organization` is a copy of the profile the job was marked with; `dry_run` jobs are filed under the test root; `ended_at` is set on `FILED_PRIVATE` or `FAILED` and retention counts from it |
+| `unbrander_documents` | PDF in a job | Cascades with its job. `doc_type` comes from the sort; `drive_file_id` is set once uploaded, so a repeated `FILING` skips it; `started_at` feeds the daily cap |
+| `unbrander_job_events` | action | The audit log: `actor`, `action`, `result`, and `detail` JSON. Never updated, and **no cascade**: it outlives everything else about a job |
+
+The worker holds a job with `pg_try_advisory_lock(hashtextextended(job_id, 0))` on one
+connection for as long as it works on it; a worker that dies frees it with its connection.
+
+Retention: the job's files on the volume (`UNBRANDER_DATA_DIR/<job id>/`) are deleted
+`UNBRANDER_RETENTION_DAYS` after `ended_at`. Rows and events are kept.
+
+Check by hand against a development database, never production:
+
+```bash
+DATABASE_URL=postgresql://$USER@localhost/aura_chat_dev .venv/bin/python scripts/check_jobs.py
+```
+
+## Organization
+
+One row (`id = 1`), the profile as JSON, with `updated_by` and `updated_at`. No row means
+the defaults in `app/domain/organization.py` apply. Source:
+[`organization_schema.sql`](../../../app/adapters/organization_schema.sql). Read at boot;
+`PUT /admin/organization` writes it.

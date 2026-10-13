@@ -38,7 +38,8 @@ def sorting(kind: str, keep: bool = True) -> Sorting:
 
 
 class Setup:
-    def __init__(self, tmp_path, *kinds: str, page: str = "Lot 12 $1,234,567", **settings):
+    def __init__(self, tmp_path, *kinds: str, page: str = "Lot 12 $1,234,567", drive: bool = True,
+                 **settings):
         self.jobs = FakeJobStore()
         self.drive = FakeGoogleWriter()
         self.files = JobFiles(tmp_path)
@@ -47,7 +48,7 @@ class Setup:
         self.models_made = 0
         self.models_class = FakeUnbrandModels
         self.clock = datetime(2026, 10, 13, 15, tzinfo=UTC)
-        self.worker = Worker(jobs=self.jobs, drive=self.drive, files=self.files,
+        self.worker = Worker(jobs=self.jobs, drive=self.drive if drive else None, files=self.files,
                              editor=self.pdfs, inspector=self.pdfs, new_models=self.new_models,
                              settings=replace(SETTINGS, **settings),
                              now=lambda: self.clock)
@@ -57,9 +58,11 @@ class Setup:
         self.models_made += 1
         return self.models_class(sorting(kind))
 
-    async def job(self, documents: int = 1, dry_run: bool = True) -> str:
+    async def job(self, documents: int = 1, dry_run: bool = True,
+                  file_when_done: bool = True) -> str:
+        """Filed when done unless told otherwise: most tests here are about filing."""
         new = NewJob(uploader="admin", project="SouthCal", builder="Arista Homes", city="Vaughan",
-                     organization=Organization(), dry_run=dry_run,
+                     organization=Organization(), dry_run=dry_run, file_when_done=file_when_done,
                      documents=[NewDocument(filename=f"Arista_SouthCal_{i}.pdf", sha256="s",
                                             page_count=1) for i in range(1, documents + 1)])
         for position in range(1, documents + 1):
@@ -86,6 +89,50 @@ async def test_a_job_runs_from_received_to_filed_private_in_the_test_folder(tmp_
     assert steps == [("status", "UNBRANDING"), ("unbrand", "verified"), ("unbrand", "verified"),
                      ("status", "FILING"), ("upload", "ok"), ("upload", "ok"),
                      ("status", "FILED_PRIVATE")]
+
+
+async def test_without_file_when_done_a_job_rests_unbranded_and_nothing_reaches_drive(tmp_path):
+    setup = Setup(tmp_path, "price_list")
+    job_id = await setup.job(file_when_done=False)
+    assert await setup.worker.run_once()
+    job = await setup.jobs.get(job_id)
+    assert job.status is JobStatus.UNBRANDED and job.ended_at  # evicted on the usual clock
+    assert [d.status for d in job.documents] == [DocumentStatus.VERIFIED]
+    assert setup.files.output(job_id, 1)  # there to review and download
+    assert setup.drive.uploads == [] and setup.drive.folders == {}
+    assert not await setup.worker.run_once()  # resting: the worker leaves it alone
+
+
+async def test_an_unbranded_job_sent_to_filing_is_filed_without_another_model_call(tmp_path):
+    setup = Setup(tmp_path, "price_list")
+    job_id = await setup.job(file_when_done=False)
+    await setup.worker.run_once()
+    made = setup.models_made
+    await setup.jobs.set_status(job_id, JobStatus.FILING)
+    assert (await setup.jobs.get(job_id)).ended_at is None  # not evicted while it files
+    assert await setup.worker.run_once()
+    job = await setup.jobs.get(job_id)
+    assert job.status is JobStatus.FILED_PRIVATE and setup.drive.uploads == ["Price List.pdf"]
+    assert setup.models_made == made
+
+
+async def test_file_when_done_without_drive_rests_and_says_why(tmp_path):
+    setup = Setup(tmp_path, "price_list", drive=False)
+    job_id = await setup.job(file_when_done=True)
+    await setup.worker.run_once()
+    assert (await setup.jobs.get(job_id)).status is JobStatus.UNBRANDED
+    waiting = [e for e in await setup.jobs.events(job_id) if e.action == "file"]
+    assert [(e.result, e.detail["reason"]) for e in waiting] == [
+        ("waiting", "Drive is not set up on this service")]
+
+
+async def test_a_job_left_in_filing_after_drive_is_removed_rests_instead_of_failing(tmp_path):
+    setup = Setup(tmp_path, "price_list", drive=False)
+    job_id = await setup.job(file_when_done=False)
+    await setup.worker.run_once()
+    await setup.jobs.set_status(job_id, JobStatus.FILING)
+    await setup.worker.run_once()
+    assert (await setup.jobs.get(job_id)).status is JobStatus.UNBRANDED
 
 
 async def test_a_real_run_files_under_the_real_root(tmp_path):

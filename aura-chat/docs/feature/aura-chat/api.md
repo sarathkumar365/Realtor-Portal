@@ -27,6 +27,11 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `POST` | `/admin/unbrander/jobs` | bearer, **admin** | Upload a project's PDFs |
 | `GET` | `/admin/unbrander/jobs` | bearer, **admin** | Jobs, newest first |
 | `GET` | `/admin/unbrander/jobs/{id}` | bearer, **admin** | One job, its documents and audit log |
+| `GET` | `/admin/unbrander/jobs/{id}/documents/{position}/pages/{page}.jpg` | bearer, **admin** | One page, source or output, as a JPEG |
+| `GET` | `/admin/unbrander/jobs/{id}/documents/{position}/output.pdf` | bearer, **admin** | The cleaned PDF |
+| `GET` | `/admin/unbrander/limits` | bearer, **admin** | Upload limits (files, MB per file, pages) and `can_file`: Drive set up and the worker on |
+| `POST` | `/admin/unbrander/jobs/{id}/file` | bearer, **admin** | File an unbranded job in Drive |
+| `POST` | `/admin/unbrander/mark-preview` | bearer, **admin** | A brand's mark as a JPEG, before saving |
 
 Every bearer route takes `Authorization: Bearer <portal session token>` — the
 same token the PWA already holds. There is no second credential and no service
@@ -218,11 +223,47 @@ curl -H "Authorization: Bearer $ADMIN_TOK" \
 ### `GET /admin/unbrander/jobs?status=&limit=50` · `GET /admin/unbrander/jobs/{id}` — admin only
 
 The list is newest first, without documents or the profile copy. One job comes
-with `documents` (status, `doc_type`, `dropped_pages`, `removed_items`,
-`findings`, `rounds`, `usage`, `cost_usd`, `drive_file_id`) and `events`, its
-audit log, oldest first. Job statuses: `RECEIVED`, `UNBRANDING`, `FILING`,
-`FILED_PRIVATE`, `FAILED`. Document statuses: `PENDING`, `UNBRANDING`, `VERIFIED`,
+with `documents` (status, `doc_type`, `dropped_pages`, `page_map`,
+`removed_items`, `findings`, `rounds`, `usage`, `cost_usd`, `drive_file_id`) and
+`events`, its audit log, oldest first. `page_map` pairs each source page with
+its output page, `null` when dropped. Every finding's `page` is a source page
+number: verify() reads the output, and the worker converts its numbers before
+storing them. Job statuses: `RECEIVED`, `UNBRANDING`, `UNBRANDED` (cleaned,
+waiting for filing), `FILING`, `FILED_PRIVATE`, `FAILED`. Document statuses: `PENDING`, `UNBRANDING`, `VERIFIED`,
 `BLOCKED` (failed verify(); kept on the volume, never filed), `FILED`, `FAILED`.
+
+### `POST /admin/unbrander/jobs/{id}/file` — admin only
+
+Files an `UNBRANDED` job in Drive: the worker uploads the documents that passed
+(never a `BLOCKED` one) to the project's private folder, then the job is
+`FILED_PRIVATE`. 202 with `{job_id, status: "FILING"}`; 409 from any other status,
+or when it is already being filed (the status change is one conditional statement);
+410 when its files were evicted after the retention period; 503 when Drive is not
+set up or the worker is switched off. The request is an audit log line.
+Uploading with `file_when_done=true` does the same without waiting; it is refused
+with 422 at upload when Drive is not set up. One API for a person and an agent.
+
+### `GET .../documents/{position}/pages/{page}.jpg?version=source|output` — admin only
+
+`page` is the source page number for both versions, so the admin app pairs
+before and after without counting dropped pages. Rendered at 110 dpi in a
+worker thread; `Cache-Control: private, max-age=3600`, since a document's files
+never change once written. 404 for a page out of range, a dropped page
+(`version=output`), output not yet written, or files evicted after the
+retention period.
+
+### `GET .../documents/{position}/output.pdf` — admin only
+
+The cleaned PDF as an attachment, named as it is filed in Drive (`Price
+List.pdf`, `Floor Plan 2.pdf`), never by the upload's own name. A `BLOCKED`
+document downloads too, for review. Each download is an audit log line.
+
+### `POST /admin/unbrander/mark-preview` — admin only
+
+Body: a `Brand` (the `brand` of the organization profile). Returns the bottom of
+a blank Letter page with the mark at the bottom right, drawn by the same code
+that marks every cleaned PDF. 422 with field errors for an invalid brand. Needs
+no database.
 
 `/doctor` reports three Unbrander checks: `ocr`, `job_store` and
 `unbrander_worker`. They are critical only while the worker runs.

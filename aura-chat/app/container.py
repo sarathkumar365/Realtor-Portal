@@ -20,7 +20,7 @@ from app.capabilities.unbrander.adapters.models_langchain import LangChainUnbran
 from app.capabilities.unbrander.adapters.pdf_edit_pymupdf import PyMuPdfEditor
 from app.capabilities.unbrander.adapters.pdf_pymupdf import PyMuPdfInspector
 from app.capabilities.unbrander.files import JobFiles
-from app.capabilities.unbrander.ports import GoogleWriter, JobStore, PdfInspector
+from app.capabilities.unbrander.ports import GoogleWriter, JobStore, PdfEditor, PdfInspector
 from app.capabilities.unbrander.worker import Worker, WorkerSettings
 from app.config import Settings, load
 from app.domain import Organization, Viewer
@@ -48,6 +48,7 @@ class Container:
     jobs: JobStore | None = None
     job_files: JobFiles | None = None
     pdf_inspector: PdfInspector | None = None
+    pdf_editor: PdfEditor | None = None  # page images and the mark preview for the admin app
     drive: GoogleWriter | None = None
     worker: Worker | None = None
     ocr_problem: Callable[[], str | None] | None = None
@@ -130,26 +131,38 @@ def build(settings: Settings | None = None) -> Container:
     )
     inspector = PyMuPdfInspector()
     container.pdf_inspector = inspector
+    container.pdf_editor = PyMuPdfEditor()
     container.ocr_problem = inspector.ocr_problem
+    container.drive = _drive(cfg)
     if cfg.unbrander_enabled:
         _wire_worker(container, cfg, inspector)
     return container
 
 
+def _missing(*settings: tuple[str, str]) -> list[str]:
+    return [name for name, value in settings if not value]
+
+
+def _drive(cfg: Settings) -> GoogleWriter | None:
+    """Drive is optional: without the key, jobs are unbranded and downloaded, and
+    filing is refused. With it, every id it files under must be set too."""
+    if not cfg.google_service_account_json:
+        return None
+    missing = _missing(("DRIVE_SHARED_DRIVE_ID", cfg.drive_shared_drive_id),
+                       ("DRIVE_ROOT_FOLDER_ID", cfg.drive_root_folder_id),
+                       ("DRIVE_TEST_ROOT_FOLDER_ID", cfg.drive_test_root_folder_id))
+    if missing:
+        raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON is set but these are not: "
+                           + ", ".join(missing))
+    return GoogleDriveWriter(cfg.google_service_account_json, cfg.drive_shared_drive_id)
+
+
 def _wire_worker(container: Container, cfg: Settings, inspector: PyMuPdfInspector) -> None:
-    missing = [name for name, value in (
-        ("DATABASE_URL", cfg.database_url),
-        ("OPENROUTER_API_KEY", cfg.openrouter_api_key),
-        ("GOOGLE_SERVICE_ACCOUNT_JSON", cfg.google_service_account_json),
-        ("DRIVE_SHARED_DRIVE_ID", cfg.drive_shared_drive_id),
-        ("DRIVE_ROOT_FOLDER_ID", cfg.drive_root_folder_id),
-        ("DRIVE_TEST_ROOT_FOLDER_ID", cfg.drive_test_root_folder_id),
-    ) if not value]
+    missing = _missing(("DATABASE_URL", cfg.database_url),
+                       ("OPENROUTER_API_KEY", cfg.openrouter_api_key))
     if missing:
         raise RuntimeError("UNBRANDER_ENABLED is true but these are not set: "
                            + ", ".join(missing))
-    container.drive = GoogleDriveWriter(cfg.google_service_account_json,
-                                        cfg.drive_shared_drive_id)
 
     def new_models() -> LangChainUnbrandModels:
         return LangChainUnbrandModels(
@@ -160,7 +173,7 @@ def _wire_worker(container: Container, cfg: Settings, inspector: PyMuPdfInspecto
 
     container.worker = Worker(
         jobs=container.jobs, drive=container.drive, files=container.job_files,
-        editor=PyMuPdfEditor(), inspector=inspector, new_models=new_models,
+        editor=container.pdf_editor, inspector=inspector, new_models=new_models,
         settings=WorkerSettings(
             drive_root_folder_id=cfg.drive_root_folder_id,
             drive_test_root_folder_id=cfg.drive_test_root_folder_id,

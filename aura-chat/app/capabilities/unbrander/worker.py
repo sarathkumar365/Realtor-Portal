@@ -1,4 +1,5 @@
-"""The job worker: takes one job at a time from RECEIVED to FILED_PRIVATE.
+"""The job worker: takes one job at a time from RECEIVED to UNBRANDED, and on to
+FILED_PRIVATE when filing is asked for.
 
 Each status is a step, and every step is safe to run again, so a restart picks a
 job up where the last run stopped. The job's hold is a Postgres advisory lock
@@ -12,7 +13,6 @@ answer for as long as a document takes.
 import asyncio
 import hashlib
 import logging
-from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -26,6 +26,9 @@ from .domain import (
     JobEvent,
     JobStatus,
     document_type,
+    file_names,
+    filed,
+    in_source_pages,
     project_folders,
     subfolder,
 )
@@ -46,11 +49,6 @@ log = logging.getLogger("aura.unbrander")
 AGENT = "agent"
 IDLE_S = 5.0
 SWEEP_EVERY = timedelta(hours=1)
-# Names of the filed PDFs. Never the upload's own name: a builder's file name
-# ("Arista_SouthCal_Pricelist.pdf") is branding too.
-TITLES = {"price_list": "Price List", "floor_plan": "Floor Plan", "site_plan": "Site Plan",
-          "feature_sheet": "Features", "terms": "Terms", "elevation": "Elevations"}
-UNTYPED_TITLE = "Document"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +62,7 @@ class WorkerSettings:
 
 
 class Worker:
-    def __init__(self, *, jobs: JobStore, drive: GoogleWriter, files: JobFiles,
+    def __init__(self, *, jobs: JobStore, drive: GoogleWriter | None, files: JobFiles,
                  editor: PdfEditor, inspector: PdfInspector,
                  new_models: Callable[[], UnbrandModels], settings: WorkerSettings,
                  now: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -123,9 +121,22 @@ class Worker:
                 if not any(document.status is DocumentStatus.VERIFIED for document in job.documents):
                     await self._fail(job, "no document passed verification")
                     return True
-                await self._move(job, JobStatus.FILING)
+                if job.file_when_done and self._drive is not None:
+                    await self._move(job, JobStatus.FILING)
+                else:
+                    if job.file_when_done:
+                        await self._event(job.id, "file", "waiting",
+                                          {"reason": "Drive is not set up on this service"})
+                    await self._move(job, JobStatus.UNBRANDED)
             if job.status is JobStatus.FILING:
-                await self._file(job)
+                if self._drive is None:
+                    # Asked for while Drive was set up, picked up after it was taken
+                    # away: rest again rather than fail work that is done.
+                    await self._event(job.id, "file", "waiting",
+                                      {"reason": "Drive is not set up on this service"})
+                    await self._move(job, JobStatus.UNBRANDED)
+                    return True
+                await self._file(job, self._drive)
                 await self._move(job, JobStatus.FILED_PRIVATE)
         except (OcrUnavailable, DriveWriteFailed) as error:
             await self._fail(job, f"{type(error).__name__}: {error}")
@@ -177,7 +188,8 @@ class Worker:
         document.dropped_pages = done.dropped_pages
         document.removed_items = [outcome for outcome in done.outcomes
                                   if outcome.ok and not isinstance(outcome.action, AddMark)]
-        document.findings = [*done.report.findings, *done.judge]
+        document.findings = in_source_pages([*done.report.findings, *done.judge],
+                                            document.page_count, done.dropped_pages)
         document.rounds = done.rounds
         document.usage = dict(models.usage)
         document.cost_usd = round(sum(usage.cost for usage in models.usage.values()), 4)
@@ -208,12 +220,12 @@ class Worker:
         await self._event(job.id, "unbrand", "failed", {"reason": reason},
                           document_id=document.id)
 
-    async def _file(self, job: Job) -> None:
+    async def _file(self, job: Job, drive: GoogleWriter) -> None:
         root = (self._settings.drive_test_root_folder_id if job.dry_run
                 else self._settings.drive_root_folder_id)
         folder, existed = root, False
         for name in project_folders(job):
-            folder, existed = await self._drive.find_or_create_folder(folder, name)
+            folder, existed = await drive.find_or_create_folder(folder, name)
         if existed and job.drive_folder_id != folder:
             # Filed beside what is there, never over it. Publishing decides
             # whether this job is an update to an existing project. A folder this
@@ -223,16 +235,15 @@ class Worker:
             await self._jobs.set_drive_folder(job.id, folder)
             job.drive_folder_id = folder
 
-        filed = [document for document in job.documents
-                 if document.status in (DocumentStatus.VERIFIED, DocumentStatus.FILED)]
-        names = _file_names(filed)
-        for document in filed:
+        to_file = filed(job.documents)
+        names = file_names(to_file)
+        for document in to_file:
             if document.drive_file_id:
                 continue  # uploaded before a restart: FILING is repeated, the upload is not
             target = folder
-            if sub := subfolder(document, filed):
-                target, _ = await self._drive.find_or_create_folder(folder, sub)
-            document.drive_file_id = await self._drive.upload_pdf(
+            if sub := subfolder(document, to_file):
+                target, _ = await drive.find_or_create_folder(folder, sub)
+            document.drive_file_id = await drive.upload_pdf(
                 target, names[document.id], self._files.output(job.id, document.position))
             document.status = DocumentStatus.FILED
             await self._jobs.update_document(document)
@@ -256,17 +267,3 @@ class Worker:
         await self._jobs.add_event(JobEvent(job_id=job_id, document_id=document_id, actor=AGENT,
                                             action=action, result=result, detail=detail or {}))
 
-
-def _file_names(documents: list[JobDocument]) -> dict[str, str]:
-    """"Price List.pdf", and "Floor Plan 1.pdf", "Floor Plan 2.pdf" when there are several."""
-    titles = {document.id: TITLES.get(document.doc_type or "", UNTYPED_TITLE)
-              for document in documents}
-    counts = Counter(titles.values())
-    seen: Counter[str] = Counter()
-    names = {}
-    for document in documents:
-        title = titles[document.id]
-        seen[title] += 1
-        names[document.id] = (f"{title} {seen[title]}.pdf" if counts[title] > 1
-                              else f"{title}.pdf")
-    return names

@@ -27,6 +27,9 @@ class JobFiles:
     def output(self, job_id: str, position: int) -> bytes:
         return self._path(job_id, "output", position).read_bytes()
 
+    def has_output(self, job_id: str, position: int) -> bool:
+        return self._path(job_id, "output", position).exists()
+
     def evict(self, job_id: str) -> bool:
         """Delete everything the job has on the volume. False when nothing was there."""
         folder = self.root / job_id

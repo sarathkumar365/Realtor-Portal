@@ -35,6 +35,11 @@ NEUTRAL_SPREAD = 0.15   # RGB channels closer than this are a shade of gray
 MARK_COLOUR = (220, 0, 0)
 LABEL_SIZE = 26  # pixels; Pillow's default 10 is unreadable on a 2300-pixel-wide render
 
+# The mark preview: the bottom of a Letter page, sharp enough to read a 7.5 pt mark.
+LETTER = (612, 792)
+PREVIEW_DPI = 200
+PREVIEW_ABOVE_MARK = 48  # points shown above the mark's baseline
+
 # The brand's font family as PyMuPDF names its base-14 regular face.
 BASE14 = {"Times": "times-roman", "Helvetica": "helvetica", "Courier": "courier"}
 
@@ -42,6 +47,18 @@ BASE14 = {"Times": "times-roman", "Helvetica": "helvetica", "Courier": "courier"
 class PyMuPdfEditor:
     def open(self, pdf: bytes) -> "PyMuPdfSession":
         return PyMuPdfSession(pymupdf.open(stream=pdf, filetype="pdf"))
+
+    def preview_mark(self, brand: Brand) -> bytes:
+        doc = pymupdf.open()
+        try:
+            page = doc.new_page(width=LETTER[0], height=LETTER[1])
+            _wordmark(page, MarkPosition.BOTTOM_RIGHT, brand)
+            top = max(page.rect.height - brand.margin - PREVIEW_ABOVE_MARK, 0)
+            clip = pymupdf.Rect(0, top, page.rect.width, page.rect.height)
+            pixmap = page.get_pixmap(dpi=PREVIEW_DPI, clip=clip, alpha=False)
+            return pixmap.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
+        finally:
+            doc.close()
 
 
 class PyMuPdfSession:

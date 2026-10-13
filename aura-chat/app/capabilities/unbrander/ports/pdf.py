@@ -89,3 +89,8 @@ class PdfEditor(Protocol):
     guards are tested with a fake and pymupdf stays in one adapter."""
 
     def open(self, pdf: bytes) -> EditSession: ...
+
+    def preview_mark(self, brand: Brand) -> bytes:
+        """JPEG of the bottom of a blank Letter page with the brand's mark at the
+        bottom right, drawn exactly as save() draws it."""
+        ...

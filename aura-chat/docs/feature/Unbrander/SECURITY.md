@@ -150,7 +150,7 @@ UNBRANDER_ENABLED                 (false)  the worker; uploads queue while it is
 UNBRANDER_DRY_RUN                 (true)   file under the test root
 UNBRANDER_DATA_DIR                (.local/unbrander; a Railway volume in production)
 UNBRANDER_RETENTION_DAYS          (30)
-UNBRANDER_MAX_FILE_MB             (50)
+UNBRANDER_MAX_FILE_MB             (150)
 UNBRANDER_MAX_PAGES               (60)
 UNBRANDER_DOCS_PER_DAY            (30)
 UNBRANDER_DOC_TIMEOUT_MIN         (10)

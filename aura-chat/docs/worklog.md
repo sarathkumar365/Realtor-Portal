@@ -13,6 +13,171 @@ formatting.
 
 ---
 
+## 2026-10-13 — Uploads up to 150 MB; the app reads the limit from the server
+
+50 MB refused real builder brochures, which pass 100 MB on photos alone. The default is
+now 150 MB. Size is not what drives cost: the page count (60) and the page renders
+are, and the renders are downscaled. The risk is memory: an upload is read whole
+before it is checked, and the worker holds the source and the cleaned copy. Check the
+Railway instance's memory with one large file before raising it further.
+
+The admin app had its own copy of the limit, so raising the server's alone would
+still have refused the file in the browser. It now reads `GET /admin/unbrander/limits`
+(files, MB, pages) and shows them on the form; the server is the only place to change
+them.
+
+## 2026-10-13 — Filing in Drive is a choice, not a step
+
+A job used to go RECEIVED → UNBRANDING → FILING → FILED_PRIVATE on its own, and the
+worker would not start without the Drive key. Sarath's point: unbranding and filing are
+separate decisions. Sometimes the cleaned PDFs are only wanted as a download.
+
+**A job now rests at `UNBRANDED`.** It is in `ENDED` (the worker leaves it, polling
+stops, `ended_at` is stamped and the files are evicted after the retention period if
+nobody files it: Sarath chose eviction over keeping files indefinitely). Filing is
+`POST .../file` (the "File in Drive" button), which moves it to `FILING`;
+`set_status` now clears `ended_at` on leaving a resting status, so a job cannot be
+evicted while it files.
+
+**`file_when_done` at upload** files straight after unbranding, for a person who does
+not want to come back, or an agent driving the same API that is allowed to file without
+a look. Default off: nothing reaches Drive unless someone asked. Refused at upload when
+Drive is not set up, rather than found out after the models are paid for.
+
+**Drive is optional configuration.** The worker needs only the database and the
+OpenRouter key. The key and all three `DRIVE_*` ids come together or not at all; half a
+Drive setup stops the boot. `/doctor` gains a non-critical `drive` check. A job that
+reaches `FILING` when Drive has since been removed goes back to `UNBRANDED` with a
+"waiting" event, rather than failing work that is done.
+
+Found in review the same day and fixed: filing an `UNBRANDED` job whose files were
+evicted failed it halfway, so the request is refused with 410; filing was accepted
+with the worker off and sat in `FILING`, so it needs both Drive and a running worker
+(`can_file` on `GET /limits` disables the upload checkbox otherwise); and the status
+change is `JobStore.move`, one conditional `UPDATE`, so a double click files once.
+
+Rejected: a checkbox alone, with no resting state. It files what nobody has looked at,
+and leaves no way to file later.
+
+## 2026-10-13 — Organization settings in the admin app (U4)
+
+The profile form mirrors `app/domain/organization.py` in zod (one word per mark
+row, letters only; `#RRGGBB` colours; size and opacity above 0, opacity at most 1;
+spacing and margin not negative), so most mistakes are caught before Save. A 422
+from the server lands on the same fields: FastAPI's `loc` minus `body` is the
+react-hook-form path (`brand.mark_words.0.colour`).
+
+**Preview is a button, not live.** Each preview is a server render; drawing on
+every keystroke would render half-typed colours. Previews are cached per brand, so
+going back to an earlier look costs nothing.
+
+**Leaving with unsaved changes asks first** (react-router `useBlocker` and a
+`beforeunload` warning). Saving replaces the profile for chat and every new job
+at once; jobs already uploaded keep the copy they were given.
+
+## 2026-10-13 — Job screens in the admin app (U4)
+
+Upload, job list and job detail with every page before and after.
+
+**Uploads go over XMLHttpRequest, everything else over fetch.** fetch cannot report
+upload progress; a 50 MB brochure needs a bar and a Cancel. Files are checked in the
+browser first (`%PDF-` bytes, size, count) so a wrong file is refused in a second,
+not after the upload; the server checks again and has the last word.
+
+**Page images load lazily, four at a time.** A 60-page job is 120 renders on the
+server's thread pool; loading them all at once would queue chat behind them.
+`AuthImage` waits until a page is near the screen and shares one limiter.
+
+**The job page polls every 5 s until the job ends**, never after, and TanStack
+pauses it in a background tab. A failed poll waits 30 s. The list refreshes every
+15 s. A job open for more than a day is flagged "Stuck?": the worker is off, or the
+daily cap is reached, and nothing else would tell the admin.
+
+**A failed document's reason comes from the audit log** (`unbrand` / `failed`
+event), since the document row has no error column; adding one was not worth a
+schema change while the event already holds it.
+
+**Tests run jsdom on the API's origin.** jsdom's XMLHttpRequest enforces CORS, so a
+cross-origin fake API failed every upload test on a preflight. CORS is aura-chat's
+to test (`test_cors.py`), not this app's.
+
+## 2026-10-13 — The admin app's base (`aura-agent-ui/`, U4)
+
+A separate React app, not part of the realtor PWA: the PWA is a hand-built bundle
+for phones, and the admin screens (side-by-side page review, uploads, forms) need a
+desktop layout and a component kit. Stack: React 19, TypeScript strict, Vite,
+React Router, TanStack Query, shadcn-style primitives over Radix and Tailwind v4,
+react-hook-form + zod, sonner. Tests: Vitest, Testing Library, MSW.
+
+**Netlify, not Railway** (INDEX.md D14 changes). The app is static files; Netlify
+already hosts the PWA, and a second Railway service would cost money to serve them.
+
+**The existing portal sign-in, admins only.** `POST /login`, then `GET /me` with
+the new token must say `admin` before the token is kept: a realtor's token never
+lands in this app's storage, and Aura checks admin again on every call. Its own
+accounts were considered and dropped: a second password store for one or two
+admins is all cost.
+
+**The token is in `sessionStorage`**, gone when the tab closes; a strict CSP in
+`netlify.toml` allows only our own scripts and only Aura as `connect-src`.
+`style-src` allows inline styles because sonner injects its stylesheet at runtime.
+The Railway URL is in the CSP and in `VITE_AURA_BASE`: change both when it moves.
+
+**Folder rules are lint errors, not advice.** Only `src/api/` may call `fetch`;
+`components/` never imports `features/`; a feature never imports another. A test
+fails when a component in `src/components/` has no `COMPONENTS.md` entry, so the
+next screen finds what exists before writing its own.
+
+**API types are generated** from FastAPI's OpenAPI (`npm run api:types`, via
+`aura-chat/scripts/openapi.py`, no server needed). That is why `/login`, `/me` and
+the organization routes now declare response models (`SignedIn`, `Me`,
+`Organization`) instead of returning dicts.
+
+**TypeScript is held at 5.9**: openapi-typescript 7.13 declares `typescript ^5`
+as a peer. MSW 3 renamed `onUnhandledRequest` to `onUnhandledFrame`.
+
+**`.claspignore` lists `aura-agent-ui/**`.** clasp pushes every .js/.html/.json
+under the repo, and browser code in Apps Script's global scope 500s every request.
+
+## 2026-10-13 — Review endpoints for the admin app (U4, backend)
+
+The admin app (`aura-agent-ui/`, Netlify) shows every page before and after and
+downloads the result, so the API gained page images, the output PDF and a mark
+preview.
+
+**Findings are stored in source page numbers.** verify() reads the output PDF, so
+its findings named output pages, while the judge's named source pages, and both
+were stored side by side with nothing to tell them apart. After a dropped page a
+reviewer would have seen a finding on the wrong page. The worker now converts
+verify()'s numbers before storing (`in_source_pages`); `Check.VISUAL` is the judge's
+and is left as is. A number with no source page (the page-count mismatch verify()
+itself reports) becomes `null` rather than point at the wrong page.
+
+**A page is always asked for by its source number, for the output too.** The UI
+pairs before and after by source page; the server maps through `page_map`, which
+every document now carries. Counting dropped pages in the browser would be a
+second copy of a rule that already lives in the domain.
+
+**Images are fetched with the bearer token, not signed URLs.** A plain `<img src>`
+cannot send the header, so the app fetches a blob. Signed URLs would need a second
+secret and an expiry scheme; at one admin and a few dozen pages a job, the blob
+fetch costs nothing. Responses are `private, max-age=3600`: a document's files never
+change once written.
+
+**The mark preview is `POST /admin/unbrander/mark-preview`, not under
+`/admin/organization`.** It draws with the Unbrander editor, and the platform
+imports a capability only in `container.py` and `main.py`. `PdfEditor` gained
+`preview_mark(brand)`, which reuses the code that marks every cleaned PDF, so the
+preview cannot drift from the output.
+
+**Typed responses.** The job routes now declare `JobAccepted`, `JobDetail` and
+`JobList` (of a new `JobSummary`, the base of `Job`), so `/openapi.json` describes
+them and the admin app generates its API types instead of hand-writing them. The
+list now drops the profile copy by type rather than by `exclude`.
+
+**`Content-Disposition` is exposed over CORS**, or the app could not read a
+download's filed name cross-origin.
+
 ## 2026-10-13 — Unbrander pipeline to FILED_PRIVATE (U3)
 
 A job is one project with 1..N PDFs. An admin uploads them to `POST

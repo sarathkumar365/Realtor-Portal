@@ -257,6 +257,21 @@ def test_login_returns_a_token(app):
     assert r.status_code == 200 and r.json()["token"] == "tok.sig"
 
 
+def test_login_survives_a_portal_account_with_no_name_or_role(app):
+    """The portal can send null for both; that must not turn into a 500."""
+    portal = LoginPortal()
+
+    async def call(action, *, auth=None, **params):
+        return {"ok": True, "token": "tok.sig", "name": None, "role": None}
+
+    portal.call = call
+    app.state.container.portal = portal
+    with TestClient(app) as client:
+        r = client.post("/login", json={"user": "sarath", "password": "hunter2"})
+    assert r.status_code == 200
+    assert (r.json()["name"], r.json()["role"]) == ("sarath", "realtor")
+
+
 def test_login_passes_the_portals_own_wording_through(app):
     """'too many attempts' and 'invalid id or password' mean different things
     to whoever is trying to sign in."""

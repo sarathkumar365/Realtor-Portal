@@ -33,6 +33,8 @@ reasons are in the worklog.
 | [17](#17) | Unbrander cannot remove a logo drawn as a gradient fill | Medium | logos with gradient fills; one seen so far |
 | [18](#18) | Unbrander removing a name also removes the words above it, in some fonts | Medium | fonts with oversized glyph boxes; one price list so far |
 | [19](#19) | Unbrander cannot remove a watermark that sits under a plan's labels | Low | faint watermarks behind plan content |
+| [20](#20) | Admin app job rows may open the wrong job in older Safari | Low | Safari versions that ignore `position: relative` on a table row; not seen |
+| [21](#21) | Unbrander may remove the organization's own name or mark | Medium | uploads that already carry the brokerage's mark; seen once, on a re-upload |
 
 Data problems that are not code: [§ For Sudhanshu](#for-sudhanshu).
 
@@ -634,6 +636,41 @@ pymupdf has no way to delete one drawing on its own.
 
 **Fix I would write.** None worth its cost: deleting single drawings means editing the
 content stream. The watermark is faint and carries no name; the approver decides.
+
+<a id="20"></a>
+## 20. Job rows may open the wrong job in older Safari
+
+**Symptom.** On the jobs list, clicking any row opens the first job.
+
+**Root cause.** The whole row is clickable through a stretched link
+(`after:absolute after:inset-0` on the project link) whose containing block is the
+row (`relative` on the `<tr>`). Older WebKit ignored relative positioning on table
+rows, so the overlay would stretch over the nearest positioned ancestor instead.
+Current Chrome, Safari and Firefox honour it; not seen on any browser the admins use.
+
+**Reproduce.** `aura-agent-ui`, `npm run dev`, open `/jobs` with two jobs in an old
+Safari (before 15) and click the second row's City cell.
+
+**Fix I would write.** Put the overlay on a wrapper `div` inside each cell with
+`relative`, or fall back to an `onClick` on the row that calls `navigate()` while
+keeping the link for keyboards and middle-click.
+
+<a id="21"></a>
+## 21. The organization's own name or mark can be removed
+
+**Symptom.** A cleaned PDF loses "AURA KEY REALTY" from its body, then gets the mark
+added again at the bottom.
+
+**Root cause.** Nothing tells the sort or the pick that the organization's own name and
+mark are not branding to remove. Seen when an already-cleaned PDF was uploaded again:
+the sort listed "AURA KEY REALTY" among the names to remove and `redact_terms` did.
+
+**Reproduce.** Upload a PDF that `output.pdf` returned for an earlier job; the
+`removed_items` of the new job's document list "AURA KEY REALTY".
+
+**Fix I would write.** A guard in `tools.py`: refuse `redact_terms` for any term that
+matches the organization's name, short name or mark words, and say so in the sort
+prompt.
 
 ## For Sudhanshu — data, not code
 

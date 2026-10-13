@@ -32,6 +32,13 @@ UI upload ──► RECEIVED
                │                         word provenance, number integrity, metadata
                │                         strip); a document that fails it is BLOCKED
                ▼
+           UNBRANDED .................. rests: review the pages, download the PDFs.
+               │                         Filing is a choice, not a step: the "File in
+               │                         Drive" button (POST .../file), or
+               │                         `file_when_done` at upload for a person or an
+               │                         agent that wants it filed without a look.
+               │                         Files are evicted after the retention period
+               ▼                         if nobody files it
            FILING ..................... code: create folders, upload to Drive, private.
                │                         Its own state so a restart mid-upload finishes
                │                         the uploads without paying for the models again
@@ -216,7 +223,7 @@ update (AUTONOMY.md).
 A separate admin app, not a PWA screen: the first piece of the Aura Agent UI. Three screens
 for this feature — upload with the metadata form, job list, approval with before and after
 page images. It signs in through Aura Chat's `/login` and is shown to the admin role only.
-Stack: Vite + React + TypeScript, deployed as its own Railway service (D14).
+Stack: Vite + React + TypeScript in `aura-agent-ui/`, a static site on Netlify (D14).
 
 ## Job record
 

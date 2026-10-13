@@ -40,7 +40,9 @@ class Settings(BaseSettings):
     unbrander_data_dir: str = ".local/unbrander"
     unbrander_retention_days: int = 30
     # Input guardrails and budgets (SECURITY.md, AUTONOMY.md).
-    unbrander_max_file_mb: int = 50
+    # Builder brochures run past 100 MB on photos alone; one upload is held in memory
+    # at a time, so check the host's memory before raising it further.
+    unbrander_max_file_mb: int = 150
     unbrander_max_pages: int = 60
     unbrander_docs_per_day: int = 30
     unbrander_doc_timeout_min: int = 10

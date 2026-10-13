@@ -197,7 +197,7 @@ beside `jobs_postgres.py`, applied on first use like chat's.
 
 | Table | One row per | Notes |
 |---|---|---|
-| `unbrander_jobs` | upload of one project | `status` is the state machine the worker reads; `organization` is a copy of the profile the job was marked with; `dry_run` jobs are filed under the test root; `ended_at` is set on `FILED_PRIVATE` or `FAILED` and retention counts from it |
+| `unbrander_jobs` | upload of one project | `status` is the state machine the worker reads; `organization` is a copy of the profile the job was marked with; `dry_run` jobs are filed under the test root; `file_when_done` sends it to filing straight after unbranding; `ended_at` is set on `UNBRANDED`, `FILED_PRIVATE` or `FAILED`, cleared when filing starts, and retention counts from it |
 | `unbrander_documents` | PDF in a job | Cascades with its job. `doc_type` comes from the sort; `drive_file_id` is set once uploaded, so a repeated `FILING` skips it; `started_at` feeds the daily cap |
 | `unbrander_job_events` | action | The audit log: `actor`, `action`, `result`, and `detail` JSON. Never updated, and **no cascade**: it outlives everything else about a job |
 

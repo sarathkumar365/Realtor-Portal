@@ -210,7 +210,7 @@ models and the real Drive.
 
 ## U4 — Admin app
 
-Vite + React + TypeScript, its own Railway service (D14).
+Vite + React + TypeScript in `aura-agent-ui/`, a static site on Netlify (D14).
 
 - Sign-in through Aura Chat's `/login`; admin role only.
 - Screens: upload with the metadata form; job list (with stale jobs marked); job detail
@@ -220,8 +220,22 @@ Vite + React + TypeScript, its own Railway service (D14).
   rendered by the service on a sample page before it is saved.
 - Aura Chat adds the new app's origin to `ALLOWED_ORIGINS`.
 
-**Done when:** an admin uploads a PDF in the app and reviews the resulting `FILED_PRIVATE`
-job without using `curl`.
+**Done when:** an admin uploads a PDF in the app, reviews the resulting `UNBRANDED` job and
+downloads it without using `curl`; with the service-account key, files it in Drive from
+the app and sees it `FILED_PRIVATE`.
+
+**Built 2026-10-13, not yet deployed.** Backend: page images and the output PDF per
+document, `page_map`, findings stored in source page numbers, `POST
+/admin/unbrander/mark-preview`, typed responses for the generated API types. App: sign-in
+(admins only, checked with `/me` before the token is kept), job list, upload with browser
+checks and progress, job detail with every page before and after, organization settings
+with a server-drawn preview. Verified locally against the dev portal and Postgres: a
+realtor refused, an admin signed in, a real upload creating a job, a filed job reviewed
+page by page, the output PDF's filed name readable cross-origin, a preview redrawn, the
+unsaved-changes prompt. Filing changed the same day: a job now rests at `UNBRANDED`, and
+filing in Drive is a separate choice (a button, or `file_when_done` at upload for a person
+or an agent), so the worker runs without the Drive key. Left: the Netlify site and
+`ALLOWED_ORIGINS` on Railway; filing from the app waits for the service-account key (U3).
 
 ## U5 — Approve, publish, undo
 

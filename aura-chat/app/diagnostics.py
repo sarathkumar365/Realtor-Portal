@@ -178,6 +178,9 @@ async def _unbrander_checks(c: Container) -> list[Check]:
         else Check("job_store", None, "no database configured", critical=False),
         Check("unbrander_worker", running if c.settings.unbrander_enabled else None,
               "" if c.settings.unbrander_enabled else "switched off", critical=False),
+        # Optional: without it jobs are unbranded and downloaded, never filed.
+        Check("drive", True if c.drive is not None else None,
+              "" if c.drive is not None else "not set up: filing is unavailable", critical=False),
     ]
 
 

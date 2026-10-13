@@ -22,7 +22,8 @@ CLAIM_CANDIDATES = 20
 
 JOB_COLUMNS = (
     "id, status, uploader, instructions, project, builder, short_forms, city, province,"
-    " organization, dry_run, drive_folder_id, error, created_at, updated_at, ended_at"
+    " organization, dry_run, file_when_done, drive_folder_id, error, created_at, updated_at,"
+    " ended_at"
 )
 DOCUMENT_COLUMNS = (
     "id, job_id, position, filename, sha256, page_count, status, doc_type, dropped_pages,"
@@ -67,11 +68,11 @@ class PostgresJobStore:
         async with pool.acquire() as con, con.transaction():
             await con.execute(
                 "INSERT INTO unbrander_jobs (id, status, uploader, instructions, project, builder,"
-                " short_forms, city, province, organization, dry_run)"
-                " VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)",
+                " short_forms, city, province, organization, dry_run, file_when_done)"
+                " VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11, $12)",
                 job_id, JobStatus.RECEIVED.value, job.uploader, job.instructions, job.project,
                 job.builder, json.dumps(job.short_forms), job.city, job.province,
-                job.organization.model_dump_json(), job.dry_run,
+                job.organization.model_dump_json(), job.dry_run, job.file_when_done,
             )
             await con.executemany(
                 "INSERT INTO unbrander_documents (id, job_id, position, filename, sha256,"
@@ -108,9 +109,20 @@ class PostgresJobStore:
         pool = await self._ready()
         await pool.execute(
             "UPDATE unbrander_jobs SET status = $2, error = $3, updated_at = now(),"
-            " ended_at = CASE WHEN $4 THEN now() ELSE ended_at END WHERE id = $1",
+            # Cleared on leaving a resting status: a job sent from UNBRANDED to
+            # FILING must not be evicted while it files.
+            " ended_at = CASE WHEN $4 THEN now() ELSE NULL END WHERE id = $1",
             job_id, status.value, error, status in ENDED,
         )
+
+    async def move(self, job_id: str, from_status: JobStatus, to_status: JobStatus) -> bool:
+        pool = await self._ready()
+        result = await pool.execute(
+            "UPDATE unbrander_jobs SET status = $3, error = NULL, updated_at = now(),"
+            " ended_at = CASE WHEN $4 THEN now() ELSE NULL END WHERE id = $1 AND status = $2",
+            job_id, from_status.value, to_status.value, to_status in ENDED,
+        )
+        return result == "UPDATE 1"
 
     async def set_drive_folder(self, job_id: str, folder_id: str) -> None:
         pool = await self._ready()

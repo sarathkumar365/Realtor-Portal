@@ -64,7 +64,7 @@ Every one is read in `app/config.py` and nowhere else. `.env` is git-ignored;
 | `EXEC_URL` | *(none)* | The deployed Apps Script web app. Must equal `EXEC` in `dev/config.mjs`. |
 | `EXEC_TIMEOUT_S` | `30.0` | Per-request timeout against the portal. Cold index builds are slow; see [`../portal.md`](../../portal.md) §3.6. |
 | `SESSION_MS` | `604800000` (7 days) | Token lifetime. **Must match `SESSION_MS` in `Core.js`** — longer here keeps honouring tokens the portal has retired. |
-| `ALLOWED_ORIGINS` | `http://localhost:4600,http://localhost:4599` | Comma-separated CORS allowlist. The PWA's origin **must** be in here or the browser blocks the chat before the request leaves the phone. Never `*`: a wildcard lets any page a realtor visits spend their token. |
+| `ALLOWED_ORIGINS` | `http://localhost:4600,http://localhost:4599` | Comma-separated CORS allowlist. The PWA's origin **must** be in here or the browser blocks the chat before the request leaves the phone. The admin app's origin too: its Netlify site, and `http://localhost:5173` for `npm run dev`. Never `*`: a wildcard lets any page a realtor visits spend their token. |
 | `ALLOWED_ORIGIN_REGEX` | *(empty)* | Only for Netlify deploy previews, which get a random subdomain per draft deploy and so cannot be named in the list. A standing hole in the allowlist — set it while testing previews, unset it after. |
 | `OPENROUTER_API_KEY` | *(none)* | Phase 3. |
 | `LLM_MODEL` | `google/gemini-2.5-flash` | A model swap is this string. See §2.1. |
@@ -83,7 +83,7 @@ whenever `DATABASE_URL` is set):
 | `UNBRANDER_DRY_RUN` | `true` | Files under `DRIVE_TEST_ROOT_FOLDER_ID`, never the real tree. |
 | `UNBRANDER_DATA_DIR` | `.local/unbrander` | Uploads and cleaned outputs. On Railway, a volume mount path such as `/data/unbrander`: the container's own disk is lost on every deploy. |
 | `UNBRANDER_RETENTION_DAYS` | `30` | Volume files are deleted this long after a job ends. |
-| `UNBRANDER_MAX_FILE_MB` · `_MAX_PAGES` | `50` · `60` | Upload limits. |
+| `UNBRANDER_MAX_FILE_MB` · `_MAX_PAGES` | `150` · `60` | Upload limits. The admin app reads them from `GET /admin/unbrander/limits`, so this is the only place to change them. One upload is held in memory at a time: check the host's memory before raising the size. |
 | `UNBRANDER_DOCS_PER_DAY` | `30` | Documents started per UTC day; past it, jobs wait. |
 | `UNBRANDER_DOC_TIMEOUT_MIN` | `10` | One document's budget; over it, the document fails. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | *(none)* | The service account key, the whole JSON on one line. Secret: a Railway variable, never a file on the volume. |
@@ -246,9 +246,15 @@ anything that does, use **A. Real everything** above with a real Portal ID.
 
 `scripts/setup.sh` makes the venv, installs tesseract and checks OCR. With
 `DATABASE_URL` set, uploads work and wait in `RECEIVED`; to run them, also set
-`OPENROUTER_API_KEY`, the key and `DRIVE_*` ids, and `UNBRANDER_ENABLED=true`. Dry run
-stays on, so output lands in the Drive `Test` folder. Each document costs model calls
+`OPENROUTER_API_KEY` and `UNBRANDER_ENABLED=true`. Jobs then stop at `UNBRANDED`, ready
+to review and download. Filing needs the key and the `DRIVE_*` ids as well; dry run
+stays on, so filed output lands in the Drive `Test` folder. Each document costs model calls
 (about $0.07 for the 8-page sample in [model-check.md](../Unbrander/model-check.md)).
+
+The admin app runs beside it: start `aura` with `localhost:5173` in `ALLOWED_ORIGINS`,
+then `cd aura-agent-ui && VITE_AURA_BASE=http://localhost:8000 npm run dev` (the
+`agent-ui` entry in `.claude/launch.json` points at the `aura` entry's port 8001).
+Sign in with an admin portal login. Commands and rules: `aura-agent-ui/AGENTS.md`.
 
 ### B. No portal account, no API key
 
@@ -328,10 +334,11 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
 2c. **Unbrander**, only when turning the worker on: set
    `RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr` (OCR; `deploy.sh` warns when it is
-   missing), attach a volume and point `UNBRANDER_DATA_DIR` into it, set the key and
-   the `DRIVE_*` ids, then `UNBRANDER_ENABLED=true`. A missing piece stops the boot
-   with its name in the log, rather than failing the first PDF. `/doctor` then shows
-   `ocr`, `job_store` and `unbrander_worker` ok.
+   missing), attach a volume and point `UNBRANDER_DATA_DIR` into it, then
+   `UNBRANDER_ENABLED=true`. Filing in Drive is optional: set the key and all three
+   `DRIVE_*` ids, or none. A missing piece stops the boot with its name in the log,
+   rather than failing the first PDF. `/doctor` then shows `ocr`, `job_store` and
+   `unbrander_worker` ok, and `drive` ok or "not set up".
 3. `GET /health` should answer `{"status":"ok","ok":true}` from the internet.
 4. `GET /doctor` with a real token is the actual readiness check — it proves the
    portal accepts our auth *and* that project data comes back.
@@ -353,6 +360,13 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    [`../portal.md`](../../portal.md). The Apps Script-hosted copy never gets it:
    its pages come from a `googleusercontent.com` subdomain whose hash varies, so
    the origin cannot be allowlisted, and Apps Script cannot stream anyway.
+7. **The admin app** (`aura-agent-ui/`) is its own Netlify site: base directory
+   `aura-agent-ui`, build and publish from its `netlify.toml`, and `VITE_AURA_BASE`
+   set to the service's URL. Add the site's origin to the service's
+   `ALLOWED_ORIGINS`. The service URL is also in `netlify.toml`'s CSP
+   `connect-src`: when the service moves, change it there, in `VITE_AURA_BASE`, and
+   redeploy the site. Check: sign in as an admin and see the job list; a realtor
+   login is refused.
 
 ---
 

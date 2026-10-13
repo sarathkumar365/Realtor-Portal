@@ -31,8 +31,12 @@ portal will not show a given realtor, it will not show Aura Agent. The one
 exception is Unbrander's publish step, which writes to Drive and the sheet with
 a scoped Google credential after an admin approves (invariant 2).
 
-`aura-chat/` is the product. Everything in the repo root is the portal it reads
-from — see §6. Design docs for each capability live in `aura-chat/docs/feature/<Name>/`.
+`aura-chat/` is the product. `aura-agent-ui/` is its admin app — a separate
+React app on Netlify where admins upload and review Unbrander jobs and edit the
+organization profile; before building UI there, read its
+[AGENTS.md](aura-agent-ui/AGENTS.md) and [COMPONENTS.md](aura-agent-ui/COMPONENTS.md).
+Everything else in the repo root is the portal Aura Agent reads from — see §6.
+Design docs for each capability live in `aura-chat/docs/feature/<Name>/`.
 
 ---
 
@@ -80,7 +84,7 @@ aura-chat/
         prompts.py         the sort, pick, judge and repair prompts
         verify.py          the code gate after M2: compares source and cleaned PDF facts
         intake.py          upload checks, before any model call or job row
-        worker.py          the job worker: RECEIVED → UNBRANDING → FILING → FILED_PRIVATE
+        worker.py          the job worker: RECEIVED → UNBRANDING → UNBRANDED, then FILING → FILED_PRIVATE when asked
         files.py           a job's files on the volume
         routes.py          the admin job API (/admin/unbrander/jobs)
         domain/            PdfFacts, HitList, Finding, VerifyReport; edit.py, terms.py, actions.py,

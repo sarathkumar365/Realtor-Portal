@@ -5,7 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS unbrander_jobs (
   id              TEXT PRIMARY KEY,
-  -- RECEIVED | UNBRANDING | FILING | FILED_PRIVATE | FAILED. The worker reads it
+  -- RECEIVED | UNBRANDING | UNBRANDED | FILING | FILED_PRIVATE | FAILED. The worker reads it
   -- to know which step to run, so a restart resumes where the last run stopped.
   status          TEXT NOT NULL,
   uploader        TEXT NOT NULL,
@@ -24,9 +24,12 @@ CREATE TABLE IF NOT EXISTS unbrander_jobs (
   error           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- Set on FILED_PRIVATE or FAILED. Volume files are evicted counting from here.
+  -- Set on UNBRANDED, FILED_PRIVATE or FAILED, cleared when filing starts. Volume
+  -- files are evicted counting from here.
   ended_at        TIMESTAMPTZ
 );
+-- File in Drive straight after unbranding (added with the admin app).
+ALTER TABLE unbrander_jobs ADD COLUMN IF NOT EXISTS file_when_done BOOLEAN NOT NULL DEFAULT false;
 -- The worker's question: the oldest job that has not ended.
 CREATE INDEX IF NOT EXISTS unbrander_jobs_status ON unbrander_jobs (status, created_at);
 

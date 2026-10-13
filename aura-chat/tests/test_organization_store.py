@@ -84,6 +84,21 @@ def test_switching_the_worker_on_without_its_settings_fails_at_build():
         container_mod.build(settings)
 
 
+def test_the_worker_runs_without_drive_and_filing_is_then_unavailable():
+    settings = Settings(token_secret="x", exec_url="https://e.invalid", unbrander_enabled=True,
+                        database_url="postgresql://localhost/none", openrouter_api_key="k",
+                        _env_file=None)
+    services = container_mod.build(settings)
+    assert services.worker is not None and services.drive is None
+
+
+def test_a_drive_key_without_its_folder_ids_fails_at_build():
+    settings = Settings(token_secret="x", exec_url="https://e.invalid",
+                        google_service_account_json="{}", _env_file=None)
+    with pytest.raises(RuntimeError, match="DRIVE_SHARED_DRIVE_ID, DRIVE_ROOT_FOLDER_ID"):
+        container_mod.build(settings)
+
+
 def test_the_worker_is_not_built_while_switched_off():
     settings = Settings(token_secret="x", exec_url="https://e.invalid", _env_file=None)
     services = container_mod.build(settings)

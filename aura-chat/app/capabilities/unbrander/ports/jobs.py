@@ -25,7 +25,12 @@ class JobStore(Protocol):
         ...
 
     async def set_status(self, job_id: str, status: JobStatus, *, error: str | None = None) -> None:
-        """Also stamps ended_at when the status is one a job ends in."""
+        """Stamps ended_at when the status is one in ENDED, and clears it otherwise."""
+        ...
+
+    async def move(self, job_id: str, from_status: JobStatus, to_status: JobStatus) -> bool:
+        """set_status, only if the job is still in `from_status`, in one statement.
+        False when it was not: someone else moved it first."""
         ...
 
     async def set_drive_folder(self, job_id: str, folder_id: str) -> None: ...

@@ -305,9 +305,14 @@ class FakeEditSession:
 class FakePdfEditor:
     def __init__(self, session: FakeEditSession) -> None:
         self.session = session
+        self.previews: list[Brand] = []
 
     def open(self, pdf: bytes) -> FakeEditSession:
         return self.session
+
+    def preview_mark(self, brand: Brand) -> bytes:
+        self.previews.append(brand)
+        return b"preview-jpeg"
 
 
 class FakePdfStore:
@@ -428,8 +433,14 @@ class FakeJobStore:
         self._live()
         job = self.jobs[job_id]
         job.status, job.error = status, error
-        if status in ENDED:
-            job.ended_at = datetime.now(UTC)
+        job.ended_at = datetime.now(UTC) if status in ENDED else None
+
+    async def move(self, job_id: str, from_status: JobStatus, to_status: JobStatus) -> bool:
+        self._live()
+        if self.jobs[job_id].status is not from_status:
+            return False
+        await self.set_status(job_id, to_status)
+        return True
 
     async def set_drive_folder(self, job_id: str, folder_id: str) -> None:
         self._live()

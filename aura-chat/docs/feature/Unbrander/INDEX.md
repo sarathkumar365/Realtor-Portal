@@ -31,7 +31,7 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 | D11 | Five-port cap lifted; new ports still need a stated reason | `AGENTS.md` |
 | D12 | Files between steps live on a **Railway volume** | SECURITY.md |
 | D13 | Project not in the sheet: the admin app asks the admin what to do | AUTONOMY.md |
-| D14 | Admin app: **Vite + React + TypeScript**, its own Railway service | LOOP.md |
+| D14 | Admin app: **Vite + React + TypeScript** in `aura-agent-ui/`, a static site on **Netlify** (changed from Railway 2026-10-13); portal sign-in, admins only | LOOP.md, worklog 2026-10-13 |
 | D15 | New ports `JobStore` (Postgres) and `GoogleWriter` (Drive + Sheets); the PDF tools are plain code, not a port. Worker runs inside the Aura Chat service | LOOP.md |
 | D16 | M2/M3 model chosen by the golden set: cheapest vision + tool-calling model with zero leaks, via OpenRouter | EVALUATION.md |
 | D17 | Google credential: a **service account**; output is filed in a new **Shared Drive** ("Aura Agent") with the service account as a member — nothing is moved, and the sheet is shared with it as Editor | SECURITY.md |

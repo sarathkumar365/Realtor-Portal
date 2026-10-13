@@ -94,7 +94,8 @@ def test_the_headers_a_browser_must_read_are_exposed(app):
     here. Retry-After is not on that safelist: without it the PWA's 429 branch
     read null every time and told a realtor refused for the next hour to "try
     again in a moment". X-Request-Id is the id they quote when reporting a
-    failure, and it is useless if the page cannot read it.
+    failure, and it is useless if the page cannot read it. Content-Disposition
+    carries a download's filed name to the admin app.
     """
     # A real response, not a preflight: access-control-expose-headers only
     # appears on the actual request. The app fixture supplies a container, so
@@ -105,4 +106,4 @@ def test_the_headers_a_browser_must_read_are_exposed(app):
         h.strip().lower()
         for h in r.headers.get("access-control-expose-headers", "").split(",")
     }
-    assert {"retry-after", "x-request-id"} <= exposed
+    assert {"retry-after", "x-request-id", "content-disposition"} <= exposed

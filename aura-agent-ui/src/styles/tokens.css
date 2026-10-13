@@ -1,0 +1,19 @@
+/* Aura Key brand tokens, from design_handoff_aura_key/README.md (Design Tokens).
+   Components use the semantic names in globals.css, never these directly. */
+:root {
+  --ak-ink: #0e1a22;
+  --ak-paper: #e9edee;
+  --ak-blue: #1f4e6b;
+  --ak-blue-hover: #26597a;
+  --ak-blue-active: #163a50;
+  --ak-pine: #0f6349;
+  --ak-ochre: #9a6104;
+  --ak-gold: #d3ae60;
+  --ak-gold-light: #e0c387;
+  --ak-text: #17364b;
+  --ak-muted: #5b7284;
+  --ak-placeholder: #93a6b3;
+  --ak-border: #d4dce2;
+  --ak-rule: #e2e8ed;
+  --ak-danger: #b42318;
+}

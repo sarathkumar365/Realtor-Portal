@@ -82,7 +82,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type"],
-        expose_headers=["X-Request-Id", "Retry-After"],
+        # Content-Disposition: the admin app saves a download under its filed name.
+        expose_headers=["X-Request-Id", "Retry-After", "Content-Disposition"],
     )
     app.state.limits = Limits(
         chat=cfg.chat_per_hour, login=cfg.login_per_hour, doctor=cfg.doctor_per_hour

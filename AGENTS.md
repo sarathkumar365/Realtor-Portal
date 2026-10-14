@@ -4,13 +4,13 @@
 Greater-Toronto-Area brokerage. Its aim is to automate the tasks realtors and
 staff do by hand today, one capability at a time, until it runs most of them
 itself. It started as **Aura Chat** — the question-answering capability — and
-everything it is lives in `aura-agent/`. What a capability is and how one is added:
-**[platform.md](aura-agent/docs/platform.md)**.
+this repository is all of it. What a capability is and how one is added:
+**[platform.md](docs/platform.md)**.
 
 | Capability | What it does | State |
 |---|---|---|
 | Chat | A realtor asks *"show me detached homes under $1M in Brampton"* and gets real projects from the brokerage's own records, with a source and an effective date | Parked — API kept, UI to be built in the admin app |
-| Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](aura-agent/docs/feature/Unbrander/INDEX.md), [phases](aura-agent/docs/feature/Unbrander/PHASES.md) |
+| Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](docs/feature/Unbrander/INDEX.md), [phases](docs/feature/Unbrander/PHASES.md) |
 
 **Current priority:** finish Unbrander end to end. In between, do only what that
 work needs. Heavy changes — the LangChain / LangGraph migration (U8) — come after.
@@ -30,22 +30,21 @@ exception is Unbrander's publish step, which writes to Drive and the sheet with
 a scoped Google credential after an admin approves (invariant 2).
 
 ```
-aura-agent/
-  api/          the product: FastAPI service and job worker, on Railway
-  ui/admin/     the admin app: React, for admins (Netlify deployment parked)
-  portal/       the Apps Script back end Aura Agent reads from (source only)
-  docs/         platform and capability docs, for both
-  bin/setup     one-time setup of a machine
-  bin/dev       checks the machine, then runs portal stand-in + api + admin app
+api/          the product: FastAPI service and job worker, on Railway
+ui/admin/     the admin app: React, for admins (Netlify deployment parked)
+portal/       the Apps Script back end Aura Agent reads from (source only)
+docs/         platform and capability docs, for both
+bin/setup     one-time setup of a machine
+bin/dev       checks the machine, then runs portal stand-in + api + admin app
 ```
 
-`aura-agent/api/` is the product. `aura-agent/ui/admin/` is its admin app — a separate
+`api/` is the product. `ui/admin/` is its admin app — a separate
 React app where admins upload and review Unbrander jobs and edit the
 organization profile; before building UI there, read its
-[AGENTS.md](aura-agent/ui/admin/AGENTS.md), [DESIGN.md](aura-agent/ui/admin/DESIGN.md) and
-[COMPONENTS.md](aura-agent/ui/admin/COMPONENTS.md).
-The portal's Apps Script back end now lives in `aura-agent/portal/` — see §6.
-Design docs for each capability live in `aura-agent/docs/feature/<Name>/`.
+[AGENTS.md](ui/admin/AGENTS.md), [DESIGN.md](ui/admin/DESIGN.md) and
+[COMPONENTS.md](ui/admin/COMPONENTS.md).
+The portal's Apps Script back end now lives in `portal/` — see §6.
+Design docs for each capability live in `docs/feature/<Name>/`.
 
 ---
 
@@ -56,7 +55,7 @@ Design docs for each capability live in `aura-agent/docs/feature/<Name>/`.
 `app/capabilities/unbrander/`, shaped like `chat/`.
 
 ```
-aura-agent/api/
+api/
   app/                 the shared platform
     domain/            Project, ProjectFilters, Claims, Role, ChatMode, Viewer
                        organization.py — Organization, Brand: who the agent works for
@@ -109,7 +108,7 @@ aura-agent/api/
 ```
 
 Files that do not exist yet already have chosen names and homes — check
-[roadmap.md](aura-agent/docs/feature/aura-chat/roadmap.md) before creating one.
+[roadmap.md](docs/feature/aura-chat/roadmap.md) before creating one.
 
 ---
 
@@ -143,14 +142,14 @@ A `test_layering` failure means the migration in the architecture doc has
 quietly stopped being a one-file change. Fix the import, not the test.
 
 Full rationale and rejected alternatives:
-[architecture.md](aura-agent/docs/feature/aura-chat/architecture.md).
+[architecture.md](docs/feature/aura-chat/architecture.md).
 
 ---
 
 ## 3. Invariants
 
 Full text, with the failure each one prevents:
-**[invariants.md](aura-agent/docs/feature/aura-chat/invariants.md)**. In short:
+**[invariants.md](docs/feature/aura-chat/invariants.md)**. In short:
 
 1. `TOKEN_SECRET` must be byte-identical to the portal's Script Property.
 2. The caller's own token is the data-plane credential — the only exception is Unbrander's approved writes.
@@ -166,10 +165,10 @@ Full text, with the failure each one prevents:
 ## 4. Commands
 
 ```bash
-aura-agent/bin/setup                      # once: venv, packages, local database
-aura-agent/bin/dev                        # the whole stack locally; --help for options
+bin/setup                      # once: venv, packages, local database
+bin/dev                        # the whole stack locally; --help for options
 
-cd aura-agent/api
+cd api
 
 .venv/bin/python -m pytest -q             # the gate. No network, ever.
 .venv/bin/ruff check .
@@ -180,7 +179,7 @@ curl -H "Authorization: Bearer $TOK" localhost:8000/doctor      # add ?fresh=1 t
 ```
 
 Getting `$TOK`, and every other environment question:
-[operations.md](aura-agent/docs/feature/aura-chat/operations.md).
+[operations.md](docs/feature/aura-chat/operations.md).
 
 `/doctor` is the first thing to run when an answer fails: it uses the caller's
 own token and exercises the same path a question takes, so it tells "the portal
@@ -191,7 +190,7 @@ is reachable" apart from "Aura can actually read projects".
 ## 5. How to work here
 
 Full rules, with the trigger and check for each:
-**[working-rules.md](aura-agent/docs/feature/aura-chat/working-rules.md)**. The short form:
+**[working-rules.md](docs/feature/aura-chat/working-rules.md)**. The short form:
 
 - **Search before you write.** Name the existing thing you reused, or say what
   you searched for and that nothing matched.
@@ -203,7 +202,7 @@ Full rules, with the trigger and check for each:
 - **Don't add** a port without a stated reason and agreement, a dependency, or
   an abstraction with one caller.
 - **Don't build ahead of the current phase** — see
-  [roadmap.md](aura-agent/docs/feature/aura-chat/roadmap.md). Later ports are declared so tools and
+  [roadmap.md](docs/feature/aura-chat/roadmap.md). Later ports are declared so tools and
   tests can be written against them, not as an invitation to implement them.
 - **Names say what the thing is.** No plan labels (M2, U3, D16) in code, no
   invented abbreviations, no single-letter names except `i`, `j`, `_`.
@@ -215,7 +214,7 @@ Full rules, with the trigger and check for each:
   Script action, database schema, or two approaches with real trade-offs.
   Don't ask about naming, formatting, or anything these docs answer.
 - **Record why, in the same change.** Append to
-  [worklog.md](aura-agent/docs/worklog.md) — newest first — whenever the change is one a
+  [worklog.md](docs/worklog.md) — newest first — whenever the change is one a
   future reader could reasonably want to undo: a decision, a rejected
   alternative, a non-obvious constraint, a fix that looks arbitrary without its
   story. Skip typos and renames. Write the reason; the diff already says what.
@@ -223,7 +222,7 @@ Full rules, with the trigger and check for each:
   `pytest -q` before claiming done and report failures.
 - **Write it down instead of fixing it** when a defect is real but off the path
   of the current change. Add an entry to
-  [known-issues.md](aura-agent/docs/feature/aura-chat/known-issues.md) with the symptom, the root
+  [known-issues.md](docs/feature/aura-chat/known-issues.md) with the symptom, the root
   cause, a command that reproduces it, and the fix you would write. Fixing every
   defect the moment it is found is how a sprint stops moving; finding the same
   one twice is how it stops mattering. Fixing one means deleting its entry and
@@ -233,18 +232,18 @@ Full rules, with the trigger and check for each:
 
 ## 6. The portal (upstream)
 
-The Apps Script back end, with its source in `aura-agent/portal/`:
-**[portal.md](aura-agent/docs/portal.md)**. The realtor PWA that sat on top of it
+The Apps Script back end, with its source in `portal/`:
+**[portal.md](docs/portal.md)**. The realtor PWA that sat on top of it
 is retired; the deployed web app keeps running unchanged, and Aura Agent still
 calls it for `login` and `session` (the admin app signs in through it) and for
 `aiindex` (Chat's project data). It is slated for replacement inside the agent —
-see [roadmap.md](aura-agent/docs/feature/aura-chat/roadmap.md). Aura Chat's only
+see [roadmap.md](docs/feature/aura-chat/roadmap.md). Aura Chat's only
 change to it is `Ai.js` — one read-only action, `aiindex`, shipped in Phase 2.
-Run `clasp` from `aura-agent/portal/`. Two things will bite you if you touch it:
+Run `clasp` from `portal/`. Two things will bite you if you touch it:
 
 - `clasp push` uploads everything not in `.claspignore`, and a browser or Node
   file in the server's global scope 500s every request. Run
-  `node dev/verify.mjs` from `aura-agent/portal/` first.
+  `node dev/verify.mjs` from `portal/` first.
 - **Publish by editing the existing deployment.** "New deployment" mints a new
   id and leaves this service's `EXEC_URL` calling an address that no longer
   answers.
@@ -255,18 +254,18 @@ Run `clasp` from `aura-agent/portal/`. Two things will bite you if you touch it:
 
 | Doc | What's in it |
 |---|---|
-| [platform.md](aura-agent/docs/platform.md) | **What Aura Agent is for**, what a capability is, and the rules every capability follows |
-| [docs/feature/](aura-agent/docs/feature/) | One folder per capability: its agent design and build phases |
-| [how-it-works.md](aura-agent/docs/feature/aura-chat/how-it-works.md) | **Start here.** The whole system end to end: boot, every file, one chat interaction traced |
-| [the-agent.md](aura-agent/docs/feature/aura-chat/the-agent.md) | The agent layer alone, slowly: startup, PydanticAI, tool registration, the loop, the queue |
-| [invariants.md](aura-agent/docs/feature/aura-chat/invariants.md) | The eight rules that break security or cost an afternoon |
-| [api.md](aura-agent/docs/feature/aura-chat/api.md) | Every endpoint, its auth and shape; every tool and what it reads |
-| [limitations.md](aura-agent/docs/feature/aura-chat/limitations.md) | What Aura cannot answer or does not cover — the honest list |
-| [working-rules.md](aura-agent/docs/feature/aura-chat/working-rules.md) | Working rules, Python conventions, definition of done |
-| [roadmap.md](aura-agent/docs/feature/aura-chat/roadmap.md) | Platform roadmap: chat phases, capabilities, and the names already chosen for unwritten files |
-| [architecture.md](aura-agent/docs/feature/aura-chat/architecture.md) | The decision, the stack, the ports, the phased plan |
-| [operations.md](aura-agent/docs/feature/aura-chat/operations.md) | Getting a token, the env vars, running locally, deploying, restarting, **logs**, rotating `TOKEN_SECRET` |
-| [schema.md](aura-agent/docs/feature/aura-chat/schema.md) | The three tables, isolation in SQL, backup and restore |
-| [worklog.md](aura-agent/docs/worklog.md) | **Why** each change was made — decisions, rejected options, costs of reversing |
-| [known-issues.md](aura-agent/docs/feature/aura-chat/known-issues.md) | Defects found and understood but **not fixed** — symptom, root cause, how to reproduce, the fix I would write |
-| [portal.md](aura-agent/docs/portal.md) | The upstream Apps Script back end in `aura-agent/portal/` |
+| [platform.md](docs/platform.md) | **What Aura Agent is for**, what a capability is, and the rules every capability follows |
+| [docs/feature/](docs/feature/) | One folder per capability: its agent design and build phases |
+| [how-it-works.md](docs/feature/aura-chat/how-it-works.md) | **Start here.** The whole system end to end: boot, every file, one chat interaction traced |
+| [the-agent.md](docs/feature/aura-chat/the-agent.md) | The agent layer alone, slowly: startup, PydanticAI, tool registration, the loop, the queue |
+| [invariants.md](docs/feature/aura-chat/invariants.md) | The eight rules that break security or cost an afternoon |
+| [api.md](docs/feature/aura-chat/api.md) | Every endpoint, its auth and shape; every tool and what it reads |
+| [limitations.md](docs/feature/aura-chat/limitations.md) | What Aura cannot answer or does not cover — the honest list |
+| [working-rules.md](docs/feature/aura-chat/working-rules.md) | Working rules, Python conventions, definition of done |
+| [roadmap.md](docs/feature/aura-chat/roadmap.md) | Platform roadmap: chat phases, capabilities, and the names already chosen for unwritten files |
+| [architecture.md](docs/feature/aura-chat/architecture.md) | The decision, the stack, the ports, the phased plan |
+| [operations.md](docs/feature/aura-chat/operations.md) | Getting a token, the env vars, running locally, deploying, restarting, **logs**, rotating `TOKEN_SECRET` |
+| [schema.md](docs/feature/aura-chat/schema.md) | The three tables, isolation in SQL, backup and restore |
+| [worklog.md](docs/worklog.md) | **Why** each change was made — decisions, rejected options, costs of reversing |
+| [known-issues.md](docs/feature/aura-chat/known-issues.md) | Defects found and understood but **not fixed** — symptom, root cause, how to reproduce, the fix I would write |
+| [portal.md](docs/portal.md) | The upstream Apps Script back end in `portal/` |

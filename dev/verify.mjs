@@ -510,7 +510,7 @@ function fakeSheet(rows, links) {
   };
 
   const row = grab('auraFeedbackRow');
-  const pyAll = readFileSync(DIR + 'aura-chat/app/domain/feedback.py', 'utf8');
+  const pyAll = readFileSync(DIR + 'aura-agent/api/app/capabilities/chat/domain/feedback.py', 'utf8');
   ok(/AURA_MODE==='client'/.test(row) && /return null/.test(row),
      'the feedback row is not rendered in Client Mode');
   ok(/!turn\.id/.test(row),

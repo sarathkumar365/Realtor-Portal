@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# One-time setup of this machine for Aura Agent: the api's venv and tesseract,
+# the admin app's packages, and the local database. Safe to run again: each step
+# skips what is already there. Run from anywhere.
+set -euo pipefail
+
+AGENT="$(cd "$(dirname "$0")/.." && pwd)"
+DATABASE="${AURA_DEV_DATABASE:-aura_chat_dev}"
+
+echo "== api"
+bash "$AGENT/api/scripts/setup.sh"
+
+echo "== admin app"
+(cd "$AGENT/ui/admin" && npm ci --no-audit --no-fund)
+
+echo "== database"
+if ! command -v pg_isready >/dev/null; then
+  echo "Postgres is not installed: brew install postgresql@15, then run this again."
+  exit 1
+fi
+if ! pg_isready -q; then
+  echo "Postgres is not running: brew services start postgresql@15, then run this again."
+  exit 1
+fi
+if psql -d postgres -lqt | cut -d'|' -f1 | tr -d ' ' | grep -qx "$DATABASE"; then
+  echo "$DATABASE exists"
+else
+  createdb "$DATABASE"
+  echo "created $DATABASE (the api creates its tables on first start)"
+fi
+
+echo "done. start everything: aura-agent/bin/dev"

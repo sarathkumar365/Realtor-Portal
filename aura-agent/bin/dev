@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Check this machine, then run Aura Agent locally in one terminal:
+#   portal stand-in  :4599  dev/serve.mjs, the portal's API with a test sign-in
+#   api              :8001  FastAPI, reloads on save
+#   admin app        :5173  Vite
+# Ctrl-C stops all three. The first failed check stops the script and says how
+# to fix it; bin/setup fixes most of them.
+#
+#   aura-agent/bin/dev            the stack, without the job worker
+#   aura-agent/bin/dev --worker   with the Unbrander worker, which calls paid models
+#   aura-agent/bin/dev --no-open  do not open the browser
+#
+# The api gets test values for the token secret and the portal address. They
+# override api/.env, so a local run never signs with the production secret.
+# macOS ships bash 3.2: no `wait -n`, no associative arrays.
+set -euo pipefail
+
+AGENT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$AGENT/.." && pwd)"
+DATABASE="${AURA_DEV_DATABASE:-aura_chat_dev}"
+PORTAL_PORT=4599
+API_PORT=8001
+UI_PORT=5173
+
+WORKER=false
+OPEN=true
+for argument in "$@"; do
+  case "$argument" in
+    --worker) WORKER=true ;;
+    --no-open) OPEN=false ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown option: $argument (try --help)"; exit 2 ;;
+  esac
+done
+
+fail() { echo "  FAIL  $1"; echo "        fix: $2"; exit 1; }
+ok() { echo "  ok    $1"; }
+
+echo "Checking"
+
+command -v node >/dev/null || fail "node is not installed" "install Node 24 (nvm install 24)"
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
+[ "$node_major" -ge 24 ] || fail "node $(node -v) is older than 24" "nvm install 24 && nvm use 24"
+ok "node $(node -v)"
+
+[ -x "$AGENT/api/.venv/bin/uvicorn" ] || fail "the api has no venv" "aura-agent/bin/setup"
+ok "api venv ($("$AGENT/api/.venv/bin/python" --version))"
+
+command -v tesseract >/dev/null || fail "tesseract is not installed (Unbrander's OCR)" "brew install tesseract"
+ok "tesseract"
+
+# npm records what it installed in node_modules/.package-lock.json. Compared by
+# version, not file time: a checkout or an edit touches the time and nothing else.
+# Optional packages are skipped: the ones for other platforms are never installed.
+[ -f "$AGENT/ui/admin/node_modules/.package-lock.json" ] \
+  || fail "the admin app's packages are not installed" "aura-agent/bin/setup"
+stale="$(cd "$AGENT/ui/admin" && node -e '
+  const wanted = require("./package-lock.json").packages;
+  const installed = require("./node_modules/.package-lock.json").packages;
+  const differ = Object.entries(wanted).filter(([path, entry]) =>
+    path && !entry.optional && installed[path]?.version !== entry.version);
+  console.log(differ.length ? differ[0][0].replace("node_modules/", "") : "");')"
+[ -z "$stale" ] || fail "installed packages differ from package-lock.json ($stale)" "cd aura-agent/ui/admin && npm ci"
+ok "admin app packages"
+
+command -v pg_isready >/dev/null || fail "Postgres is not installed" "brew install postgresql@15"
+pg_isready -q || fail "Postgres is not running" "brew services start postgresql@15"
+psql -d postgres -lqt | cut -d'|' -f1 | tr -d ' ' | grep -qx "$DATABASE" \
+  || fail "database $DATABASE does not exist" "aura-agent/bin/setup"
+ok "Postgres, database $DATABASE"
+
+for port in $PORTAL_PORT $API_PORT $UI_PORT; do
+  holder="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR == 2 {print $1, $2}' || true)"
+  [ -z "$holder" ] || fail "port $port is taken by ${holder% *} (pid ${holder#* })" "kill ${holder#* }"
+done
+ok "ports $PORTAL_PORT, $API_PORT, $UI_PORT free"
+
+# Each service runs in the background with its name in front of every line.
+# Job control gives each one its own process group, so stopping it also stops
+# what it started: uvicorn's reloader, npm's vite. On exit, for any reason,
+# everything this script started is stopped.
+set -m
+pids=""
+stop() {
+  local status=$?
+  trap - INT TERM EXIT
+  echo
+  echo "Stopping"
+  for pid in $pids; do kill -TERM -- "-$pid" 2>/dev/null || true; done
+  wait 2>/dev/null || true
+  exit "$status"
+}
+trap stop INT TERM EXIT
+
+run() {
+  local name="$1"; shift
+  ( "$@" </dev/null 2>&1 | while IFS= read -r line; do printf '[%-6s] %s\n' "$name" "$line"; done ) &
+  pids="$pids $!"
+}
+
+in_dir() {
+  local dir="$1"; shift
+  cd "$dir" && exec "$@"
+}
+
+echo
+echo "Starting (worker: $WORKER)"
+run portal in_dir "$REPO" node dev/serve.mjs
+run api in_dir "$AGENT/api" env \
+  TOKEN_SECRET=dev-token-secret-not-a-real-key \
+  EXEC_URL="http://localhost:$PORTAL_PORT/api" \
+  ALLOWED_ORIGINS="http://localhost:$UI_PORT,http://localhost:4600" \
+  DATABASE_URL="postgresql://$USER@localhost/$DATABASE" \
+  UNBRANDER_ENABLED="$WORKER" \
+  .venv/bin/uvicorn app.main:app --port "$API_PORT" --reload
+run ui in_dir "$AGENT/ui/admin" env VITE_AURA_BASE="http://localhost:$API_PORT" \
+  npm run dev -- --port "$UI_PORT" --strictPort
+
+for _ in $(seq 1 40); do
+  curl -fsS -o /dev/null -m 2 "http://localhost:$API_PORT/health" 2>/dev/null && break
+  sleep 0.5
+done
+if curl -fsS -o /dev/null -m 2 "http://localhost:$API_PORT/health" 2>/dev/null; then
+  echo
+  echo "Ready: http://localhost:$UI_PORT  (sign in: user admin, passcode ADMIN_PASSCODE in dev/authshim.mjs)"
+  [ "$OPEN" = false ] || open "http://localhost:$UI_PORT" 2>/dev/null || true
+else
+  echo "the api did not answer /health within 20s: read the [api] lines above"
+fi
+
+# Stay up while all three run; when one exits, stop the rest.
+while :; do
+  for pid in $pids; do
+    kill -0 "$pid" 2>/dev/null || { echo "a service exited: read the lines above"; exit 1; }
+  done
+  sleep 2
+done

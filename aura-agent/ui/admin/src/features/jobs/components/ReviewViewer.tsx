@@ -110,7 +110,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
                 {documents.map((other) => (
                   <button key={other.id} type="button" onClick={() => onDocument(other.position)}
                     aria-current={other.position === document.position ? "true" : undefined}
-                    className={cn("rounded-[4px] px-2.5 py-[7px] font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-fg-3 transition-colors hover:text-fg-2",
+                    className={cn("rounded-[4px] px-2.5 py-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-fg-3 transition-colors hover:text-fg-2",
                       other.position === document.position && "bg-foreground text-background hover:text-background")}>
                     {documentName(other)}<span className="ml-1.5 tracking-normal opacity-60">{other.page_count}</span>
                   </button>
@@ -120,7 +120,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
             {documents.length > 1 && (
               // The tabs do not fit a phone's width; the same choice as a list.
               <select aria-label="Document" value={document.position} onChange={(event) => onDocument(Number(event.target.value))}
-                className="order-last hidden h-[34px] basis-full rounded-[4px] border border-line bg-raise px-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground
+                className="order-last hidden h-[34px] basis-full rounded-[4px] border border-line bg-raise px-2.5 font-mono text-[12px] uppercase tracking-[0.14em] text-foreground
                   focus:border-foreground focus:outline-none max-[820px]:block">
                 {documents.map((other) => (
                   <option key={other.id} value={other.position}>{documentName(other)} · {other.page_count}</option>
@@ -175,7 +175,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
               ))}
               {pairing.findings.map((finding, index) => (
                 <span key={`finding-${index}`} title={finding.detail}
-                  className={cn("rounded-full border px-2.5 py-0.5 text-[12px]",
+                  className={cn("rounded-full border px-2.5 py-0.5 text-[13px]",
                     finding.severity === "block" ? "border-danger/50 text-danger" : "border-line text-foreground")}>
                   {SEVERITY[finding.severity].label} · {CHECK[finding.check]}
                 </span>
@@ -229,7 +229,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
 function WholeDocument({ names, findings }: { names: string[]; findings: ReturnType<typeof wholeFileFindings> }) {
   if (names.length === 0 && findings.length === 0) return null;
   return (
-    <span className="block max-w-full truncate text-right text-[12px] text-fg-2 max-[820px]:text-left"
+    <span className="block max-w-full truncate text-right text-[13px] text-fg-2 max-[820px]:text-left"
       title={[...names, ...findings.map((finding) => `${CHECK[finding.check]}: ${finding.detail}`)].join("\n")}>
       <span className="label-caps mr-2">Whole document</span>
       {[...names, ...findings.map((finding) => CHECK[finding.check])].join(" · ")}
@@ -239,7 +239,7 @@ function WholeDocument({ names, findings }: { names: string[]; findings: ReturnT
 
 function Pill({ number, title, children }: { number: number; title: string; children: string }) {
   return (
-    <span title={title} className="inline-flex max-w-full items-center gap-[7px] rounded-full border border-line py-0.5 pr-2.5 pl-[3px] text-[12px] text-fg-2">
+    <span title={title} className="inline-flex max-w-full items-center gap-[7px] rounded-full border border-line py-0.5 pr-2.5 pl-[3px] text-[13px] text-fg-2">
       <i className="grid size-[17px] shrink-0 place-items-center rounded-full bg-gold font-mono text-[9.5px] not-italic text-[#060607]">{number}</i>
       <span className="truncate">{children}</span>
     </span>
@@ -251,7 +251,7 @@ function Placeholder({ title, detail }: { title: string; detail?: string }) {
     <div className="grid h-full place-items-center rounded-[2px] border border-dashed border-line p-6 text-center">
       <div className="flex flex-col gap-1.5">
         <span className="label-caps !text-fg-2">{title}</span>
-        {detail && <span className="text-[13px] text-fg-3">{detail}</span>}
+        {detail && <span className="text-[14px] text-fg-3">{detail}</span>}
       </div>
     </div>
   );
@@ -273,5 +273,5 @@ function Arrow({ label, disabled, onClick, children }: {
 }
 
 function Key({ children }: { children: string }) {
-  return <kbd className="min-w-5 rounded-[3px] border border-line px-[5px] py-0.5 text-center font-mono text-[10px] text-fg-2">{children}</kbd>;
+  return <kbd className="min-w-5 rounded-[3px] border border-line px-[5px] py-0.5 text-center font-mono text-[11px] text-fg-2">{children}</kbd>;
 }

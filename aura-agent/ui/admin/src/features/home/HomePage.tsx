@@ -56,7 +56,7 @@ export function HomePage() {
           <Capability name="Chat" state={<StatusMark kind="live">Live</StatusMark>}
             about="Realtors ask about projects and get answers from the brokerage's own records.">
             {chat.isError ? (
-              <span role="alert" className="flex items-center gap-2 text-[12.5px] text-fg-2">
+              <span role="alert" className="flex items-center gap-2 text-[13px] text-fg-2">
                 Could not load usage.
                 <Button variant="bare" size="sm" onClick={() => chat.refetch()}>Try again</Button>
               </span>
@@ -108,7 +108,7 @@ function NeedsYouRow({ job }: { job: JobSummary }) {
           transition-colors duration-200 hover:bg-raise max-[820px]:grid-cols-[minmax(0,1fr)_auto]">
         <span className="min-w-0">
           <span className="block truncate text-[14px] tracking-[-0.01em]">{job.project}</span>
-          <span className="block truncate text-[12px] text-fg-3">{job.builder} · {job.city}</span>
+          <span className="block truncate text-[13px] text-fg-3">{job.builder} · {job.city}</span>
         </span>
         <span className="label-caps truncate max-[820px]:hidden">{formatDateTime(job.created_at)}</span>
         <StatusMark kind="review">Needs review</StatusMark>
@@ -131,7 +131,7 @@ function Capability({ name, state, about, to, planned = false, children }: {
         <span className={planned ? "text-[15px] text-fg-3" : "text-[15px] tracking-[-0.015em]"}>{name}</span>
         {state}
       </div>
-      <p className={planned ? "m-0 max-w-[44ch] text-[13px] text-fg-3" : "m-0 max-w-[44ch] text-[13px] text-fg-2"}>{about}</p>
+      <p className={planned ? "m-0 max-w-[44ch] text-[14px] text-fg-3" : "m-0 max-w-[44ch] text-[14px] text-fg-2"}>{about}</p>
       {children && <div className="mt-auto flex gap-[30px]">{children}</div>}
     </>
   );

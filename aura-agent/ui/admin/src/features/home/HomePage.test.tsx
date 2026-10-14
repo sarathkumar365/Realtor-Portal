@@ -47,10 +47,12 @@ test("the sidebar counts the jobs to review", async () => {
   expect(await screen.findByRole("link", { name: "Unbranding, 3 to review" })).toBeInTheDocument();
 });
 
-test("the sidebar collapses and remembers it", async () => {
+test("the sidebar collapses from beside Home and remembers it", async () => {
   serve();
   const { user } = renderApp("/");
-  await user.click(await screen.findByRole("button", { name: "Collapse sidebar" }));
+  const toggle = await screen.findByRole("button", { name: "Collapse sidebar" });
+  expect(toggle.parentElement).toContainElement(screen.getByRole("link", { name: "Home" }));
+  await user.click(toggle);
   expect(screen.getByRole("navigation", { name: "Main" })).toHaveAttribute("data-collapsed", "true");
   expect(localStorage.getItem("aura-agent.rail-collapsed")).toBe("1");
   await user.click(screen.getByRole("button", { name: "Expand sidebar" }));

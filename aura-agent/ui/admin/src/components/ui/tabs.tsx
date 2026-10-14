@@ -12,7 +12,7 @@ export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrim
 export function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsPrimitive.Trigger>) {
   return (
     <TabsPrimitive.Trigger
-      className={cn("rounded-[4px] px-2.5 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-fg-3",
+      className={cn("rounded-[4px] px-2.5 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-fg-3",
         "transition-colors duration-200 hover:text-fg-2",
         "data-[state=active]:bg-foreground data-[state=active]:text-background", className)}
       {...props}

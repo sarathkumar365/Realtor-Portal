@@ -9,7 +9,7 @@ export function EmptyState({ title, description, action }: {
   return (
     <div className="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-line px-6 py-10 text-center">
       <p className="font-semibold">{title}</p>
-      {description && <p className="max-w-md text-[13px] text-fg-3">{description}</p>}
+      {description && <p className="max-w-md text-[14px] text-fg-3">{description}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

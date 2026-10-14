@@ -10,13 +10,13 @@ import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/PageHeader";
 import { Section } from "@/components/Section";
 import { StatusMark } from "@/components/StatusMark";
+import { WorkingWave } from "@/components/WorkingWave";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress as Meter } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
 
-import { useJobs } from "./hooks/useJobs";
+import { useJobs, useUnbranderStatus } from "./hooks/useJobs";
 import { changeCount, changesByPage, isStale, JOB_STATUS, progress } from "./model";
 
 const THUMBS = 6;
@@ -31,6 +31,7 @@ export function JobListPage() {
   const review = useJobs(REVIEW, { documents: true });
   const working = useJobs(WORKING, { documents: true, pollMs: WORKING_POLL_MS });
   const done = useJobs(DONE);
+  const status = useUnbranderStatus();
   const sections = [review, working, done];
   const failed = sections.find((section) => section.isError);
   const empty = sections.every((section) => section.data?.jobs.length === 0);
@@ -38,6 +39,7 @@ export function JobListPage() {
   return (
     <>
       <PageHeader eyebrow="Capabilities" title="Unbranding"
+        mark={status.data?.test_mode && <Badge title="Filing goes to Drive's Test folder">Test mode</Badge>}
         description="Builder PDFs in, brokerage-branded PDFs out."
         actions={<Button asChild><Link to="/jobs/new"><Plus aria-hidden />New job</Link></Button>} />
       {failed ? (
@@ -135,7 +137,7 @@ function ReviewCard({ job, documents }: { job: JobSummary; documents: JobDocumen
           <span className="text-[15px] tracking-[-0.015em]">{job.project}</span>
           <StatusMark kind="review">{JOB_STATUS[job.status].label}</StatusMark>
         </div>
-        <span className="text-[12.5px] text-fg-2">{job.builder} · {job.city}</span>
+        <span className="text-[13px] text-fg-2">{job.builder} · {job.city}</span>
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-caps">
             {documents.length > 0
@@ -154,7 +156,8 @@ function WorkingCard({ job, documents }: { job: JobSummary; documents: JobDocume
   const now = progress({ status: job.status, documents });
   const steps = ["Received", "Unbranding", ...(job.file_when_done || job.status === "FILING" ? ["Filing"] : [])];
   const at = steps.indexOf(now.stage === "Waiting" ? "Received" : now.stage);
-  const percent = now.total ? Math.round((now.done / now.total) * 100) : 0;
+  // Moving only while the agent works; a job not started shows the empty track.
+  const value = status.kind !== "working" ? 0 : now.done > 0 && now.total ? now.done / now.total : undefined;
   return (
     <Link to={`/jobs/${job.id}`} className={`${card} gap-3.5 p-4`}>
       <div className="flex items-start justify-between gap-3">
@@ -171,7 +174,7 @@ function WorkingCard({ job, documents }: { job: JobSummary; documents: JobDocume
           </li>
         ))}
       </ol>
-      <Meter value={percent} label={`${job.project}: ${now.done} of ${now.total} documents done`} />
+      <WorkingWave form="bar" value={value} label={`${job.project}: ${now.done} of ${now.total} documents done`} />
     </Link>
   );
 }
@@ -185,7 +188,7 @@ function DoneRow({ job }: { job: JobSummary }) {
           transition-colors duration-200 hover:bg-raise max-[820px]:grid-cols-[minmax(0,1fr)_auto]">
         <span className="min-w-0">
           <span className="block truncate text-[14px] tracking-[-0.01em]">{job.project}</span>
-          <span className="block truncate text-[12px] text-fg-3">{job.builder} · {job.city}</span>
+          <span className="block truncate text-[13px] text-fg-3">{job.builder} · {job.city}</span>
         </span>
         <span className="flex items-center gap-2 max-[820px]:hidden"><Notes job={job} /></span>
         <StatusMark kind={status.kind}>{status.label}</StatusMark>

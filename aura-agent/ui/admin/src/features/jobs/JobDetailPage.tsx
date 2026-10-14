@@ -62,12 +62,11 @@ export function JobDetailPage() {
         </>}
       />
 
-      {(data.error || data.instructions || data.dry_run || isStale(data.status, data.created_at)) && (
+      {(data.error || data.instructions || isStale(data.status, data.created_at)) && (
         <div className="-mt-4 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {data.dry_run && <Badge title="Filed in the Drive Test folder">Test run</Badge>}
-            {isStale(data.status, data.created_at) && <Badge tone="warning">Open for more than a day</Badge>}
-          </div>
+          {isStale(data.status, data.created_at) && (
+            <div className="flex flex-wrap gap-2"><Badge tone="warning">Open for more than a day</Badge></div>
+          )}
           {data.error && <p role="alert" className="border-l-2 border-danger pl-3 text-danger">{data.error}</p>}
           {data.instructions && (
             <p className="border-l-2 border-line pl-3 text-fg-2">
@@ -190,12 +189,12 @@ function DocumentCard({ jobId, document, events }: { jobId: string; document: Jo
         </div>
       </Link>
       {failedBecause != null && (
-        <p role="alert" className="mx-4 mb-3.5 border-l-2 border-danger pl-3 text-[12.5px] text-danger">
+        <p role="alert" className="mx-4 mb-3.5 border-l-2 border-danger pl-3 text-[13px] text-danger">
           Could not be unbranded: {String(failedBecause)}
         </p>
       )}
       {document.status === "BLOCKED" && (
-        <p className="mx-4 mb-3.5 border-l-2 border-danger pl-3 text-[12.5px] text-danger">
+        <p className="mx-4 mb-3.5 border-l-2 border-danger pl-3 text-[13px] text-danger">
           Blocked by a check. It will not be filed; open it to see why, and download it if it is usable.
         </p>
       )}
@@ -217,7 +216,7 @@ function RunDetails({ job }: { job: Job }) {
           <Reading label="Rounds" value={rounds} unit={`across ${documents.length} ${documents.length === 1 ? "document" : "documents"}`} />
           <Reading label="Model cost" value={formatMoney(cost)} />
           <Reading label="Time" value={duration(job.created_at, job.ended_at)} unit={job.ended_at ? "upload to end" : "still open"} />
-          <Reading label="Job"><span className="font-mono text-[12px] break-all text-fg-2">{job.id}</span></Reading>
+          <Reading label="Job"><span className="font-mono text-[13px] break-all text-fg-2">{job.id}</span></Reading>
         </Readings>
         <div>
           <h3 className="label-caps mb-3">What happened</h3>

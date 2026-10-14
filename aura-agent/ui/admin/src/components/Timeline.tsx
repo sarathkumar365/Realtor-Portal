@@ -18,7 +18,7 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
             <span className="font-semibold">{item.title}</span>
             <span className="label-caps">{item.when}</span>
           </div>
-          {item.detail && <div className="text-[13px] text-fg-2">{item.detail}</div>}
+          {item.detail && <div className="text-[14px] text-fg-2">{item.detail}</div>}
         </li>
       ))}
     </ol>

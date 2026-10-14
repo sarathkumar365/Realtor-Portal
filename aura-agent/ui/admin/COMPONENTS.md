@@ -81,7 +81,7 @@ Mounted once in the shell. Shows while the browser reports it is offline.
 
 ### PageHeader
 The title row of every screen: optional `eyebrow` (a label above the title, such as
-"Capabilities") or `trail` (the screens above this one as links, for a way back), `title`, optional `description`, `actions` on the right (buttons). Every routed page starts with one.
+"Capabilities") or `trail` (the screens above this one as links, for a way back), `title`, optional `mark` (a small `Badge` beside the title for a mode the whole screen is in, such as "Test mode"), optional `description`, `actions` on the right (buttons). Every routed page starts with one.
 
 ### Readings
 A summary as numbers: `<Readings>` holding `<Reading label value unit />` cells,
@@ -96,9 +96,17 @@ count or a small action), then the content. Use it instead of a card around a
 group of cards.
 
 ### StatusMark
-A state as a glyph and a word. `kind`: review (gold, waiting for an admin), working
-(spinning ring), done, failed, idle, live. Map a domain status to a kind in the
-feature, not here. Gold appears only for `review`.
+A state as a glyph and a word, both in the state colour. `kind`: review (gold,
+waiting for an admin), working (the `WorkingWave` ring), done, failed, idle
+(waiting), live. Map a domain status to a kind in the feature, not here. Gold
+appears only for `review`.
+
+### WorkingWave
+The agent is working, as a wavy line that keeps moving. `form="bar"` with a `value`
+from 0 to 1 fills to it, the rest a flat track; without a value a short wave
+travels the track (work started, share unknown). `form="ring"` is the glyph inside
+`StatusMark` for working. A bar takes a `label` for screen readers and reports
+`aria-valuenow` when the share is known.
 
 ### Timeline
 What happened, oldest first: `items` of `{ id, when, title, detail? }`. The caller

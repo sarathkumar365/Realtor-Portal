@@ -13,8 +13,15 @@ export type JobAccepted = components["schemas"]["JobAccepted"];
 export type PageVersion = "source" | "output";
 export type UploadLimits = components["schemas"]["UploadLimits"];
 
+export type UnbranderStatus = components["schemas"]["UnbranderStatus"];
+
 export function getLimits(signal?: AbortSignal): Promise<UploadLimits> {
   return request<UploadLimits>("/admin/unbrander/limits", { signal });
+}
+
+/** How Unbrander is switched on the service: the worker, test mode, Drive. */
+export function getUnbranderStatus(signal?: AbortSignal): Promise<UnbranderStatus> {
+  return request<UnbranderStatus>("/admin/unbrander/status", { signal });
 }
 
 /** Statuses the worker has nothing to do for: polling stops. UNBRANDED waits for

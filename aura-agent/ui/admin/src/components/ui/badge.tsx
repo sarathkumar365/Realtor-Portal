@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 // Outlined and monochrome: a job's state is shown by StatusMark, so a badge only
 // carries side notes such as "Test" or "Open for more than a day".
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border border-line px-2 py-px text-[10.5px] whitespace-nowrap",
+  "inline-flex items-center gap-1 rounded-full border border-line px-2 py-px text-[11px] whitespace-nowrap",
   {
     variants: {
       tone: {

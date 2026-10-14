@@ -50,7 +50,7 @@ function MarkForm({ saved }: { saved: Organization }) {
         guard.allow();
         form.reset(brand);
         toast.success("Mark saved. New jobs use it now.");
-        navigate("/organization");
+        navigate("/settings/organization");
       },
       onError: (error) => {
         if (error instanceof ApiError && error.kind === "invalid") {
@@ -69,11 +69,11 @@ function MarkForm({ saved }: { saved: Organization }) {
   return (
     <form noValidate onSubmit={form.handleSubmit(submit)} className="flex flex-col">
       <PageHeader
-        trail={[{ label: "Organization", to: "/organization" }]}
+        trail={[{ label: "Organization", to: "/settings/organization" }]}
         title="Mark"
         description="Printed on every cleaned page. The preview updates as you change it; where on the page it goes is chosen for each document."
         actions={<>
-          <Button variant="bare" asChild><Link to="/organization">Cancel</Link></Button>
+          <Button variant="bare" asChild><Link to="/settings/organization">Cancel</Link></Button>
           <Button type="submit" disabled={!isDirty || save.isPending}>{save.isPending ? "Saving" : "Save mark"}</Button>
         </>} />
 
@@ -108,7 +108,7 @@ function MarkForm({ saved }: { saved: Organization }) {
               ))}
             </ul>
             {errors.mark_words?.root?.message && (
-              <p role="alert" className="m-0 text-[12.5px] text-danger">{errors.mark_words.root.message}</p>
+              <p role="alert" className="m-0 text-[13px] text-danger">{errors.mark_words.root.message}</p>
             )}
             <Button variant="bare" size="sm" className="self-start"
               onClick={() => words.append({ text: "", colour: "#0E1A24" })}>
@@ -126,7 +126,7 @@ function MarkForm({ saved }: { saved: Organization }) {
           <Slider control={form.control} name="tracking" label="Letter spacing (pt)" min={0} max={6} step={0.1} error={errors.tracking?.message} />
           <Slider control={form.control} name="opacity" label="Opacity (0–1)" min={0.05} max={1} step={0.05} error={errors.opacity?.message} />
           <Slider control={form.control} name="margin" label="Margin (pt)" min={0} max={96} step={1} error={errors.margin?.message} />
-          {saveError && <p role="alert" className="m-0 text-[12.5px] text-danger">{saveError}</p>}
+          {saveError && <p role="alert" className="m-0 text-[13px] text-danger">{saveError}</p>}
         </div>
       </div>
       <LeaveDialog blocker={guard.blocker} what="the mark" />

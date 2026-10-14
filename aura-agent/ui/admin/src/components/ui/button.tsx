@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-[4px] font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] whitespace-nowrap " +
+  "inline-flex items-center justify-center gap-2 rounded-[4px] font-mono text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap " +
     "transition-[color,background-color,border-color,opacity,transform] duration-300 ease-spring " +
     "disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0",
   {

@@ -39,11 +39,11 @@ test("empty fields are caught before anything is sent", async () => {
 });
 
 test("a signed-out visitor is sent to sign-in and back to the page they asked for", async () => {
-  const { user, router } = renderApp("/organization", { signedIn: false });
+  const { user, router } = renderApp("/settings/organization", { signedIn: false });
   expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
   await signInAs(user, "admin");
   expect(await screen.findByRole("heading", { name: "Organization" })).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/organization");
+  expect(router.state.location.pathname).toBe("/settings/organization");
 });
 
 test("a session that ends mid-use goes to sign-in with the reason", async () => {

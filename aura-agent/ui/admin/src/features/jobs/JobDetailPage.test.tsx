@@ -198,3 +198,10 @@ test("Download all keeps going past a failed document and names it", async () =>
   HTMLAnchorElement.prototype.click = click;
   expect(saved).toEqual(["Floor Plan.pdf"]);
 });
+
+test("a test job's page has no Test run label: test mode is shown on the list", async () => {
+  serve(job({ dry_run: true }));
+  renderApp("/jobs/job-1");
+  await screen.findByRole("heading", { level: 1 });
+  expect(screen.queryByText("Test run")).not.toBeInTheDocument();
+});

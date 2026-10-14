@@ -13,6 +13,42 @@ formatting.
 
 ---
 
+## 2026-10-14 — Easier to read; Settings is one place with tabs
+
+- **Text size and contrast raised across the admin app**, after the admins found it
+  hard to read. Body text 13.5px to 14.5px, labels and buttons to 11px, supporting
+  lines to 13px. The greys moved up again: `fg-2` `#B4B4BD` / `#3F3F46`, `fg-3`
+  `#9A9AA4` / `#5B5B63`, now at least 6:1 on every surface rather than the 4.5:1
+  floor. The two greys still read as two steps.
+- **Settings is one item in the rail.** Organization and Unbranding are tabs on
+  `/settings/*`; `/organization` links redirect, so old bookmarks still land.
+  A rail entry per settings page would grow with every capability.
+- The Unbranding settings page no longer names the environment variables: the
+  admins it is for cannot change them, and the names belong in operations.md.
+
+## 2026-10-14 — Status colours, the working wave, and Unbranding's switches on show
+
+- **State colours.** The design kept states monochrome; "Waiting" in the label grey
+  then read as a label. Four muted colours (waiting, working, done, failed) now go on
+  a status's word and glyph only, each at least 5:1 on every surface. Gold still
+  means review. Rejected: brighter greys, which fixed the contrast but not telling
+  states apart at a glance.
+- **The working wave** replaces the spinner, after Android's wavy progress: a sine
+  wave used as a CSS mask so its colour stays a token, slid one wavelength per loop
+  so the loop has no seam. A bar fills to the documents done and travels when none
+  are; a small ring sits in the status mark. Progress is by document: the worker
+  reports no pages.
+- **`GET /admin/unbrander/status`** says whether the worker runs, test mode, and
+  Drive, from the service itself and not the database. The admin app had no way to
+  know either. Shown read-only under Settings > Unbranding: the switches are the
+  service's environment, and switching them from the app would need a stored
+  setting and an admin write, which is a separate decision.
+- **Test mode is shown once, on the jobs list**, not as "Test run" on every job
+  page: it is a property of the service, and it only changes where filing puts
+  files. Each job keeps its own small "Test" mark, because a job made in test
+  mode stays one after real filing is turned on.
+- The rail's collapse control moved to the end of Home's row.
+
 ## 2026-10-14 — Everything the agent is lives in `aura-agent/`; one command runs it
 
 `aura-chat/` became `aura-agent/api/`, its docs `aura-agent/docs/`, and the admin app

@@ -5,8 +5,8 @@
   --ak-raise: #0f1013;
   --ak-raise-2: #16171b;
   --ak-fg: #f4f4f5;
-  --ak-fg-2: #a1a1aa;
-  --ak-fg-3: #82828b;
+  --ak-fg-2: #b4b4bd;
+  --ak-fg-3: #9a9aa4;
   --ak-line: rgb(255 255 255 / 9%);
   --ak-line-2: rgb(255 255 255 / 4.5%);
   --ak-gold: #c9a227;
@@ -15,6 +15,12 @@
   --ak-danger: #e5484d;
   /* White PDF pages sit dimmed on a dark screen until hovered. */
   --ak-paper-dim: 0.82;
+  /* A status's colour, on its word and glyph only (DESIGN.md). Muted, and at
+     least 5:1 on every surface. Needs review keeps gold. */
+  --ak-state-waiting: #9aa3b0;
+  --ak-state-working: #7ea6f7;
+  --ak-state-done: #62c08e;
+  --ak-state-failed: #f0787d;
   color-scheme: dark;
 }
 
@@ -24,13 +30,17 @@
     --ak-raise: #ffffff;
     --ak-raise-2: #f2f2f3;
     --ak-fg: #0b0b0d;
-    --ak-fg-2: #4d4d55;
-    --ak-fg-3: #6c6c74;
+    --ak-fg-2: #3f3f46;
+    --ak-fg-3: #5b5b63;
     --ak-line: rgb(0 0 0 / 10%);
     --ak-line-2: rgb(0 0 0 / 5.5%);
     --ak-gold-text: #8c6d0e;
     --ak-danger: #c62f2f;
     --ak-paper-dim: 1;
+    --ak-state-waiting: #5a6472;
+    --ak-state-working: #2d5bc4;
+    --ak-state-done: #1d7347;
+    --ak-state-failed: #c03030;
     color-scheme: light;
   }
 }
@@ -41,12 +51,16 @@
   --ak-raise: #0f1013;
   --ak-raise-2: #16171b;
   --ak-fg: #f4f4f5;
-  --ak-fg-2: #a1a1aa;
-  --ak-fg-3: #82828b;
+  --ak-fg-2: #b4b4bd;
+  --ak-fg-3: #9a9aa4;
   --ak-line: rgb(255 255 255 / 9%);
   --ak-line-2: rgb(255 255 255 / 5%);
   --ak-gold-text: #d9b648;
   --ak-danger: #e5484d;
   --ak-paper-dim: 1;
+  --ak-state-waiting: #9aa3b0;
+  --ak-state-working: #7ea6f7;
+  --ak-state-done: #62c08e;
+  --ak-state-failed: #f0787d;
   color-scheme: dark;
 }

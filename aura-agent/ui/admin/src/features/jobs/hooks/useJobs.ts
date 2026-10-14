@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ENDED, fileJob, getJob, getLimits, type JobStatus, listJobs } from "@/api/jobs";
+import { ENDED, fileJob, getJob, getLimits, getUnbranderStatus, type JobStatus, listJobs } from "@/api/jobs";
 
 export const jobKeys = {
   all: ["jobs"] as const,
@@ -46,4 +46,9 @@ export function useFileJob(jobId: string) {
 /** The server's upload limits; they change only with its configuration. */
 export function useUploadLimits() {
   return useQuery({ queryKey: ["upload-limits"], queryFn: ({ signal }) => getLimits(signal), staleTime: Infinity });
+}
+
+/** The switches change only when the service restarts: asked for once a minute at most. */
+export function useUnbranderStatus() {
+  return useQuery({ queryKey: ["unbrander-status"], queryFn: ({ signal }) => getUnbranderStatus(signal), staleTime: 60_000 });
 }

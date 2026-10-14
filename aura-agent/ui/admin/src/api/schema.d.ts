@@ -260,6 +260,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/unbrander/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unbrander Status
+         * @description How Unbrander is switched on this service, for the admin app to show. Read
+         *     from the service itself, never the database, so it answers while jobs are down.
+         *     Admin only.
+         */
+        get: operations["unbrander_status_admin_unbrander_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/unbrander/summary": {
         parameters: {
             query?: never;
@@ -1014,6 +1036,17 @@ export interface components {
             /** Content */
             content: string;
         };
+        /** UnbranderStatus */
+        UnbranderStatus: {
+            /** Worker */
+            worker: boolean;
+            /** Test Mode */
+            test_mode: boolean;
+            /** Drive */
+            drive: boolean;
+            /** Filing Problem */
+            filing_problem: string | null;
+        };
         /** UploadLimits */
         UploadLimits: {
             /** Max Files */
@@ -1521,6 +1554,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadLimits"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unbrander_status_admin_unbrander_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnbranderStatus"];
                 };
             };
             /** @description Validation Error */

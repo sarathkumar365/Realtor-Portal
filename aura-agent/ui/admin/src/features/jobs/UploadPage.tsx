@@ -140,7 +140,7 @@ function NewJob({ limits }: { limits: UploadLimits }) {
                 <Upload className="size-[30px]" strokeWidth={1.5} aria-hidden />
               </button>
               <h2>Upload builder PDFs</h2>
-              <p className="m-0 max-w-[40ch] text-[12.5px] leading-[1.7] text-fg-3">
+              <p className="m-0 max-w-[40ch] text-[13px] leading-[1.7] text-fg-3">
                 Choose files, or drop them anywhere on this page.<br />{limitsLine}
               </p>
             </div>
@@ -163,7 +163,7 @@ function NewJob({ limits }: { limits: UploadLimits }) {
                       <span className="absolute inset-x-0 bottom-[3px] text-center font-mono text-[6.5px] text-[#6b7782]">PDF</span>
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[13px]">{file.name}</span>
+                      <span className="block truncate text-[14px]">{file.name}</span>
                       <span className={cn("label-caps", problems[index] && "!text-danger")}>
                         {problems[index] ?? formatBytes(file.size)}
                       </span>
@@ -175,12 +175,12 @@ function NewJob({ limits }: { limits: UploadLimits }) {
                   </li>
                 ))}
               </ul>
-              <p className="m-0 text-[12px] text-fg-3">{limitsLine}</p>
-              {filesError && <p role="alert" className="m-0 text-[12.5px] text-danger">{filesError}</p>}
+              <p className="m-0 text-[13px] text-fg-3">{limitsLine}</p>
+              {filesError && <p role="alert" className="m-0 text-[13px] text-danger">{filesError}</p>}
             </section>
 
             <div className="flex flex-col gap-5">
-              <p className="m-0 max-w-[62ch] border-l-2 border-line pl-3 text-[12.5px] leading-[1.7] text-fg-3">
+              <p className="m-0 max-w-[62ch] border-l-2 border-line pl-3 text-[13px] leading-[1.7] text-fg-3">
                 A later version reads these from the PDFs. For now, fill them in once.
               </p>
               <div className="grid grid-cols-2 gap-[18px] max-[820px]:grid-cols-1">
@@ -211,7 +211,7 @@ function NewJob({ limits }: { limits: UploadLimits }) {
                   {...form.register("file_when_done")} />
                 <span>
                   File in Drive when done
-                  <span className="block text-[12px] text-fg-3">
+                  <span className="block text-[13px] text-fg-3">
                     {limits.can_file
                       ? "Off: the job waits for you to review, download or file it. On: it is filed in a private Drive folder as soon as it is unbranded."
                       : "Not available: Drive is not set up on this service, or its worker is off. The cleaned PDFs can still be downloaded."}
@@ -219,7 +219,7 @@ function NewJob({ limits }: { limits: UploadLimits }) {
                 </span>
               </label>
 
-              {failureMessage && !sending && <p role="alert" className="m-0 text-[12.5px] text-danger">{failureMessage}</p>}
+              {failureMessage && !sending && <p role="alert" className="m-0 text-[13px] text-danger">{failureMessage}</p>}
               {upload.state.phase === "sending" && (
                 <div className="flex flex-col gap-2">
                   <Progress value={upload.state.percent} label="Upload progress" />

@@ -17,9 +17,9 @@ export function FormField({ label, error, hint, children }: {
       <Label htmlFor={id}>{label}</Label>
       {cloneElement(children, { id, "aria-invalid": error ? true : undefined, "aria-describedby": described })}
       {error ? (
-        <p id={`${id}-error`} className="text-[12px] text-danger">{error}</p>
+        <p id={`${id}-error`} className="text-[13px] text-danger">{error}</p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-[12px] text-fg-3">{hint}</p>
+        <p id={`${id}-hint`} className="text-[13px] text-fg-3">{hint}</p>
       ) : null}
     </div>
   );

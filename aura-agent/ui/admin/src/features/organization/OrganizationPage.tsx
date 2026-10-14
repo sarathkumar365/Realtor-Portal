@@ -31,7 +31,7 @@ export function OrganizationPage() {
   if (organization.isPending || organization.isError) {
     return (
       <>
-        <PageHeader eyebrow="Settings" title="Organization" description={DESCRIPTION} />
+        <PageHeader title="Organization" description={DESCRIPTION} />
         {organization.isPending
           ? <LoadingState label="Loading the profile" />
           : <ErrorState error={organization.error} onRetry={() => organization.refetch()} title="Could not load the profile" />}
@@ -46,7 +46,7 @@ export function OrganizationPage() {
         <DetailsEditor saved={saved} onDone={() => setEditing(false)} />
       ) : (
         <>
-          <PageHeader eyebrow="Settings" title="Organization" description={DESCRIPTION}
+          <PageHeader title="Organization" description={DESCRIPTION}
             actions={<Button variant="quiet" onClick={() => setEditing(true)}>Edit</Button>} />
           <Readings className="-mt-2 grid-cols-[repeat(auto-fit,minmax(min(220px,calc(50%_-_1px)),1fr))]">
             <Fact label="Name" value={saved.name} />
@@ -58,7 +58,7 @@ export function OrganizationPage() {
       )}
 
       <Section title="Branding">
-        <Link to="/organization/mark"
+        <Link to="/settings/organization/mark"
           className="group grid grid-cols-[150px_minmax(0,1fr)_auto] items-center gap-5 rounded-[10px] border border-line-2 bg-raise p-3.5
             transition-colors duration-300 hover:border-line max-[820px]:grid-cols-[96px_minmax(0,1fr)]">
           <div className="paper-dim overflow-hidden rounded-[4px] bg-white group-hover:opacity-100">
@@ -66,7 +66,7 @@ export function OrganizationPage() {
           </div>
           <span className="min-w-0">
             <span className="block text-[15px] tracking-[-0.015em]">Mark</span>
-            <span className="block text-[12.5px] text-fg-2">
+            <span className="block text-[13px] text-fg-2">
               The words placed on each cleaned page, with their colour, size and spacing.
             </span>
           </span>
@@ -114,7 +114,7 @@ function DetailsEditor({ saved, onDone }: { saved: Organization; onDone: () => v
 
   return (
     <form noValidate onSubmit={form.handleSubmit(submit)} className="flex flex-col">
-      <PageHeader eyebrow="Settings" title="Organization" description={DESCRIPTION}
+      <PageHeader title="Organization" description={DESCRIPTION}
         actions={<>
           <Button variant="bare" disabled={save.isPending} onClick={() => { form.reset(saved); onDone(); }}>Cancel</Button>
           <Button type="submit" disabled={!isDirty || save.isPending}>{save.isPending ? "Saving" : "Save"}</Button>
@@ -133,7 +133,7 @@ function DetailsEditor({ saved, onDone }: { saved: Organization; onDone: () => v
           <Input {...form.register("region")} />
         </FormField>
       </div>
-      {saveError && <p role="alert" className="mt-4 text-[12.5px] text-danger">{saveError}</p>}
+      {saveError && <p role="alert" className="mt-4 text-[13px] text-danger">{saveError}</p>}
       <LeaveDialog blocker={guard.blocker} what="the profile" />
     </form>
   );

@@ -1,4 +1,4 @@
-import { Building2, House, Layers, LogOut, PanelLeft } from "lucide-react";
+import { House, Layers, LogOut, PanelLeft, Settings2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { NavLink } from "react-router";
 
@@ -30,7 +30,7 @@ function writeCollapsed(collapsed: boolean) {
 // Text that hides when the rail is collapsed, or under 820px where it always is.
 const LABEL = "truncate group-data-[collapsed=true]/rail:hidden max-[820px]:hidden";
 
-const item = "flex w-full items-center gap-[11px] rounded-[5px] px-[9px] py-2 font-mono text-[10.5px] font-medium " +
+const item = "flex w-full items-center gap-[11px] rounded-[5px] px-[9px] py-2 font-mono text-[11px] font-medium " +
   "uppercase tracking-[0.14em] whitespace-nowrap text-fg-3 transition-colors duration-200 hover:text-fg-2";
 
 function Group({ children }: { children: string }) {
@@ -64,23 +64,26 @@ export function Sidebar() {
         transition-[width] duration-300 ease-spring data-[collapsed=true]:w-[60px] max-[820px]:w-[60px]">
       <div className="flex items-center gap-2.5 px-1 pt-0.5 pb-[22px] whitespace-nowrap">
         <BrandMark className="h-6 w-7 shrink-0" />
-        <span className={cn("font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-2", LABEL)}>
+        <span className={cn("font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-fg-2", LABEL)}>
           Aura Agent
         </span>
       </div>
-      {link("/", "Home", House)}
+      {/* The toggle sits at the end of Home's row; on the collapsed rail it drops under it. */}
+      <div className="flex items-center gap-0.5 group-data-[collapsed=true]/rail:flex-col max-[820px]:flex-col">
+        <div className="min-w-0 flex-1 group-data-[collapsed=true]/rail:w-full max-[820px]:w-full">{link("/", "Home", House)}</div>
+        <button type="button" onClick={toggle}
+          className="grid size-[34px] shrink-0 place-items-center rounded-[5px] text-fg-3 transition-colors duration-200 hover:text-fg-2 max-[820px]:hidden"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          <PanelLeft className="size-4" strokeWidth={1.5} aria-hidden />
+        </button>
+      </div>
       <Group>Capabilities</Group>
       {link("/jobs", "Unbranding", Layers, toReview > 0 && (
         <span className={cn("ml-auto font-mono tracking-normal text-gold-text tabular-nums", LABEL)}>{toReview}</span>
       ), toReview > 0 ? `Unbranding, ${toReview} to review` : "Unbranding")}
-      <Group>Settings</Group>
-      {link("/organization", "Organization", Building2)}
+      <div className="pt-[18px]">{link("/settings", "Settings", Settings2)}</div>
       <div className="mt-auto flex flex-col gap-0.5 border-t border-line-2 pt-2.5">
-        <button type="button" className={cn(item, "w-auto self-start max-[820px]:hidden")} onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          <PanelLeft className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
-        </button>
         <button type="button" className={item} onClick={() => endSession()} aria-label="Sign out" title="Sign out">
           <LogOut className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
           <span className={LABEL}>Sign out</span>

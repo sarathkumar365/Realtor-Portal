@@ -76,6 +76,13 @@ class UploadLimits(BaseModel):
     can_file: bool  # Drive is set up and the worker runs: filing would happen
 
 
+class UnbranderStatus(BaseModel):
+    worker: bool  # the worker runs on this service: uploads get unbranded
+    test_mode: bool  # filing goes to Drive's Test folder, not the project's
+    drive: bool  # a Drive credential is set up
+    filing_problem: str | None  # why filing would be refused now, or None
+
+
 class JobList(BaseModel):
     jobs: list[JobSummary]
     # Each job's documents by job id, when asked for with documents=true: what a
@@ -106,6 +113,19 @@ async def upload_limits(request: Request, claims: Claims = Depends(current_claim
     return UploadLimits(max_files=MAX_FILES, max_file_mb=settings.unbrander_max_file_mb,
                         max_pages=settings.unbrander_max_pages,
                         can_file=_filing_problem(services) is None)
+
+
+@router.get("/status")
+async def unbrander_status(request: Request, claims: Claims = Depends(current_claims)) -> UnbranderStatus:
+    """How Unbrander is switched on this service, for the admin app to show. Read
+    from the service itself, never the database, so it answers while jobs are down.
+    Admin only."""
+    _require_admin(claims)
+    services = container(request)
+    return UnbranderStatus(worker=services.worker is not None,
+                           test_mode=services.settings.unbrander_dry_run,
+                           drive=services.drive is not None,
+                           filing_problem=_filing_problem(services))
 
 
 def _since(since: datetime | None) -> datetime:

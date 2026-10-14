@@ -15,6 +15,8 @@ export const handlers = [
   http.get(`${API}/admin/unbrander/summary`, () =>
     HttpResponse.json({ to_review: 0, working: 0, jobs_since: 0, pages_cleaned_since: 0 })),
   http.get(`${API}/admin/chat/summary`, () => HttpResponse.json({ active_users: 0, days: 30 })),
+  http.get(`${API}/admin/unbrander/status`, () =>
+    HttpResponse.json({ worker: true, test_mode: false, drive: true, filing_problem: null })),
   http.get(`${API}/admin/unbrander/limits`, () =>
     HttpResponse.json({ max_files: 10, max_file_mb: 150, max_pages: 60, can_file: true })),
   http.get(`${API}/admin/unbrander/jobs/:jobId/documents/:position/pages/:page`, () =>

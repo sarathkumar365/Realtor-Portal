@@ -32,7 +32,7 @@ export function Reading({ label, value, unit, marked = false, children }: {
           <span className={cn("reading text-[clamp(22px,2.4vw,30px)]", marked && "text-gold-text")}>{value}</span>
         )}
         {children}
-        {unit && <span className="text-[12.5px] text-fg-2">{unit}</span>}
+        {unit && <span className="text-[13px] text-fg-2">{unit}</span>}
       </dd>
     </div>
   );

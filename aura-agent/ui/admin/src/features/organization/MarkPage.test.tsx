@@ -8,7 +8,7 @@ const saved = job().organization;
 
 test("a word is added and saved, and the page goes back to Organization", async () => {
   const { put } = serveOrganization();
-  const { user, router } = renderApp("/organization/mark");
+  const { user, router } = renderApp("/settings/organization/mark");
   const save = await screen.findByRole("button", { name: "Save mark" });
   expect(save).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Add a word" }));
@@ -19,12 +19,12 @@ test("a word is added and saved, and the page goes back to Organization", async 
   expect((await screen.findAllByText("Mark saved. New jobs use it now.")).length).toBeGreaterThan(0);
   expect(put[0]?.brand.mark_words).toEqual([{ text: "AURA", colour: "#0E1A24" }, { text: "KEY", colour: "#C9A227" }]);
   expect(put[0]?.name).toBe(saved.name);
-  expect(router.state.location.pathname).toBe("/organization");
+  expect(router.state.location.pathname).toBe("/settings/organization");
 });
 
 test("a bad colour or word is caught before saving", async () => {
   const { put } = serveOrganization();
-  const { user } = renderApp("/organization/mark");
+  const { user } = renderApp("/settings/organization/mark");
   await user.clear(await screen.findByLabelText("Colour of word 1"));
   await user.type(screen.getByLabelText("Colour of word 1"), "red");
   await user.type(screen.getByLabelText("Word 1"), " KEY");
@@ -36,7 +36,7 @@ test("a bad colour or word is caught before saving", async () => {
 
 test("the preview follows a valid change without saving it, and skips an invalid one", async () => {
   const { previews, put } = serveOrganization();
-  const { user } = renderApp("/organization/mark");
+  const { user } = renderApp("/settings/organization/mark");
   await screen.findByAltText("The mark as it will print on a page");
   const size = screen.getByLabelText("Size (pt)");
   await user.clear(size);
@@ -50,7 +50,7 @@ test("the preview follows a valid change without saving it, and skips an invalid
 
 test("a size beyond the slider's range is kept as typed", async () => {
   const { put } = serveOrganization();
-  const { user } = renderApp("/organization/mark");
+  const { user } = renderApp("/settings/organization/mark");
   const size = await screen.findByLabelText("Size (pt)");
   await user.clear(size);
   await user.type(size, "30");

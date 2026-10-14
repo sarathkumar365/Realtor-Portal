@@ -31,6 +31,7 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `GET` | `/admin/unbrander/jobs/{id}/documents/{position}/pages/{page}.jpg` | bearer, **admin** | One page, source or output, as a JPEG |
 | `GET` | `/admin/unbrander/jobs/{id}/documents/{position}/output.pdf` | bearer, **admin** | The cleaned PDF |
 | `GET` | `/admin/unbrander/limits` | bearer, **admin** | Upload limits (files, MB per file, pages) and `can_file`: Drive set up and the worker on |
+| `GET` | `/admin/unbrander/status` | bearer, **admin** | How Unbrander is switched here: `worker` (uploads get unbranded), `test_mode` (filing goes to Drive's Test folder), `drive`, `filing_problem` (why filing would be refused, or null). Read from the service, not the database |
 | `POST` | `/admin/unbrander/jobs/{id}/file` | bearer, **admin** | File an unbranded job in Drive |
 | `GET` | `/admin/unbrander/summary` | bearer, **admin** | Jobs waiting and running, and jobs and cleaned pages since a date |
 | `POST` | `/admin/unbrander/mark-preview` | bearer, **admin** | A brand's mark as a JPEG, before saving |

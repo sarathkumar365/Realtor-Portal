@@ -10,6 +10,7 @@ from app.capabilities.unbrander.adapters.pdf_edit_pymupdf import PyMuPdfEditor
 from app.capabilities.unbrander.adapters.pdf_pymupdf import PyMuPdfInspector
 from app.capabilities.unbrander.domain import DocumentStatus, JobStatus
 from app.capabilities.unbrander.files import JobFiles
+from app.capabilities.unbrander.routes import NO_DRIVE
 from app.domain import Claims, Organization, Role
 from tests.fakes import FakeAuthVerifier, FakeGoogleWriter, FakeJobStore
 
@@ -278,6 +279,20 @@ def test_the_limits_say_when_filing_is_possible(app, unbrander):
     can_file(unbrander)
     with TestClient(app) as client:
         assert client.get("/admin/unbrander/limits", headers=AUTH).json()["can_file"] is True
+
+
+def test_the_status_says_how_unbrander_is_switched_and_only_to_admins(app, unbrander):
+    with TestClient(app) as client:
+        off = client.get("/admin/unbrander/status", headers=AUTH).json()
+        can_file(unbrander)
+        unbrander.settings = unbrander.settings.model_copy(update={"unbrander_dry_run": False})
+        on = client.get("/admin/unbrander/status", headers=AUTH).json()
+        unbrander.auth = FakeAuthVerifier()
+        realtor = client.get("/admin/unbrander/status", headers=AUTH)
+    assert off["worker"] is False and off["drive"] is False and off["test_mode"] is True
+    assert off["filing_problem"] == NO_DRIVE
+    assert on == {"worker": True, "test_mode": False, "drive": True, "filing_problem": None}
+    assert realtor.status_code == 403
 
 
 def test_filing_is_refused_while_the_worker_is_off(app, unbrander):

@@ -76,3 +76,18 @@ test("a list that cannot load says why and retries", async () => {
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByText("No jobs yet")).toBeInTheDocument();
 });
+
+test("the list says when the service is in test mode", async () => {
+  serve([]);
+  server.use(http.get(`${API}/admin/unbrander/status`, () =>
+    HttpResponse.json({ worker: true, test_mode: true, drive: true, filing_problem: null })));
+  renderApp("/jobs");
+  expect(await screen.findByText("Test mode")).toHaveAttribute("title", "Filing goes to Drive's Test folder");
+});
+
+test("no test-mode mark when filing goes to the real folders", async () => {
+  serve([]);
+  renderApp("/jobs");
+  await screen.findByText("No jobs yet");
+  expect(screen.queryByText("Test mode")).not.toBeInTheDocument();
+});

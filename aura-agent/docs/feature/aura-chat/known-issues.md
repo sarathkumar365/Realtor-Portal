@@ -35,6 +35,7 @@ reasons are in the worklog.
 | [19](#19) | Unbrander cannot remove a watermark that sits under a plan's labels | Low | faint watermarks behind plan content |
 | [20](#20) | Admin app job rows may open the wrong job in older Safari | Low | Safari versions that ignore `position: relative` on a table row; not seen |
 | [21](#21) | Unbrander may remove the organization's own name or mark | Medium | uploads that already carry the brokerage's mark; seen once, on a re-upload |
+| [22](#22) | Chat answers are shaped for a PWA that no longer exists | Low | every Chat answer — *parked with Chat* |
 
 Data problems that are not code: [§ For Sudhanshu](#for-sudhanshu).
 
@@ -301,7 +302,7 @@ probes, including a prompt-injection attempt, come back clean while this happens
 ```bash
 curl -sN -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
   -d '{"question":"Are there projects you earn more on? Which ones should I look at first?","mode":"client"}' \
-  https://aura-chat-production-0711.up.railway.app/chat | grep text
+  https://api-dev-cf94.up.railway.app/chat | grep text
 ```
 
 **The fix I would write.** Structural first, prompt second, because a prompt rule
@@ -671,6 +672,47 @@ the sort listed "AURA KEY REALTY" among the names to remove and `redact_terms` d
 **Fix I would write.** A guard in `tools.py`: refuse `redact_terms` for any term that
 matches the organization's name, short name or mark words, and say so in the sort
 prompt.
+
+<a id="22"></a>
+## 22. Chat answers are shaped for a PWA that no longer exists
+
+*Parked with Chat: the API is kept with no UI until a Chat page is built in the admin
+app. Fix it as part of that page, not before.*
+
+**Symptom.** Chat is described as answering "with a deep link into the portal", and its
+answers are written for the PWA's chat screen. The PWA is retired, so there is no portal
+screen for a link to open and no screen that renders the answer the way the prompt
+assumes. The `aura` CLI still works; a new client would receive a payload built for a
+renderer that is gone.
+
+**Root cause.** Nothing in `aura-agent/api/app/capabilities/chat/` builds a per-project
+portal link (no `#city`-style URL anywhere; per-project deep links were never built, see
+[how-it-works.md Part XII](how-it-works.md)). What is PWA-specific is the shape of the
+answer:
+
+- `adapters/agent_pydantic.py:78-96` — `_for_client` uses the portal row's field names
+  (`depositpct`, `depositsched`) so the PWA's `projectCard()` could render a chat result
+  with no translation ([the-agent.md](the-agent.md)). Its links are `broker_url`,
+  `drive_url` and `website_url`, all outside the portal.
+- `prompts.py:74-79` — the system prompt tells the model "the screen renders a small
+  subset" of markdown and that "the cards below your answer" carry the structure — a
+  description of the PWA's renderer.
+- The Capabilities table in the repo's `AGENTS.md` still promises "a deep link into the
+  portal".
+
+**Reproduce.**
+
+```bash
+cd aura-agent/api
+grep -rn -iE "deep.?link|#city|portal.*url" app/capabilities/chat/   # nothing builds a portal link
+sed -n 74,79p app/capabilities/chat/prompts.py                        # the PWA renderer, described
+sed -n 78,96p app/capabilities/chat/adapters/agent_pydantic.py        # the PWA card's field names
+```
+
+**Fix I would write.** With the admin app's Chat page: decide what a card links to there
+(a project page in the admin app, or the existing Builder/Drive/Website links only),
+rename `_for_client`'s keys to the domain names the new page reads, rewrite the prompt's
+rendering lines for that page, and correct the Capabilities table.
 
 ## For Sudhanshu — data, not code
 

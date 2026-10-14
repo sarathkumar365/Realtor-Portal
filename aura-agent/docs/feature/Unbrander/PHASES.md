@@ -278,7 +278,7 @@ a golden set to be measured against.
 - Decide at the start: LangChain v1 (`create_agent`, which runs on LangGraph) or LangGraph
   directly. New dependency — approve before adding.
 - Chat agent: a new `AgentRuntime` adapter replaces `agent_pydantic.py`. The port, `tools.py`,
-  domain and the SSE contract the PWA reads stay unchanged.
+  domain and the SSE contract a browser client reads stay unchanged.
 - Unbrander already uses LangChain for its model calls (D10, revised 2026-10-07); nothing
   moves there. The pipeline stays a Postgres state machine (D18).
 - Remove PydanticAI once nothing imports it.

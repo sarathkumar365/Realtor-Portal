@@ -7,24 +7,24 @@
 # build the app" -- see DEPLOY.md.
 set -euo pipefail
 
-BASE="${AURA_BASE:-https://aura-chat-production-0711.up.railway.app}"
+BASE="${AURA_BASE:-https://api-dev-cf94.up.railway.app}"
 cd "$(git rev-parse --show-toplevel)"
 
 # Unbrander's OCR needs tesseract in the image. Railpack installs apt packages
 # named in this service variable; without it the worker refuses to start.
-if ! railway variables --service aura-chat --kv 2>/dev/null \
+if ! railway variables --service api --kv 2>/dev/null \
     | grep -q '^RAILPACK_DEPLOY_APT_PACKAGES=.*tesseract-ocr'; then
   echo "WARNING: RAILPACK_DEPLOY_APT_PACKAGES does not include tesseract-ocr;"
   echo "         set it before turning UNBRANDER_ENABLED on:"
-  echo "         railway variables --service aura-chat --set RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr"
+  echo "         railway variables --service api --set RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr"
 fi
 
 echo "deploying from $(pwd) (service root directory = /aura-agent/api)"
-railway up --service aura-chat --detach
+railway up --service api --detach
 
 for _ in $(seq 1 30); do
   sleep 10
-  status=$(railway deployment list --service aura-chat 2>/dev/null | sed -n '2p')
+  status=$(railway deployment list --service api 2>/dev/null | sed -n '2p')
   echo "  $status"
   case "$status" in *SUCCESS*) break;; *FAILED*|*CRASHED*) echo "deploy failed"; exit 1;; esac
 done

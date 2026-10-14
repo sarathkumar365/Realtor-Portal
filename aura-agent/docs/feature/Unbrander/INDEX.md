@@ -26,7 +26,7 @@ The models never touch Drive, sharing or the portal. Only code does, and only af
 | D6 | Job state and queue live in the existing Railway Postgres (`jobs` table) | LOOP.md |
 | D7 | Drive and sheet writes are made **directly by Aura Chat** through the Google Drive and Sheets APIs (revised 2026-10-06; Apps Script route dropped). Credential type depends on where the Unbranded tree lives | LOOP.md, SECURITY.md, `invariants.md` §2 |
 | D8 | PDF libraries: **PyMuPDF** (unmodified, AGPL-3.0) and **reportlab**. Later only if needed: pdfplumber, ocrmypdf | SECURITY.md |
-| D9 | UI is a **separate admin app** (the start of the Aura Agent UI), not the PWA | LOOP.md |
+| D9 | UI is a **separate admin app** (the start of the Aura Agent UI), not the PWA (since retired) | LOOP.md |
 | D10 | Revised 2026-10-07: **Unbrander's model calls use LangChain now** (`langchain-openrouter`); chat stays on PydanticAI until **U8** moves it | PHASES.md |
 | D11 | Five-port cap lifted; new ports still need a stated reason | `AGENTS.md` |
 | D12 | Files between steps live on a **Railway volume** | SECURITY.md |

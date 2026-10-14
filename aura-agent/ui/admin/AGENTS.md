@@ -4,12 +4,11 @@ The desktop web app where an Aura Key admin runs and reviews what the agent
 does: upload a project's builder PDFs, follow the Unbrander job, compare every
 page before and after, download the result, edit the organization profile.
 
-It is **not** the realtor PWA (the repo root) and shares no code with it. It talks
-to one backend, `aura-agent/api/`, over its JSON API, with the same portal sign-in:
+It talks to one backend, `aura-agent/api/`, over its JSON API, with the same portal sign-in:
 `POST /login`, then `GET /me` must say `admin` before the token is kept.
 
-Hosting: Netlify, base directory `aura-agent/ui/admin/`, `VITE_AURA_BASE` set to the
-Railway URL of the api (the `aura-chat` service). That URL is also in `netlify.toml`'s CSP
+Hosting is parked — the admin app is not deployed yet. When it is: Netlify, base directory `aura-agent/ui/admin/`, `VITE_AURA_BASE` set to the
+Railway URL of the api (the `api` service). That URL is also in `netlify.toml`'s CSP
 `connect-src`; when it moves, change both, and add the site's origin to
 the api's `ALLOWED_ORIGINS`.
 

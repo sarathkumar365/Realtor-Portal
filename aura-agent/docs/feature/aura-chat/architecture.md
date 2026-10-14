@@ -30,6 +30,10 @@ Apps Script.
                              Google Sheets ×3
 ```
 
+*(2026-10: the PWA in this diagram has since been retired. The chat API is kept with no UI
+until a Chat page is built in the admin app, and the Apps Script source now lives in
+`aura-agent/portal/` — see [roadmap.md](roadmap.md).)*
+
 ### Chosen over
 
 | Option | Why not |
@@ -53,7 +57,7 @@ Apps Script.
 | DB access | **asyncpg + SQLModel** | no ORM ceremony |
 | Host | **Railway** | usage-based, ≈$2–5/mo for an app idle most of the day |
 | Project data | **the existing Apps Script exec API** | zero re-implementation of readers, cache, permissions; no Sheets API quota exposure |
-| Auth | **port of `checkToken_`** (~15 lines HMAC) | same `TOKEN_SECRET`, same token the PWA already holds |
+| Auth | **port of `checkToken_`** (~15 lines HMAC) | same `TOKEN_SECRET`, same token the portal's `login` mints |
 
 ### Not chosen
 
@@ -231,7 +235,7 @@ Each phase is independently reviewable and has a stated done-signal.
 
 **Done:** a direct call to `searchProjects(city="BRAMPTON", cats=["detached"])` returns real Aura projects. No model involved yet.
 
-**Verified 2026-08-24:** 116 tests green; `dev/verify.mjs` resolves `aiindex` to `getAiIndex_`; the action is live and token-gated. Reading real rows needs a realtor token, which was not available in this session — that is the one outstanding check.
+**Verified 2026-08-24:** 116 tests green; `dev/verify.mjs` (now `aura-agent/portal/dev/verify.mjs`) resolves `aiindex` to `getAiIndex_`; the action is live and token-gated. Reading real rows needs a realtor token, which was not available in this session — that is the one outstanding check.
 
 AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) moved to Phase 3: both need the model.
 
@@ -239,7 +243,7 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 
 - `agent.py`: PydanticAI agent, tools registered, `stopWhen` step cap
 - System prompt with the no-invention guardrail; unconfirmed → "could not confirm from current records"
-- SSE endpoint; chat screen added to `www/` as a new route in `LOAD`
+- SSE endpoint; chat screen added to `www/` as a new route in `LOAD` *(retired with the PWA)*
 - Structured result cards; `View Project` deep link
 - Follow-up context over the previous result set
 
@@ -280,7 +284,7 @@ AUR-15 (tool router) and AUR-34 (natural-language brief → one correct call) mo
 
 ## 6. Non-goals
 
-- Not rebuilding the portal, the PWA, or AppSheet
+- Not rebuilding the portal, the PWA, or AppSheet *(superseded 2026-10: the PWA is retired and the portal back end is slated for replacement — see [roadmap.md](roadmap.md))*
 - Not migrating the Sheets to a database — Sheets stay the source of truth for project data
 - No writes of any kind in V1 *(superseded 2026-10 — see §11)*
 - No fine-tuning, no custom training, no local model hosting

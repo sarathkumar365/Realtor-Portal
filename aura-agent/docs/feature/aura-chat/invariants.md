@@ -89,8 +89,9 @@ is a stated acceptance criterion, not an aspiration.
 ## 8. `EXEC_URL` is the deployment's address, and it moves
 
 Publishing the portal through "New deployment" mints a fresh id and retires the
-old one. If it changes, `EXEC_URL` here and `EXEC` in `dev/config.mjs` must both
-change. See [`../portal.md`](../../portal.md) §3.3.
+old one. If it changes, `EXEC_URL` here and `EXEC` in
+`aura-agent/portal/dev/config.mjs` must both change. See
+[`portal.md`](../../portal.md) §4.3.
 
 ## 9. A shared cache must be keyed by whatever it varies on
 

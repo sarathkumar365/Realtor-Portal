@@ -134,5 +134,5 @@ out. A failing check reported is worth more than a passing one implied.
    plane.
 4. Substantive change? [`../worklog.md`](../../worklog.md) has an entry for it.
 5. What you changed, what you verified, and what you left out, stated plainly.
-6. Portal files touched? `node dev/verify.mjs`, then `clasp push`, then publish
-   by **editing** the existing deployment.
+6. Portal files touched? From `aura-agent/portal/`: `node dev/verify.mjs`, then
+   `clasp push`, then publish by **editing** the existing deployment.

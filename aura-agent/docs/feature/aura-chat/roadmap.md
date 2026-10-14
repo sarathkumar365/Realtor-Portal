@@ -11,7 +11,7 @@ Referenced from [`../../AGENTS.md`](../../../../AGENTS.md).
 
 | Capability | Phases | State |
 |---|---|---|
-| Chat | 1–6 below | Live; Phase 5 not started, Phase 6 part done |
+| Chat | 1–6 below | **Parked** — API kept, UI to be built in the admin app; Phase 5 not started, Phase 6 part done |
 | Unbrander | U0–U8, [`PHASES.md`](../Unbrander/PHASES.md) | **Current priority** — designing done, build next |
 | Next capabilities | — | To be added after Unbrander |
 
@@ -27,9 +27,9 @@ failures.
 |---|---|---|
 | 1 | Skeleton, config, auth, portal client, `/health` `/doctor` `/me` | **done** |
 | 2 | `aiindex` action (`Ai.js`), `projects_exec.py`, parsing, matching, four tools | **done** — 116 tests green |
-| 3 | `agent.py`, SSE endpoint, chat screen in the PWA — **the Day 1 gate** | **done** — 232 tests green. Not yet deployed: the service needs an HTTPS host and its origin in `ALLOWED_ORIGINS`, and the real-device matrix is unrun |
+| 3 | `agent.py`, SSE endpoint, chat screen in the PWA — **the Day 1 gate** | **done** — 232 tests green. Not yet deployed: the service needs an HTTPS host and its origin in `ALLOWED_ORIGINS`, and the real-device matrix is unrun. The PWA's chat screen was retired with the PWA |
 | 4a | Postgres persistence, server-side history, isolation, feedback storage | **done** — 292 tests green, plus two integration scripts against a real database |
-| 4b | History panel, New Chat list, admin reports screen | **done** — 4b built the reports screen rather than a conversation browser; see the worklog |
+| 4b | History panel, New Chat list, admin reports screen | **done** — 4b built the reports screen rather than a conversation browser; see the worklog. All three were PWA screens, retired with it |
 | 5 | Document retrieval over pgvector; structured-first | not started |
 | 6 | Audit logging, chat-specific rate limit, latency, 50-question benchmark | **part done** — audit logging (AUR-20) and the rate limit (AUR-21) shipped; latency measured; the benchmark is at 44/50 against a bar of 47 |
 | U | **Unbrander** — builder-document unbranding, the first write feature, with a separate admin app (Aura Agent UI) | **building** — U1–U4 built, U4 not yet deployed; see [`INDEX.md`](../Unbrander/INDEX.md). Phases U0–U7 in [`PHASES.md`](../Unbrander/PHASES.md) |
@@ -44,6 +44,18 @@ declared so tools and tests can be written against them — that is not an
 invitation to implement them early.
 
 ---
+
+## Later
+
+Planned, not started, and not to be built ahead of Unbrander:
+
+- **Replace the portal back end inside the agent.** Aura Agent gets its own users
+  and login, and reads the Sheet with the Google service account, so the Apps
+  Script web app in `aura-agent/portal/` can be switched off. This is an auth and
+  schema change, so it needs its own design doc before any code.
+- **A Chat page and Reports in the admin app.** Chat's API is parked with no UI
+  since the PWA was retired; this gives it one, with the feedback review that the
+  PWA's Reports screen used to hold.
 
 ## Files not written yet, already named
 

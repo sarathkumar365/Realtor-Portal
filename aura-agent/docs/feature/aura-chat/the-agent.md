@@ -69,7 +69,7 @@ generated.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as PWA / CLI
+    participant U as client / CLI
     participant F as FastAPI
     participant AU as PortalHmacAuthVerifier
     participant CH as chat.chat()
@@ -536,8 +536,9 @@ absent.
 
 `_for_client` keeps them because the renderer already treats `""` as "no link",
 and a stable set of keys is easier for a client to reason about. It uses the
-portal row's field names so the same `projectCard()` in the PWA renders a chat
-result and a city-screen row with no translation.
+portal row's field names so the same `projectCard()` in the PWA rendered a chat
+result and a city-screen row with no translation. The PWA is retired; see
+[known-issues 22](known-issues.md#22).
 
 The Focus pill is keyed on `status` rather than `is_focus` deliberately:
 `status` is confidential, so in Client Mode it arrives blank and the pill

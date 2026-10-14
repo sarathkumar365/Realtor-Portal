@@ -214,13 +214,13 @@ Script caps a request near 50 MB and a run at 6 minutes, so a large site plan se
 could fail, and every write would need a clasp deploy. The Drive API's resumable upload has
 no such limit.
 
-The write is to the project row's existing `UNBRANDED` cell (D4), which the portal already
-shows as the "Drive" button. An empty cell means a new project; a filled cell means an
+The write is to the project row's existing `UNBRANDED` cell (D4), which the retired PWA
+showed as the "Drive" button. An empty cell means a new project; a filled cell means an
 update (AUTONOMY.md).
 
 ## UI (decision D9)
 
-A separate admin app, not a PWA screen: the first piece of the Aura Agent UI. Three screens
+A separate admin app, not a screen in the PWA (since retired): the first piece of the Aura Agent UI. Three screens
 for this feature — upload with the metadata form, job list, approval with before and after
 page images. It signs in through Aura Chat's `/login` and is shown to the admin role only.
 Stack: Vite + React + TypeScript in `aura-agent/ui/admin/`, a static site on Netlify (D14).

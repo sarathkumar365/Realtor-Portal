@@ -9,7 +9,7 @@ everything it is lives in `aura-agent/`. What a capability is and how one is add
 
 | Capability | What it does | State |
 |---|---|---|
-| Chat | A realtor asks *"show me detached homes under $1M in Brampton"* and gets real projects from the brokerage's own records, with a source, an effective date and a deep link into the portal | Live |
+| Chat | A realtor asks *"show me detached homes under $1M in Brampton"* and gets real projects from the brokerage's own records, with a source and an effective date | Parked — API kept, UI to be built in the admin app |
 | Unbrander | Strips builder branding from builder PDFs, files them in Drive and links them in the sheet, after an admin approves | Building — [design](aura-agent/docs/feature/Unbrander/INDEX.md), [phases](aura-agent/docs/feature/Unbrander/PHASES.md) |
 
 **Current priority:** finish Unbrander end to end. In between, do only what that
@@ -21,7 +21,7 @@ replacing it:
 | Concern | How Aura Agent gets it |
 |---|---|
 | Project data | The Apps Script portal's JSON API — one `POST {action, auth}` endpoint |
-| Identity | The **same HMAC session token** the portal's PWA already holds |
+| Identity | The portal's **HMAC session token**, minted by its `login` action |
 | Its own storage | Conversations, messages, feedback — **never** a second copy of project records |
 
 For reads it holds no service account and no standing privilege: whatever the
@@ -32,18 +32,19 @@ a scoped Google credential after an admin approves (invariant 2).
 ```
 aura-agent/
   api/          the product: FastAPI service and job worker, on Railway
-  ui/admin/     the admin app: React on Netlify, for admins
+  ui/admin/     the admin app: React, for admins (Netlify deployment parked)
+  portal/       the Apps Script back end Aura Agent reads from (source only)
   docs/         platform and capability docs, for both
   bin/setup     one-time setup of a machine
   bin/dev       checks the machine, then runs portal stand-in + api + admin app
 ```
 
 `aura-agent/api/` is the product. `aura-agent/ui/admin/` is its admin app — a separate
-React app on Netlify where admins upload and review Unbrander jobs and edit the
+React app where admins upload and review Unbrander jobs and edit the
 organization profile; before building UI there, read its
 [AGENTS.md](aura-agent/ui/admin/AGENTS.md), [DESIGN.md](aura-agent/ui/admin/DESIGN.md) and
 [COMPONENTS.md](aura-agent/ui/admin/COMPONENTS.md).
-Everything else in the repo root is the portal Aura Agent reads from — see §6.
+The portal's Apps Script back end now lives in `aura-agent/portal/` — see §6.
 Design docs for each capability live in `aura-agent/docs/feature/<Name>/`.
 
 ---
@@ -232,16 +233,21 @@ Full rules, with the trigger and check for each:
 
 ## 6. The portal (upstream)
 
-The Apps Script web app and PWA in the repo root:
-**[portal.md](aura-agent/docs/portal.md)**. Aura Chat's only change to it is `Ai.js` —
-one read-only action, `aiindex`, shipped in Phase 2. Two things will bite you
-if you touch it:
+The Apps Script back end, with its source in `aura-agent/portal/`:
+**[portal.md](aura-agent/docs/portal.md)**. The realtor PWA that sat on top of it
+is retired; the deployed web app keeps running unchanged, and Aura Agent still
+calls it for `login` and `session` (the admin app signs in through it) and for
+`aiindex` (Chat's project data). It is slated for replacement inside the agent —
+see [roadmap.md](aura-agent/docs/feature/aura-chat/roadmap.md). Aura Chat's only
+change to it is `Ai.js` — one read-only action, `aiindex`, shipped in Phase 2.
+Run `clasp` from `aura-agent/portal/`. Two things will bite you if you touch it:
 
-- `clasp push` uploads everything not in `.claspignore`, and a browser file in
-  the server's global scope 500s every request. Run `node dev/verify.mjs` first.
+- `clasp push` uploads everything not in `.claspignore`, and a browser or Node
+  file in the server's global scope 500s every request. Run
+  `node dev/verify.mjs` from `aura-agent/portal/` first.
 - **Publish by editing the existing deployment.** "New deployment" mints a new
-  id and leaves every installed phone — and this service's `EXEC_URL` — calling
-  an address that no longer answers.
+  id and leaves this service's `EXEC_URL` calling an address that no longer
+  answers.
 
 ---
 
@@ -263,4 +269,4 @@ if you touch it:
 | [schema.md](aura-agent/docs/feature/aura-chat/schema.md) | The three tables, isolation in SQL, backup and restore |
 | [worklog.md](aura-agent/docs/worklog.md) | **Why** each change was made — decisions, rejected options, costs of reversing |
 | [known-issues.md](aura-agent/docs/feature/aura-chat/known-issues.md) | Defects found and understood but **not fixed** — symptom, root cause, how to reproduce, the fix I would write |
-| [portal.md](aura-agent/docs/portal.md) | The upstream Apps Script portal and PWA |
+| [portal.md](aura-agent/docs/portal.md) | The upstream Apps Script back end in `aura-agent/portal/` |

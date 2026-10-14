@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     exec_url: str = ""
     exec_timeout_s: float = 30.0
 
-    allowed_origins: str = "http://localhost:4600,http://localhost:4599"
+    allowed_origins: str = "http://localhost:5173"
     allowed_origin_regex: str = ""
 
     openrouter_api_key: str = ""

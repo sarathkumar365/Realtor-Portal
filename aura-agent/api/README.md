@@ -32,7 +32,7 @@ in the portal — the symptom is a universal 401 with a healthy `/health`.
 .venv/bin/aura --client "…"                  # as a buyer would see it
 ```
 
-It goes over HTTP, like the PWA will — same login, same token, same SSE. A CLI
+It goes over HTTP, like a browser client would — same login, same token, same SSE. A CLI
 that reached into the app in-process would keep working while the endpoint was
 broken, which is the one thing a client is meant to catch.
 

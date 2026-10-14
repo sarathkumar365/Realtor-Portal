@@ -76,7 +76,7 @@ def _for_model(p: Project) -> dict[str, Any]:
 
 
 def _for_client(p: Project) -> dict[str, Any]:
-    """One project as the PWA's card renderer should see it."""
+    """One project as a client's project card should see it."""
     return {
         "id": p.id,
         "name": p.name,

@@ -1,8 +1,8 @@
 """The browser's half of the contract.
 
-The PWA lives on another origin, so every one of these is the difference
-between a working chat screen and a console full of blocked requests -- and,
-in the negative cases, between an allowlist and an open door.
+The admin app lives on another origin, so every one of these is the difference
+between a working app and a console full of blocked requests -- and, in the
+negative cases, between an allowlist and an open door.
 """
 
 from fastapi.testclient import TestClient
@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 
-ALLOWED = "https://aurakey.netlify.app"
-PREVIEW = "https://deploy-preview-7--aurakey.netlify.app"
+ALLOWED = "https://aura-admin.netlify.app"
+PREVIEW = "https://deploy-preview-7--aura-admin.netlify.app"
 
 
 def _client(**overrides) -> TestClient:
@@ -38,7 +38,7 @@ def test_named_origin_is_allowed():
 def test_unnamed_origin_is_not():
     """The whole point. An origin nobody listed gets no header, so the browser
     refuses the request -- a page a realtor stumbles onto cannot spend the
-    token their PWA is holding."""
+    token an admin's browser is holding."""
     r = _preflight(_client(allowed_origins=ALLOWED), "https://evil.example")
     assert r.headers.get("access-control-allow-origin") is None
 
@@ -74,7 +74,7 @@ def test_preview_regex_is_off_until_someone_sets_it():
     ) is None
     opened = _client(
         allowed_origins=ALLOWED,
-        allowed_origin_regex=r"https://[a-z0-9-]+--aurakey\.netlify\.app",
+        allowed_origin_regex=r"https://[a-z0-9-]+--aura-admin\.netlify\.app",
     )
     assert _preflight(opened, PREVIEW).headers.get("access-control-allow-origin") == PREVIEW
 
@@ -91,8 +91,8 @@ def test_origins_property_drops_blanks():
 
 def test_the_headers_a_browser_must_read_are_exposed(app):
     """Cross-origin JS sees only the CORS safelist unless a header is named
-    here. Retry-After is not on that safelist: without it the PWA's 429 branch
-    read null every time and told a realtor refused for the next hour to "try
+    here. Retry-After is not on that safelist: without it a client's 429 branch
+    reads null every time and tells someone refused for the next hour to "try
     again in a moment". X-Request-Id is the id they quote when reporting a
     failure, and it is useless if the page cannot read it. Content-Disposition
     carries a download's filed name to the admin app.
@@ -101,7 +101,7 @@ def test_the_headers_a_browser_must_read_are_exposed(app):
     # appears on the actual request. The app fixture supplies a container, so
     # this does not build real adapters off whatever .env happens to say.
     with TestClient(app) as client:
-        r = client.get("/health", headers={"Origin": "http://localhost:4600"})
+        r = client.get("/health", headers={"Origin": "http://localhost:5173"})
     exposed = {
         h.strip().lower()
         for h in r.headers.get("access-control-expose-headers", "").split(",")

@@ -36,8 +36,9 @@ afternoon; [api.md](api.md) is every endpoint and tool as a reference;
 ## 0. What this is, in one paragraph
 
 Aura Key Realty is a Toronto-area brokerage with about twenty realtors. They
-already have a portal — a Google Apps Script web app reading Google Sheets,
-plus an installable phone app. Aura Chat adds one thing: a realtor can *ask*
+already have a portal — a Google Apps Script web app reading Google Sheets.
+(Its installable phone app has since been retired, and Chat's API is parked
+with no UI until a Chat page is built in the admin app.) Aura Chat adds one thing: a realtor can *ask*
 instead of browsing. *"Show me detached homes under $1M in Brampton."*
 
 It is a **separate Python service**. It stores no project data of its own, holds
@@ -551,7 +552,7 @@ happens in `app/api.py` before the handler runs.
 ### 3.1 The token
 
 The portal issues a signed, self-contained token. Aura Chat did not invent it and
-does not mint it — the realtor's phone already holds one.
+does not mint it — the portal's `login` action does.
 
 ```
 raw   = username | role | credentialFingerprint | issuedAtMillis
@@ -1014,14 +1015,18 @@ Who asked, what they asked, which tools ran, what it cost, how long it took,
 how it ended. The question is in the line and **the answer never is** — in
 Realtor Mode an answer can quote commission, and a log is not where that
 lives. `status` is `ok`, `error`, or `incomplete` — the last meaning the
-request was cancelled before the stream finished, usually a backgrounded
-phone. `rid` matches the `X-Request-Id` the client received, which is how a
+request was cancelled before the stream finished, usually a client that
+went away. `rid` matches the `X-Request-Id` the client received, which is how a
 complaint finds its log line.
 
 ### Step 10 — The client renders
 
-The PWA chat screen lives in `Script.html` (the portal repo root — the phone
-app is generated from it). What it does with the stream, in order:
+*The PWA this step describes has been retired, and Chat has no UI until a Chat
+page is built in the admin app. The step stays as the record of what a browser
+client has to do with the stream.*
+
+The PWA chat screen lived in `Script.html`, the portal's client file, now
+deleted. What it did with the stream, in order:
 
 **It reads the stream by hand.** The browser has a built-in SSE client,
 `EventSource`, and the app deliberately does not use it: `EventSource` can only
@@ -1163,6 +1168,9 @@ sees it.
 
 ### 5.4 Reopening a thread — the chats panel
 
+*This panel was part of the retired PWA. The endpoints behind it are unchanged;
+the flow is the one a future client follows.*
+
 The clock icon in the chat header opens a slide-over panel (it lives inside the
 chat overlay rather than being a page of its own, because navigating away would
 close the chat it is listing). The flow:
@@ -1171,20 +1179,20 @@ close the chat it is listing). The flow:
 sequenceDiagram
     autonumber
     participant U as Realtor
-    participant PWA as chats panel
+    participant C as chats panel
     participant S as GET /conversations
     participant T as GET /conversations/{id}
 
-    U->>PWA: taps the clock
-    PWA->>S: this realtor's threads
-    S-->>PWA: [{id, title, mode, updated_at}] newest first
-    PWA->>PWA: rows: title · relative time · amber dot if Client Mode
-    U->>PWA: taps a thread
-    PWA->>T: the whole thread
-    T-->>PWA: {mode, messages: [...]}
-    PWA->>PWA: repaint the header from the STORED mode
-    PWA->>PWA: then render the turns — text only, no cards
-    Note over PWA: next question sends this conversation_id
+    U->>C: taps the clock
+    C->>S: this realtor's threads
+    S-->>C: [{id, title, mode, updated_at}] newest first
+    C->>C: rows: title · relative time · amber dot if Client Mode
+    U->>C: taps a thread
+    C->>T: the whole thread
+    T-->>C: {mode, messages: [...]}
+    C->>C: repaint the header from the STORED mode
+    C->>C: then render the turns — text only, no cards
+    Note over C: next question sends this conversation_id
 ```
 
 Two decisions in that last stretch are deliberate:
@@ -1200,7 +1208,7 @@ Two decisions in that last stretch are deliberate:
   sentence that quoted the right one. Cards return in the live session, and on
   reopen once `PROJECT ID` is filled.
 
-The phone still keeps a copy of the current thread in `localStorage` — but only
+The PWA kept a copy of the current thread in `localStorage` — but only
 as a convenience for instant paint on relaunch. The server's copy is the truth,
 survives reinstalls, and follows the realtor to another device.
 
@@ -1222,13 +1230,17 @@ controls: 👍, 👎, and *Report data issue*. This flow exists because the shee
 filled by hand and the people who find its errors are the realtors reading
 answers.
 
+*The feedback controls and the Aura Reports screen were part of the retired
+PWA. `POST /feedback` and `GET /feedback` are unchanged, and Reports is planned
+for the admin app — see [roadmap.md](roadmap.md).*
+
 ```mermaid
 flowchart LR
     A["👍 / 👎 / Report"] --> B["POST /feedback<br/>verdict, category, note, project_ids"]
     B --> C["one aura.feedback log line<br/>always, first"]
     B --> D[("feedback table")]
     D --> E["GET /feedback<br/>admin only"]
-    E --> F["Aura Reports screen<br/>in the drawer"]
+    E --> F["Reports screen<br/>(retired with the PWA)"]
     F --> G["Download CSV → Sheets"]
 ```
 
@@ -1242,8 +1254,8 @@ Details that matter:
 - **The log line is written first, unconditionally.** A database that is down
   costs the queue its sortability, not the realtor's report — and answering 500
   would train them to stop sending feedback at all.
-- **The reviewer's screen is server-gated.** The *Aura Reports* row appears in
-  the drawer only for an admin — the app asks `GET /me` — but that is a
+- **The reviewer's screen is server-gated.** The *Aura Reports* row appeared in
+  the PWA's drawer only for an admin — it asked `GET /me` — but that was a
   courtesy. The gate that matters is `claims.is_admin` checked on
   `GET /feedback` itself; a realtor calling the URL directly gets 403 and the
   data never leaves the server.
@@ -1359,7 +1371,7 @@ project render as an id *and* stop `getCities_` recognising the tab at all.
 ## Part VIII — The CLI, traced
 
 `aura` is the only working client today, and it is a useful thing to trace
-because it uses the service exactly as the phone app will.
+because it uses the service exactly as a browser client would.
 
 ### Signing in
 
@@ -1513,7 +1525,7 @@ flowchart TD
 
 Every question leaves one `aura.audit` log line whether it succeeded or not, so
 "what happened at 3pm" is a `grep`, not a reconstruction. On Railway:
-`railway logs --service aura-chat | grep aura.audit`.
+`railway logs --service api | grep aura.audit`.
 
 ---
 
@@ -1576,7 +1588,7 @@ because the observer failing must not take the observed down with it.
 | **Document retrieval** | Phase 5. PDF → chunks → pgvector, as the *fallback* when the columns cannot answer. The biggest remaining piece of the original spec. |
 | **Per-project deep links** | Blocked on data, not code: 16 of 162 projects share an id slug, so a link would open the wrong one. Cards link to Builder/Drive/Website instead. |
 | **Source citations** (AUR-32/49) | Blocked on the date parser — see [known-issues 1](known-issues.md). |
-| **A designed desktop layout** | It works — it is the phone column, centred. |
+| **A Chat UI** | Chat is parked with no UI since the PWA was retired; a Chat page in the admin app is planned — see [roadmap.md](roadmap.md). |
 | **Incentive search, proximity search** | [known-issues 12 and 13](known-issues.md). |
 
 Earlier editions of this table listed the chat screen, conversation storage,

@@ -1,6 +1,6 @@
 """`aura` -- a terminal client for Aura Chat.
 
-Talks to the running service over HTTP, exactly as the PWA will: same login,
+Talks to the running service over HTTP, exactly as a browser client would: same login,
 same token, same SSE contract. A CLI that reached into the app in-process would
 keep working while the endpoint was broken, which is the one thing a client is
 supposed to catch.

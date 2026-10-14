@@ -156,7 +156,7 @@ Railway's Postgres is on the private network, so a dump runs from inside the
 project rather than from a laptop:
 
 ```bash
-railway run --service aura-chat pg_dump "$DATABASE_URL" -Fc -f aura-$(date +%F).dump
+railway run --service api pg_dump "$DATABASE_URL" -Fc -f aura-$(date +%F).dump
 ```
 
 `-Fc` is the custom format — compressed, and restorable table by table. A plain
@@ -171,7 +171,7 @@ remembering the command.
 ### Putting one back
 
 ```bash
-railway run --service aura-chat pg_restore -d "$DATABASE_URL" --clean --if-exists aura-2026-08-25.dump
+railway run --service api pg_restore -d "$DATABASE_URL" --clean --if-exists aura-2026-08-25.dump
 ```
 
 `--clean --if-exists` drops what it is replacing, so it overwrites rather than

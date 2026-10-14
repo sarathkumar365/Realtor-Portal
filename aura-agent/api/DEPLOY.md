@@ -1,6 +1,6 @@
 # Deploying the service
 
-Railway, project `aura-chat`, from `aura-agent/api/`.
+Railway, project `aura-agent`, environment `dev`, from `aura-agent/api/`.
 
 ## The one command
 
@@ -16,9 +16,9 @@ success while the old code keeps serving. The script fails loudly on that.
 ## Why there is no flag any more
 
 `railway up` uploads from the **git repository root**, not the working
-directory. This service lives in a subdirectory of the portal's repo, so a
-plain `railway up` ships the whole portal — `Core.js`, `App.html`,
-`netlify.toml` — and Railpack looks at that, finds no Python, and fails with
+directory. This service lives in a subdirectory of the repo, so a plain
+`railway up` ships the whole repository — the admin app, the portal back end,
+the docs — and Railpack looks at the root, finds no Python, and fails with
 *"could not determine how to build the app."*
 
 That used to be handled by remembering `--path-as-root`. It was forgotten
@@ -66,7 +66,7 @@ Set once, in Railway, never in the image:
 | `EXEC_URL` | The deployed Apps Script web app |
 | `OPENROUTER_API_KEY` | |
 | `LLM_MODEL` | |
-| `ALLOWED_ORIGINS` | The PWA's origin. Without it the browser blocks the chat before the request leaves the phone, and nothing here records that it happened |
+| `ALLOWED_ORIGINS` | The admin app's origin. Without it the browser blocks every request before it leaves the page, and nothing here records that it happened |
 | `ALLOWED_ORIGIN_REGEX` | Netlify draft deploys only. A standing hole in the allowlist — unset it when preview testing ends |
 
 ## After deploying

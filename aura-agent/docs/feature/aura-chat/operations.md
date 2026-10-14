@@ -16,7 +16,7 @@ Two ways to get it.
 a real Portal ID and password:
 
 ```bash
-EXEC=$(grep -o "https://script.google.com/[^']*" dev/config.mjs | head -1)
+EXEC=$(grep -o "https://script.google.com/[^']*" aura-agent/portal/dev/config.mjs | head -1)
 curl -sL "$EXEC" -H 'Content-Type: text/plain;charset=utf-8' \
   -d '{"action":"login","username":"YOUR_ID","password":"YOUR_PASSWORD"}'
 ```
@@ -29,13 +29,14 @@ Two details that are the difference between JSON and a wall of Google HTML.
 POST, while `-X` pins the method across the redirect too, and that second hop
 only answers GET. With `-X POST` you get a 405 and an HTML error page.
 
-**Or lift it from the installed app.** In the PWA's devtools console:
+**Or lift it from the admin app.** Signed in, in its devtools console:
 
 ```js
-sessionStorage.getItem('ak_token') || localStorage.getItem('ak_token')
+JSON.parse(sessionStorage.getItem('aura-agent.session')).token
 ```
 
-`sessionStorage` is where it lands when "Remember me" was unchecked.
+The admin app keeps only admin tokens, so for a realtor's view mint one with
+`login` above.
 
 Then:
 
@@ -44,8 +45,8 @@ TOK='<paste>'
 curl -s -H "Authorization: Bearer $TOK" localhost:8000/doctor | python3 -m json.tool
 ```
 
-A token is valid for 7 days from issue and the portal slides it on every app
-launch. It carries the realtor's role, so an admin token and a realtor token
+A token is valid for 7 days from issue, and the portal's `session` action
+re-issues it. It carries the realtor's role, so an admin token and a realtor token
 see different things — test with the one whose experience you are debugging.
 
 **Never paste a token into a commit, a doc, an issue, or a log line.** It is a
@@ -61,10 +62,10 @@ Every one is read in `app/config.py` and nowhere else. `.env` is git-ignored;
 | Variable | Default | What it does |
 |---|---|---|
 | `TOKEN_SECRET` | *(none — refuses)* | HMAC key for portal session tokens. See §5. |
-| `EXEC_URL` | *(none)* | The deployed Apps Script web app. Must equal `EXEC` in `dev/config.mjs`. |
-| `EXEC_TIMEOUT_S` | `30.0` | Per-request timeout against the portal. Cold index builds are slow; see [`../portal.md`](../../portal.md) §3.6. |
+| `EXEC_URL` | *(none)* | The deployed Apps Script web app. Must equal `EXEC` in `aura-agent/portal/dev/config.mjs`. |
+| `EXEC_TIMEOUT_S` | `30.0` | Per-request timeout against the portal. Cold index builds are slow; see [`portal.md`](../../portal.md) §4.5. |
 | `SESSION_MS` | `604800000` (7 days) | Token lifetime. **Must match `SESSION_MS` in `Core.js`** — longer here keeps honouring tokens the portal has retired. |
-| `ALLOWED_ORIGINS` | `http://localhost:4600,http://localhost:4599` | Comma-separated CORS allowlist. The PWA's origin **must** be in here or the browser blocks the chat before the request leaves the phone. The admin app's origin too: its Netlify site, and `http://localhost:5173` for `npm run dev`. Never `*`: a wildcard lets any page a realtor visits spend their token. |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated CORS allowlist. Every browser client's origin **must** be in here or the browser blocks the request before it leaves the page. Today that is only the admin app: `http://localhost:5173` for `npm run dev`, and its site's origin once it is deployed. Never `*`: a wildcard lets any page a realtor visits spend their token. |
 | `ALLOWED_ORIGIN_REGEX` | *(empty)* | Only for Netlify deploy previews, which get a random subdomain per draft deploy and so cannot be named in the list. A standing hole in the allowlist — set it while testing previews, unset it after. |
 | `OPENROUTER_API_KEY` | *(none)* | Phase 3. |
 | `LLM_MODEL` | `google/gemini-2.5-flash` | A model swap is this string. See §2.1. |
@@ -118,7 +119,7 @@ The model is a config string and nothing else — no rebuild, no code change, no
 redeploy of anything but the variable.
 
 ```bash
-railway variables --service aura-chat --set LLM_MODEL=anthropic/claude-sonnet-4.5
+railway variables --service api --set LLM_MODEL=anthropic/claude-sonnet-4.5
 ```
 
 Any model id [OpenRouter](https://openrouter.ai/models) serves works, but it
@@ -171,34 +172,25 @@ an OpenRouter key.
 
 ### A. Real everything
 
-Two processes and your existing `.env`. Real projects, real model answers, real
-feedback.
+Your existing `.env`, a real Portal ID, and the api against the live portal.
+Real projects, real model answers, real feedback.
 
 ```bash
 cd aura-agent/api && .venv/bin/uvicorn app.main:app --reload      # :8000
 ```
 
-```bash
-node dev/build.mjs --serve                                   # :4600, real portal
-```
-
-Then open `http://localhost:4600` and sign in with a real Portal ID.
-
-`AURA_BASE` is the only variable you have to set, and only to turn the chat
-button on:
+Chat has no UI while it is parked, so ask through the CLI:
 
 ```bash
-AURA_BASE=http://localhost:8000 node dev/build.mjs --serve
+cd aura-agent/api && .venv/bin/aura login && .venv/bin/aura --dev
 ```
 
-Everything else is already the default. The bundle talks to the live deployment
-because that URL is the fallback in
-[`../../dev/config.mjs`](../../../../dev/config.mjs) — `AK_EXEC` exists to point at a
-*different* deployment, not at the normal one. Reading it from the browser works
-because the Apps Script web app answers with `Access-Control-Allow-Origin: *`,
-and `ALLOWED_ORIGINS` already lists `localhost:4600`, so CORS needs no change.
+For the admin app against the same api, run it beside it with
+`VITE_AURA_BASE=http://localhost:8000` and sign in with an admin Portal ID.
+`ALLOWED_ORIGINS` already defaults to `http://localhost:5173`, so CORS needs no
+change.
 
-Without `OPENROUTER_API_KEY` in `.env` the screen loads and `/chat` answers
+Without `OPENROUTER_API_KEY` in `.env`, `/chat` answers
 `the model is not configured`.
 
 ### Conversation history, locally
@@ -236,18 +228,18 @@ DATABASE_URL=postgresql://localhost/aura_chat_dev .venv/bin/python scripts/check
 Railway's own database is on the private network and **not reachable from a
 laptop**, which is deliberate. Use a local one for development.
 
-### The fully-local stack signs you out, and that is expected
+### The fully-local stack cannot read project data, and that is expected
 
-`.claude/launch.json` has a `portal` + `aura` + `bundle-aura` trio that needs no
-real credentials: `dev/authshim.mjs` answers `login` and `session` locally with
-the real `Core.js`, and **every other action is proxied to the live
-deployment**, which has never heard of a dev token. So the first data screen
-returns `login required`, `isAuthErr` reads that as a dead session, and you are
-back at the gate a second after signing in.
+`aura-agent/bin/dev` needs no real credentials: the portal stand-in
+(`aura-agent/portal/dev/serve.mjs`, with `authshim.mjs`) answers `login` and
+`session` locally, and **every other action is proxied to the live
+deployment**, which has never heard of a dev token. So Chat's `aiindex` read is
+refused with `login required`.
 
-That is the harness, not a defect. It is fine for the chat, the history panel
-and the reports screen, none of which touch the portal's data actions. For
-anything that does, use **A. Real everything** above with a real Portal ID.
+That is the harness, not a defect. It is fine for the admin app, Unbrander and
+the organization profile, none of which read the portal's data actions. For
+Chat answers over real projects, use **A. Real everything** above with a real
+Portal ID.
 
 ### Unbrander, locally
 
@@ -265,11 +257,11 @@ Sign in with an admin portal login. Commands and rules: `aura-agent/ui/admin/AGE
 
 ### B. No portal account, no API key
 
-For UI work. Adds `dev/serve.mjs` for a fixture sign-in, and needs a stub for
-`/chat` since there is no model.
+What `aura-agent/bin/dev` runs, by hand: the portal stand-in for a fixture
+sign-in, and the api pointed at it.
 
 ```bash
-node dev/serve.mjs                                            # :4599
+node aura-agent/portal/dev/serve.mjs                          # :4599
 ```
 
 ```bash
@@ -277,47 +269,27 @@ cd aura-agent/api && TOKEN_SECRET=dev-token-secret-not-a-real-key \
   EXEC_URL=http://localhost:4599/api .venv/bin/uvicorn app.main:app --port 8000
 ```
 
-**Both env vars are load-bearing.** The harness mints tokens with that dev
+**Both env vars are load-bearing.** The stand-in mints tokens with that dev
 secret, so `TOKEN_SECRET` has to match it — and `EXEC_URL` has to point back at
-the harness, because `verify()` asks the portal whether the account still lives.
+the stand-in, because `verify()` asks the portal whether the account still lives.
 Left at the real deployment it is asked about a locally-minted token, says no,
 and every request 401s with nothing in the log explaining why.
 
-Fixture users are in [`../../dev/authshim.mjs`](../../../../dev/authshim.mjs) —
+Fixture users are in
+[`aura-agent/portal/dev/authshim.mjs`](../../../portal/dev/authshim.mjs) —
 `harvinder` / `Summer2026`.
 
-**You cannot reach the chat through the gate this way.** `dev/serve.mjs` answers
-only `login` and `session` locally and proxies everything else to the live
-deployment, which refuses a dev token — so `verifySession` signs you straight
-back out. Set the token by hand in the console instead:
+### Two traps, each of which fails quietly
 
-```js
-TOKEN = 'paste a token from dev/serve.mjs login';
-document.getElementById('gate').hidden = true;
-document.getElementById('aura').hidden = false;
-document.body.classList.add('chat');
-auraPaint();
-```
-
-### Three traps, each of which fails quietly
-
-1. **The service worker caches `index.html`.** Change `AURA_BASE` or `AK_EXEC`
-   and the old value survives a reload, so the chat talks to a port nothing is
-   listening on. Clear it and reload twice:
-
-   ```js
-   navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister()))
-   ```
-
-2. **A stale server holds the port and the new one dies into a log nobody
-   reads.** `EADDRINUSE` from a backgrounded `build.mjs --serve` looks exactly
-   like everything working, because the old server is still answering.
+1. **A stale server holds the port and the new one dies into a log nobody
+   reads.** `EADDRINUSE` from a backgrounded `serve.mjs` looks exactly like
+   everything working, because the old server is still answering.
 
    ```bash
-   lsof -nP -iTCP:4600 -sTCP:LISTEN
+   lsof -nP -iTCP:4599 -sTCP:LISTEN
    ```
 
-3. **An old `uvicorn` on :8000 serves the routes it had when it started.** A
+2. **An old `uvicorn` on :8000 serves the routes it had when it started.** A
    route added since is a 404 that reads like a client bug. Same check, port
    8000.
 
@@ -330,8 +302,8 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 1. Set `TOKEN_SECRET` and `EXEC_URL` in Railway's variables. The service starts
    without them and then refuses every request — `/doctor` names which is
    missing, `/health` deliberately does not.
-1b. Set `ALLOWED_ORIGINS` to the PWA's origin. Without it the chat screen fails
-   in the browser with a CORS error and a green `/health` — the request never
+1b. Set `ALLOWED_ORIGINS` to the admin app's origin. Without it the admin app
+   fails in the browser with a CORS error and a green `/health` — the request never
    reaches the service, so nothing here records that it happened.
 2. **Set a usage limit on day one.** Railway has no spend cap by default; this
    is a listed risk in [`architecture.md`](architecture.md) §7.
@@ -361,13 +333,8 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    Events must appear one at a time. This is why Netlify's redirect proxy was
    rejected as a way to make the service same-origin: it buffers, and long
    responses 502.
-6. Rebuild and redeploy the PWA with `AURA_BASE` pointing at the service —
-   `AURA_BASE=https://<service> node dev/deploy.mjs --prod`. Until that is set,
-   the bundle ships without the chat button by design; see
-   [`../portal.md`](../../portal.md). The Apps Script-hosted copy never gets it:
-   its pages come from a `googleusercontent.com` subdomain whose hash varies, so
-   the origin cannot be allowlisted, and Apps Script cannot stream anyway.
-7. **The admin app** (`aura-agent/ui/admin/`) is its own Netlify site: base directory
+6. **The admin app** (`aura-agent/ui/admin/`) — its deployment is parked for now.
+   When it ships, it is its own Netlify site: base directory
    `aura-agent/ui/admin`, build and publish from its `netlify.toml`, and `VITE_AURA_BASE`
    set to the service's URL. Add the site's origin to the service's
    `ALLOWED_ORIGINS`. The service URL is also in `netlify.toml`'s CSP
@@ -380,7 +347,7 @@ Railway, from the `Procfile`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 ## 4.1 Restarting, rolling back, and what a redeploy costs (AUR-91)
 
 ```bash
-railway redeploy --service aura-chat
+railway redeploy --service api
 ```
 
 A restart costs **the caches, and nothing else**. Conversations, messages and
@@ -402,15 +369,15 @@ but an older build will not re-create a table a newer one added.
 
 **Never touch the Apps Script side to fix Aura.** If the portal must be
 republished, edit the **existing** deployment. "New deployment" mints a new id
-and leaves every installed phone — and this service's `EXEC_URL` — calling an
-address that no longer answers. See [`../portal.md`](../../portal.md).
+and leaves this service's `EXEC_URL` calling an address that no longer
+answers. See [`portal.md`](../../portal.md).
 
 ---
 
 ## 4.2 Logs, errors, and where to look (AUR-20, AUR-93)
 
 Everything goes to **stdout**, which on Railway means
-`railway logs --service aura-chat`. There is no log file and no audit table:
+`railway logs --service api`. There is no log file and no audit table:
 Railway already retains and searches this, and a second write on the answer path
 would buy a retention problem of our own.
 
@@ -438,7 +405,7 @@ Every line is `TIMESTAMP LEVEL logger message`, and every logger is under `aura`
 ```
 
 `status` is one of `ok`, `error`, or **`incomplete`** — the last meaning the
-request was cancelled before the stream finished, usually a backgrounded phone.
+request was cancelled before the stream finished, usually a client that went away.
 It is written in a `finally`, so a dropped connection still leaves a line.
 
 **The question is in the line and the answer never is.** A question is
@@ -451,7 +418,7 @@ add it without moving the store first.
 Every response carries `X-Request-Id`, and it is the first thing to ask for.
 
 ```bash
-railway logs --service aura-chat | grep 37decfb14bb2
+railway logs --service api | grep 37decfb14bb2
 ```
 
 Without one, `grep aura.audit | grep '"user":"priya"'` narrows it to one
@@ -471,7 +438,7 @@ Common lines and what they mean:
 Pulling a day down for analysis:
 
 ```bash
-railway logs --service aura-chat | grep 'aura.audit' | sed 's/.*aura.audit //' > audit-$(date +%F).jsonl
+railway logs --service api | grep 'aura.audit' | sed 's/.*aura.audit //' > audit-$(date +%F).jsonl
 ```
 
 ---

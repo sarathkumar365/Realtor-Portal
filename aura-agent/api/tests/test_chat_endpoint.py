@@ -1,4 +1,4 @@
-"""The SSE contract the PWA will consume."""
+"""The SSE contract a chat client consumes."""
 
 import json
 

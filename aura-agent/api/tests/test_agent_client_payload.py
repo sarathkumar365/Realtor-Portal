@@ -51,8 +51,9 @@ def test_model_payload_omits_an_empty_website():
 
 
 def test_field_names_are_the_portals_not_the_domains():
-    """projectCard() in the PWA renders a city-screen row and a chat result with
-    the same code. Rename a key here and one of the two silently loses a field."""
+    """The keys are the portal's, so a client can render a chat result with the
+    same card it uses for a project list. Rename a key here and the card silently
+    loses a field."""
     for key in ("name", "city", "builder", "status", "broker_url", "drive_url", "website_url"):
         assert key in _for_client(FULL)
     assert "property_type" not in _for_client(FULL)  # the portal calls it `type`

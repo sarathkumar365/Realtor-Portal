@@ -13,6 +13,34 @@ formatting.
 
 ---
 
+## 2026-10-14 — The PWA is gone; the repo is Aura Agent only
+
+- **The realtor PWA is removed.** Nobody uses it any more. Its front end
+  (`App.html`, `Script.html`, `Styles.html`), its build and deploy scripts, its
+  Netlify config, icons and design handoff all left the repo. The old Chat and
+  Reports screens went with it, so Chat has no UI until the admin app gets one.
+  Chat's API and tests stay, parked.
+- **The Apps Script back end stays, moved to `aura-agent/portal/`.** The admin
+  app signs in through its `login` action, and Chat reads projects through
+  `aiindex`. Replacing it with the agent's own users and login is planned, but
+  it is an auth and schema change, and it waits until Chat is in use again.
+  Rejected: deleting the source and leaving the deployment frozen. Then nobody
+  could fix sign-in if it broke.
+- **No `clasp push` came with this.** Only the source moved, and the live
+  deployment is untouched. The source still has `doGet` rendering `App` for a
+  request with no action. That only matters on a future push, and the
+  replacement removes it anyway.
+- `dev/serve.mjs` is now an API-only stand-in, and `dev/verify.mjs` keeps only
+  the server checks. Its clasp guard now covers `aura-agent/portal/`, because
+  `.clasp.json`'s `rootDir` is relative to the folder clasp runs from.
+- `ALLOWED_ORIGINS` defaults to the admin app only (`localhost:5173`). The
+  PWA's origins are dropped.
+- The root `.gitignore` now ignores `.env` files everywhere. A stray
+  `aura-chat/.env` left by the move sat untracked and unignored, so one
+  `git add .` would have committed it.
+- Railway moved to a new account: project `aura-agent`, environment `dev` only.
+  The `production` environment was deleted unused.
+
 ## 2026-10-14 — Easier to read; Settings is one place with tabs
 
 - **Text size and contrast raised across the admin app**, after the admins found it

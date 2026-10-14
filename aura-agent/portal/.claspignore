@@ -1,0 +1,17 @@
+# What `clasp push` must never upload to the Apps Script project. Run clasp from
+# this folder: .clasp.json's rootDir "" means this folder, not the repo root.
+#
+# skipSubdirectories is false, so every .js/.gs/.html/.json below this folder is
+# a candidate. dev/ holds Node code (fs, vm, http); in the server's global scope
+# it would throw and 500 every request.
+#
+# clasp replaces its built-in defaults once this file exists, so they are
+# re-listed here rather than assumed.
+**/node_modules/**
+**/.git/**
+dev/**
+package.json
+package-lock.json
+# Markdown cannot be pushed at all -- .clasp.json declares only .js/.gs, .html
+# and .json as push candidates -- so this glob is belt-and-braces.
+*.md

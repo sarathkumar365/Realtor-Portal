@@ -1,7 +1,6 @@
 """HTTP client for the Apps Script web app -- Aura Chat's data plane.
 
-Every call is a POST with a text/plain body, exactly as the PWA does it:
-that is a CORS "simple request" (Apps Script cannot answer a preflight), and
+Every call is a POST with a text/plain body: that is a CORS "simple request" (Apps Script cannot answer a preflight), and
 it keeps the session token out of query strings, where it would land in the
 execution log, browser history and the Referer of any outbound link.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check this machine, then run Aura Agent locally in one terminal:
-#   portal stand-in  :4599  dev/serve.mjs, the portal's API with a test sign-in
+#   portal stand-in  :4599  portal/dev/serve.mjs, the portal's API with a test sign-in
 #   api              :8001  FastAPI, reloads on save
 #   admin app        :5173  Vite
 # Ctrl-C stops all three. The first failed check stops the script and says how
@@ -16,7 +16,6 @@
 set -euo pipefail
 
 AGENT="$(cd "$(dirname "$0")/.." && pwd)"
-REPO="$(cd "$AGENT/.." && pwd)"
 DATABASE="${AURA_DEV_DATABASE:-aura_chat_dev}"
 PORTAL_PORT=4599
 API_PORT=8001
@@ -105,11 +104,11 @@ in_dir() {
 
 echo
 echo "Starting (worker: $WORKER)"
-run portal in_dir "$REPO" node dev/serve.mjs
+run portal in_dir "$AGENT/portal" node dev/serve.mjs
 run api in_dir "$AGENT/api" env \
   TOKEN_SECRET=dev-token-secret-not-a-real-key \
   EXEC_URL="http://localhost:$PORTAL_PORT/api" \
-  ALLOWED_ORIGINS="http://localhost:$UI_PORT,http://localhost:4600" \
+  ALLOWED_ORIGINS="http://localhost:$UI_PORT" \
   DATABASE_URL="postgresql://$USER@localhost/$DATABASE" \
   UNBRANDER_ENABLED="$WORKER" \
   .venv/bin/uvicorn app.main:app --port "$API_PORT" --reload
@@ -122,7 +121,7 @@ for _ in $(seq 1 40); do
 done
 if curl -fsS -o /dev/null -m 2 "http://localhost:$API_PORT/health" 2>/dev/null; then
   echo
-  echo "Ready: http://localhost:$UI_PORT  (sign in: user admin, passcode ADMIN_PASSCODE in dev/authshim.mjs)"
+  echo "Ready: http://localhost:$UI_PORT  (sign in: user admin, passcode ADMIN_PASSCODE in portal/dev/authshim.mjs)"
   [ "$OPEN" = false ] || open "http://localhost:$UI_PORT" 2>/dev/null || true
 else
   echo "the api did not answer /health within 20s: read the [api] lines above"

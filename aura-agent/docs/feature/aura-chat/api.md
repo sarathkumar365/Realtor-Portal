@@ -37,7 +37,7 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `POST` | `/admin/unbrander/mark-preview` | bearer, **admin** | A brand's mark as a JPEG, before saving |
 
 Every bearer route takes `Authorization: Bearer <portal session token>` — the
-same token the PWA already holds. There is no second credential and no service
+token the portal's `login` action mints. There is no second credential and no service
 account ([invariants.md](invariants.md) 2).
 
 Every response carries **`X-Request-Id`**, a twelve-character id that also
@@ -99,8 +99,8 @@ answer to "I edited the sheet, why is Aura still saying the old thing?"
 
 → `200 {"user": "harvinder", "role": "realtor", "admin": false}`
 
-The PWA calls this at sign-in to decide whether to draw the Reports row. It is a
-courtesy, not a gate — `/feedback` checks the same claim itself.
+The admin app calls this at sign-in and keeps the token only when it says
+`admin`. It is a courtesy, not a gate — `/feedback` checks the same claim itself.
 
 ### `POST /chat`
 
@@ -125,7 +125,7 @@ courtesy, not a gate — `/feedback` checks the same claim itself.
 | `done` | `usage` | Finished, with token counts |
 | `error` | `detail` | Failed. Terminal. |
 
-A stream can end **without** a terminator — a backgrounded phone, a proxy
+A stream can end **without** a terminator — a backgrounded browser tab, a proxy
 timeout, a recycled container. A client that treats that as success leaves a
 caret blinking under half an answer; treat a missing `done`/`error` as failure.
 

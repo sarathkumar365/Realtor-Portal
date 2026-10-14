@@ -308,3 +308,36 @@ def test_a_second_file_request_is_refused_and_logged_once(app, unbrander):
     assert post(app, f"{job_id}/file").status_code == 202
     assert post(app, f"{job_id}/file").status_code == 409
     assert [e.action for e in unbrander.jobs.event_log].count("file") == 1
+
+
+def test_the_summary_counts_jobs_since_the_start_the_client_gives(app, unbrander):
+    upload(app, [("prices.pdf", pdf())])
+    with TestClient(app) as client:
+        now = client.get("/admin/unbrander/summary", headers=AUTH,
+                         params={"since": "2026-10-01T00:00:00-04:00"})
+        later = client.get("/admin/unbrander/summary", headers=AUTH,
+                           params={"since": "2099-01-01T00:00:00Z"})
+        unbrander.auth = FakeAuthVerifier()
+        realtor = client.get("/admin/unbrander/summary", headers=AUTH)
+    assert now.json() == {"to_review": 0, "working": 1, "jobs_since": 1, "pages_cleaned_since": 0}
+    assert later.json()["jobs_since"] == 0 and later.json()["working"] == 1
+    assert realtor.status_code == 403
+
+
+def test_the_summary_without_a_database_is_unavailable(app, unbrander):
+    unbrander.jobs = None
+    with TestClient(app) as client:
+        assert client.get("/admin/unbrander/summary", headers=AUTH).status_code == 503
+
+
+def test_jobs_are_listed_by_several_statuses_with_their_documents_when_asked(app, unbrander):
+    first = upload(app, [("prices.pdf", pdf())]).json()["job_id"]
+    second = upload(app, [("plans.pdf", pdf(3))]).json()["job_id"]
+    unbrander.jobs.jobs[second].status = JobStatus.UNBRANDED
+    with TestClient(app) as client:
+        both = client.get("/admin/unbrander/jobs", headers=AUTH,
+                          params={"status": ["RECEIVED", "UNBRANDED"], "documents": "true"}).json()
+        ready = client.get("/admin/unbrander/jobs", headers=AUTH, params={"status": "UNBRANDED"}).json()
+    assert [job["id"] for job in both["jobs"]] == [second, first]
+    assert [d["page_count"] for d in both["documents"][second]] == [3]
+    assert [job["id"] for job in ready["jobs"]] == [second] and ready["documents"] is None

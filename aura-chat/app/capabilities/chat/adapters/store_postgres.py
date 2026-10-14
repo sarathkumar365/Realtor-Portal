@@ -3,6 +3,7 @@
 import asyncio
 import json
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import asyncpg
@@ -155,6 +156,12 @@ class PostgresConversationStore:
             entry.get("category"),
             entry.get("note", ""),
             json.dumps(entry.get("project_ids") or []),
+        )
+
+    async def active_users(self, *, since: datetime) -> int:
+        pool = await self._ready()
+        return await pool.fetchval(
+            "SELECT count(DISTINCT user_id) FROM ai_conversations WHERE updated_at >= $1", since
         )
 
     async def list_feedback(self, *, limit: int = 100) -> list[dict]:

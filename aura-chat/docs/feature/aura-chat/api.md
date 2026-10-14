@@ -23,6 +23,7 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `GET` | `/feedback.csv` | bearer, **admin** | The same queue as a spreadsheet |
 | `GET` | `/conversations` | bearer | This realtor's threads |
 | `GET` | `/conversations/{id}` | bearer | One thread |
+| `GET` | `/admin/chat/summary` | bearer, **admin** | How many people used Chat in the last 30 days |
 | `GET` · `PUT` | `/admin/organization` | bearer, **admin** | The organization profile |
 | `POST` | `/admin/unbrander/jobs` | bearer, **admin** | Upload a project's PDFs |
 | `GET` | `/admin/unbrander/jobs` | bearer, **admin** | Jobs, newest first |
@@ -31,6 +32,7 @@ URL in production. Getting `$TOK`: [operations.md §1](operations.md).
 | `GET` | `/admin/unbrander/jobs/{id}/documents/{position}/output.pdf` | bearer, **admin** | The cleaned PDF |
 | `GET` | `/admin/unbrander/limits` | bearer, **admin** | Upload limits (files, MB per file, pages) and `can_file`: Drive set up and the worker on |
 | `POST` | `/admin/unbrander/jobs/{id}/file` | bearer, **admin** | File an unbranded job in Drive |
+| `GET` | `/admin/unbrander/summary` | bearer, **admin** | Jobs waiting and running, and jobs and cleaned pages since a date |
 | `POST` | `/admin/unbrander/mark-preview` | bearer, **admin** | A brand's mark as a JPEG, before saving |
 
 Every bearer route takes `Authorization: Bearer <portal session token>` — the
@@ -186,6 +188,13 @@ existed. Telling those apart is itself a disclosure (AUR-40).
 `503` — with the same sentence whether the store is unconfigured or unreachable
 — means history is gone, not that chat is. Asking still works.
 
+### `GET /admin/chat/summary` — admin only
+
+→ `200 {"active_users", "days"}`: the number of distinct people with a
+conversation written to in the last `days` (30). It counts everyone, which is
+why it is admin only; `403` for anyone else, `503` without the store. The admin
+app's Home shows it on the Chat card.
+
 ### `GET /admin/organization` · `PUT /admin/organization` — admin only
 
 The profile in use: `{"name", "short_name", "assistant_name", "region", "brand":
@@ -220,9 +229,13 @@ curl -H "Authorization: Bearer $ADMIN_TOK" \
   localhost:8000/admin/unbrander/jobs
 ```
 
-### `GET /admin/unbrander/jobs?status=&limit=50` · `GET /admin/unbrander/jobs/{id}` — admin only
+### `GET /admin/unbrander/jobs?status=&limit=50&documents=false` · `GET /admin/unbrander/jobs/{id}` — admin only
 
-The list is newest first, without documents or the profile copy. One job comes
+The list is newest first, without the profile copy. `status` may repeat
+(`?status=RECEIVED&status=UNBRANDING`) to list any of several; none lists every
+status. With `documents=true` the response also carries `documents`, each
+listed job's documents by job id, so a screen of job cards needs one request,
+not one per job; otherwise `documents` is `null`. One job comes
 with `documents` (status, `doc_type`, `dropped_pages`, `page_map`,
 `removed_items`, `findings`, `rounds`, `usage`, `cost_usd`, `drive_file_id`) and
 `events`, its audit log, oldest first. `page_map` pairs each source page with
@@ -264,6 +277,16 @@ Body: a `Brand` (the `brand` of the organization profile). Returns the bottom of
 a blank Letter page with the mark at the bottom right, drawn by the same code
 that marks every cleaned PDF. 422 with field errors for an invalid brand. Needs
 no database.
+
+### `GET /admin/unbrander/summary?since=` — admin only
+
+→ `200 {"to_review", "working", "jobs_since", "pages_cleaned_since"}`.
+`to_review` is UNBRANDED jobs; `working` is RECEIVED, UNBRANDING and FILING.
+`jobs_since` and `pages_cleaned_since` cover jobs uploaded since `since`; a page
+counts when its document passed (VERIFIED or FILED) and the page was kept.
+`since` is an ISO time, sent by the client because "this month" is the
+brokerage's month in Toronto time; without one, the start of the current month
+in UTC. A time with no zone is read as UTC. `503` without a database.
 
 `/doctor` reports three Unbrander checks: `ocr`, `job_store` and
 `unbrander_worker`. They are critical only while the worker runs.

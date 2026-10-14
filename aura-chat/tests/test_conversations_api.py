@@ -5,8 +5,11 @@ capability: it appears in a URL, it will end up in a log and a browser history,
 and it must open nothing on its own.
 """
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi.testclient import TestClient
 
+from app.domain import Claims, Role
 from tests.fakes import FakeConversationStore, FakeProjectRepo, make_token
 
 MINE = make_token("sarath")
@@ -312,3 +315,18 @@ def test_a_failed_question_write_still_leaves_the_answer_in_the_thread(app):
     assert cid is not None, "the client must still learn the conversation it is in"
     rows = _run(store.history(conversation_id=cid, user="sarath"))
     assert [m["role"] for m in rows] == ["assistant"], "the answer still lands"
+
+
+
+async def test_an_admin_sees_how_many_people_used_chat_lately(app):
+    store = wire(app)
+    for user in ("sarath", "sarath", "priya"):
+        await store.create(user=user, title="t")
+    stale = await store.create(user="old", title="t")
+    store.active_at[stale] = datetime.now(UTC) - timedelta(days=31)
+    with TestClient(app) as client:
+        realtor = client.get("/admin/chat/summary", headers=auth(MINE))
+        app.state.container.auth.claims = Claims(user="admin", role=Role.ADMIN, issued_ms=0)
+        admin = client.get("/admin/chat/summary", headers=auth(MINE))
+    assert realtor.status_code == 403
+    assert admin.json() == {"active_users": 2, "days": 30}

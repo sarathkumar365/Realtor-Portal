@@ -8,20 +8,23 @@ import base64
 import hashlib
 import hmac
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Collection
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from app.capabilities.unbrander.domain import (
     ENDED,
     OCR_MODES,
+    PASSED,
+    WORKING,
     Action,
     BBox,
     Brief,
-    DrawnElement,
     DocumentStatus,
+    DrawnElement,
     Finding,
     Job,
+    JobCounts,
     JobDocument,
     JobEvent,
     JobStatus,
@@ -37,8 +40,16 @@ from app.capabilities.unbrander.domain import (
 )
 from app.capabilities.unbrander.ports import DriveWriteFailed
 from app.domain import (
-    Brand, Claims, ChatMode, InventorySummary, Organization, Project, ProjectFilters, Role,
-    SearchPage, Tally,
+    Brand,
+    ChatMode,
+    Claims,
+    InventorySummary,
+    Organization,
+    Project,
+    ProjectFilters,
+    Role,
+    SearchPage,
+    Tally,
 )
 
 TEST_SECRET = "test-secret-not-a-real-key"
@@ -129,6 +140,7 @@ class FakeConversationStore:
         self.owner: dict[str, str] = {}
         self.heads: dict[str, dict] = {}
         self.feedback: list[dict] = []
+        self.active_at: dict[str, datetime] = {}  # conversation id -> last write
         self.up = True                       # flip to make every call raise
 
     def _live(self) -> None:
@@ -141,11 +153,13 @@ class FakeConversationStore:
         self.rows[cid] = []
         self.owner[cid] = user
         self.heads[cid] = {"id": cid, "title": title, "mode": mode, "updated_at": f"t{len(self.rows)}"}
+        self.active_at[cid] = datetime.now(UTC)
         return cid
 
     async def append(self, *, conversation_id, role, message, sources=None) -> str:
         self._live()
         mid = f"m{len(self.rows.setdefault(conversation_id, [])) + 1}"
+        self.active_at[conversation_id] = datetime.now(UTC)
         self.rows[conversation_id].append(
             # id and created_at because the real one returns them: a reopened
             # answer with no id gets no feedback buttons, and a fake that hides
@@ -190,6 +204,10 @@ class FakeConversationStore:
     async def list_feedback(self, *, limit: int = 100) -> list[dict]:
         self._live()
         return self.feedback[-limit:]
+
+    async def active_users(self, *, since: datetime) -> int:
+        self._live()
+        return len({self.owner[cid] for cid, at in self.active_at.items() if at >= since})
 
     async def healthy(self) -> bool:
         return self.up
@@ -424,10 +442,12 @@ class FakeJobStore:
         job = self.jobs.get(job_id)
         return job.model_copy(deep=True) if job else None
 
-    async def recent(self, *, status: JobStatus | None = None, limit: int = 50) -> list[Job]:
+    async def recent(self, *, statuses: Collection[JobStatus] = (), limit: int = 50,
+                     documents: bool = False) -> list[Job]:
         self._live()
-        jobs = [job for job in reversed(self.jobs.values()) if status is None or job.status is status]
-        return [job.model_copy(update={"documents": []}) for job in jobs[:limit]]
+        jobs = [job for job in reversed(self.jobs.values()) if not statuses or job.status in statuses]
+        return [job.model_copy(deep=True) if documents else job.model_copy(update={"documents": []})
+                for job in jobs[:limit]]
 
     async def set_status(self, job_id: str, status: JobStatus, *, error: str | None = None) -> None:
         self._live()
@@ -466,6 +486,18 @@ class FakeJobStore:
         self._live()
         return sum(1 for job in self.jobs.values() for document in job.documents
                    if document.started_at and document.started_at >= since)
+
+    async def counts(self, since: datetime) -> JobCounts:
+        self._live()
+        recent = [job for job in self.jobs.values() if job.created_at >= since]
+        return JobCounts(
+            to_review=sum(1 for job in self.jobs.values() if job.status is JobStatus.UNBRANDED),
+            working=sum(1 for job in self.jobs.values() if job.status in WORKING),
+            jobs_since=len(recent),
+            pages_cleaned_since=sum(document.page_count - len(document.dropped_pages)
+                                    for job in recent for document in job.documents
+                                    if document.status in PASSED),
+        )
 
     async def ended_before(self, before: datetime) -> list[str]:
         self._live()

@@ -3,14 +3,24 @@
 import asyncio
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Collection
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
 import asyncpg
 
-from ..domain import ENDED, Job, JobDocument, JobEvent, JobStatus, NewJob
+from ..domain import (
+    ENDED,
+    PASSED,
+    WORKING,
+    Job,
+    JobCounts,
+    JobDocument,
+    JobEvent,
+    JobStatus,
+    NewJob,
+)
 
 SCHEMA = Path(__file__).with_name("schema.sql")
 
@@ -96,14 +106,24 @@ class PostgresJobStore:
         )
         return _job(row, [_document(document) for document in documents])
 
-    async def recent(self, *, status: JobStatus | None = None, limit: int = 50) -> list[Job]:
+    async def recent(self, *, statuses: Collection[JobStatus] = (), limit: int = 50,
+                     documents: bool = False) -> list[Job]:
         pool = await self._ready()
         rows = await pool.fetch(
-            f"SELECT {JOB_COLUMNS} FROM unbrander_jobs WHERE $1::text IS NULL OR status = $1"
+            f"SELECT {JOB_COLUMNS} FROM unbrander_jobs"
+            " WHERE cardinality($1::text[]) = 0 OR status = ANY($1::text[])"
             " ORDER BY created_at DESC LIMIT $2",
-            status.value if status else None, min(limit, 200),
+            [status.value for status in statuses], min(limit, 200),
         )
-        return [_job(row, []) for row in rows]
+        by_job: dict[str, list[JobDocument]] = {row["id"]: [] for row in rows}
+        if documents and by_job:
+            # One query for every job's documents, not one per job.
+            for document in await pool.fetch(
+                f"SELECT {DOCUMENT_COLUMNS} FROM unbrander_documents WHERE job_id = ANY($1::text[])"
+                " ORDER BY job_id, position", list(by_job),
+            ):
+                by_job[document["job_id"]].append(_document(document))
+        return [_job(row, by_job[row["id"]]) for row in rows]
 
     async def set_status(self, job_id: str, status: JobStatus, *, error: str | None = None) -> None:
         pool = await self._ready()
@@ -169,6 +189,21 @@ class PostgresJobStore:
         return await pool.fetchval(
             "SELECT count(*) FROM unbrander_documents WHERE started_at >= $1", since
         )
+
+    async def counts(self, since: datetime) -> JobCounts:
+        pool = await self._ready()
+        row = await pool.fetchrow(
+            "SELECT"
+            " (SELECT count(*) FROM unbrander_jobs WHERE status = $1) AS to_review,"
+            " (SELECT count(*) FROM unbrander_jobs WHERE status = ANY($2::text[])) AS working,"
+            " (SELECT count(*) FROM unbrander_jobs WHERE created_at >= $3) AS jobs_since,"
+            " (SELECT coalesce(sum(d.page_count - jsonb_array_length(d.dropped_pages)), 0)"
+            "    FROM unbrander_documents d JOIN unbrander_jobs j ON j.id = d.job_id"
+            "    WHERE j.created_at >= $3 AND d.status = ANY($4::text[])) AS pages_cleaned_since",
+            JobStatus.UNBRANDED.value, [status.value for status in WORKING], since,
+            [status.value for status in PASSED],
+        )
+        return JobCounts(**dict(row))
 
     async def ended_before(self, before: datetime) -> list[str]:
         pool = await self._ready()

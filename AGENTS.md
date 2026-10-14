@@ -34,7 +34,8 @@ a scoped Google credential after an admin approves (invariant 2).
 `aura-chat/` is the product. `aura-agent-ui/` is its admin app — a separate
 React app on Netlify where admins upload and review Unbrander jobs and edit the
 organization profile; before building UI there, read its
-[AGENTS.md](aura-agent-ui/AGENTS.md) and [COMPONENTS.md](aura-agent-ui/COMPONENTS.md).
+[AGENTS.md](aura-agent-ui/AGENTS.md), [DESIGN.md](aura-agent-ui/DESIGN.md) and
+[COMPONENTS.md](aura-agent-ui/COMPONENTS.md).
 Everything else in the repo root is the portal Aura Agent reads from — see §6.
 Design docs for each capability live in `aura-chat/docs/feature/<Name>/`.
 

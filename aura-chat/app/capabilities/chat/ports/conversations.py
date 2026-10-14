@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 
@@ -39,5 +40,10 @@ class ConversationStore(Protocol):
     async def record_feedback(self, *, user: str, entry: dict) -> None: ...
 
     async def list_feedback(self, *, limit: int = 100) -> list[dict]: ...
+
+    async def active_users(self, *, since: datetime) -> int:
+        """How many people held a conversation since `since`. Like list_feedback,
+        not filtered by user: only an admin's route may ask."""
+        ...
 
     async def healthy(self) -> bool: ...

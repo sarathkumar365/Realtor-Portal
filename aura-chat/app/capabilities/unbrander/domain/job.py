@@ -37,6 +37,10 @@ class JobStatus(StrEnum):
 ENDED = frozenset({JobStatus.UNBRANDED, JobStatus.FILED_PRIVATE, JobStatus.FAILED})
 
 
+# What the home screen counts as running.
+WORKING = frozenset({JobStatus.RECEIVED, JobStatus.UNBRANDING, JobStatus.FILING})
+
+
 class DocumentStatus(StrEnum):
     PENDING = "PENDING"
     UNBRANDING = "UNBRANDING"
@@ -44,6 +48,10 @@ class DocumentStatus(StrEnum):
     BLOCKED = "BLOCKED"    # failed verify(); kept on the volume for the approver, never filed
     FILED = "FILED"
     FAILED = "FAILED"
+
+
+# A document that came through clean, whether or not it was filed.
+PASSED = frozenset({DocumentStatus.VERIFIED, DocumentStatus.FILED})
 
 
 class NewDocument(BaseModel):
@@ -123,6 +131,15 @@ class Job(JobSummary):
     @property
     def hits(self) -> HitList:
         return HitList(builder=self.builder, project=self.project, short_forms=self.short_forms)
+
+
+class JobCounts(BaseModel):
+    """What an admin's home screen shows: what waits, what runs, what got done."""
+
+    to_review: int  # UNBRANDED: cleaned, waiting for an admin
+    working: int  # RECEIVED, UNBRANDING or FILING
+    jobs_since: int  # jobs uploaded since the start of the period
+    pages_cleaned_since: int  # kept pages of documents that passed, from those jobs
 
 
 class JobEvent(BaseModel):

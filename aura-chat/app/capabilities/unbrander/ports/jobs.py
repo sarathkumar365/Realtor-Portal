@@ -1,8 +1,9 @@
+from collections.abc import Collection
 from contextlib import AbstractAsyncContextManager
 from datetime import datetime
 from typing import Protocol
 
-from ..domain import Job, JobDocument, JobEvent, JobStatus, NewJob
+from ..domain import Job, JobCounts, JobDocument, JobEvent, JobStatus, NewJob
 
 
 class JobStore(Protocol):
@@ -20,8 +21,10 @@ class JobStore(Protocol):
         """The job with its documents, in upload order."""
         ...
 
-    async def recent(self, *, status: JobStatus | None = None, limit: int = 50) -> list[Job]:
-        """Newest first, without documents."""
+    async def recent(self, *, statuses: Collection[JobStatus] = (), limit: int = 50,
+                     documents: bool = False) -> list[Job]:
+        """Newest first, in any of `statuses` (every status when empty). Documents
+        only when asked for: a list screen usually needs none."""
         ...
 
     async def set_status(self, job_id: str, status: JobStatus, *, error: str | None = None) -> None:
@@ -46,6 +49,10 @@ class JobStore(Protocol):
         ...
 
     async def documents_started_since(self, since: datetime) -> int: ...
+
+    async def counts(self, since: datetime) -> JobCounts:
+        """Jobs waiting and running now, and what was uploaded and cleaned since `since`."""
+        ...
 
     async def ended_before(self, before: datetime) -> list[str]:
         """Ids of jobs that ended before `before`: their files may be evicted."""

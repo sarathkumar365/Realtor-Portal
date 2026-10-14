@@ -11,9 +11,20 @@ import hashlib
 import json
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from pydantic import BaseModel, ValidationError
 
 from app.api import container, current_claims
@@ -21,6 +32,7 @@ from app.domain import Brand, Claims
 
 from .domain import (
     Job,
+    JobCounts,
     JobDocument,
     JobEvent,
     JobStatus,
@@ -66,6 +78,9 @@ class UploadLimits(BaseModel):
 
 class JobList(BaseModel):
     jobs: list[JobSummary]
+    # Each job's documents by job id, when asked for with documents=true: what a
+    # card needs (pages, changes) in one request instead of one per job.
+    documents: dict[str, list[JobDocument]] | None = None
 
 
 def _require_admin(claims: Claims) -> None:
@@ -91,6 +106,27 @@ async def upload_limits(request: Request, claims: Claims = Depends(current_claim
     return UploadLimits(max_files=MAX_FILES, max_file_mb=settings.unbrander_max_file_mb,
                         max_pages=settings.unbrander_max_pages,
                         can_file=_filing_problem(services) is None)
+
+
+def _since(since: datetime | None) -> datetime:
+    """The start of the period a count covers. The client sends it because the
+    period is the brokerage's month, in its own time zone; without one, the
+    current month in UTC."""
+    if since is None:
+        return datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return since if since.tzinfo else since.replace(tzinfo=UTC)
+
+
+@router.get("/summary")
+async def summary(request: Request, since: datetime | None = None,
+                  claims: Claims = Depends(current_claims)) -> JobCounts:
+    """Jobs waiting for review and running now, and jobs and cleaned pages since
+    `since`. Admin only."""
+    _require_admin(claims)
+    jobs = container(request).jobs
+    if jobs is None:
+        raise HTTPException(status_code=503, detail=UNAVAILABLE)
+    return await jobs.counts(_since(since))
 
 
 @router.post("/jobs", status_code=202)
@@ -213,13 +249,16 @@ async def file_job(job_id: str, request: Request,
 
 
 @router.get("/jobs")
-async def list_jobs(request: Request, status: JobStatus | None = None, limit: int = 50,
-                    claims: Claims = Depends(current_claims)) -> JobList:
-    """Jobs, newest first, without documents. Admin only."""
+async def list_jobs(request: Request, status: list[JobStatus] = Query(default=[]), limit: int = 50,
+                    documents: bool = False, claims: Claims = Depends(current_claims)) -> JobList:
+    """Jobs, newest first, in any of the given statuses (repeat `status`), without
+    documents unless `documents=true`. Admin only."""
     services = _admin(request, claims)
-    jobs = await services.jobs.recent(status=status, limit=min(max(limit, 1), 200))
+    jobs = await services.jobs.recent(statuses=status, limit=min(max(limit, 1), 200),
+                                      documents=documents)
     return JobList(jobs=[JobSummary(**job.model_dump(include=set(JobSummary.model_fields)))
-                         for job in jobs])
+                         for job in jobs],
+                   documents={job.id: job.documents for job in jobs} if documents else None)
 
 
 @router.get("/jobs/{job_id}/documents/{position}/pages/{page}.jpg",

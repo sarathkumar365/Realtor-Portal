@@ -13,6 +13,57 @@ formatting.
 
 ---
 
+## 2026-10-14 — The jobs list asks by status, and can bring documents
+
+The redesigned Unbranding page first loaded the 50 newest jobs and split them into
+review, working and done in the browser. A job waiting for review behind 50 newer ones
+then never showed, and each card fetched its own job to count pages and changes. The
+list now takes several statuses (`status` repeated) and, with `documents=true`, each
+job's documents in the same response from one extra query. The page asks three times
+— waiting for review, working, done — so each section is capped on its own, not by the
+others. Done is still the newest 50; older finished jobs are not listed.
+
+---
+
+## 2026-10-14 — Home's counts: one summary per capability, the client names the month
+
+The admin Home needs a few numbers from both capabilities. One `/admin/summary` in the
+platform would have had to import both capabilities, which the layering rules forbid,
+so each capability answers for itself: `/admin/unbrander/summary` and
+`/admin/chat/summary`. They are new methods on the existing `JobStore` and
+`ConversationStore` ports, not new ports, and they need no schema change.
+
+"This month" is the brokerage's month in Toronto time. The service has no `tzdata`
+package and the Railway image's zone files were not checked, so rather than add a
+dependency the client sends `since`; the browser already formats every time in
+America/Toronto. Without `since` the count falls back to the UTC month, which is off by
+at most five hours at a month's edge.
+
+"People using Chat" counts distinct users whose conversation was written to in 30
+days, admins included. It is a rough signal of use, not a seat count.
+
+---
+
+## 2026-10-14 — Admin app gets a design language (DESIGN.md)
+
+The first admin app worked but read as generic: coloured status pills, cards
+everywhere, a dark sidebar holding two links, and the before/after pages buried
+under log lines. A first redesign mockup (light, blue and green status colours,
+rounded cards) was rejected for looking machine-made. The agreed direction takes
+its ideas from the Entertainer project's UI: monochrome, mono uppercase labels,
+hairlines instead of shadows, and a single accent with a single job. Here the
+accent is the brand gold, and its job is marking what the agent changed and is
+waiting for an admin to check. If gold starts appearing on buttons or links, it
+stops meaning anything.
+
+The rules are in `aura-agent-ui/DESIGN.md` so the next screen does not drift back
+to defaults. Two decisions behind the screens: the review viewer lists changes per
+page instead of drawing boxes, because the worker does not save the area of each
+removal yet; and Home's numbers come from small summary endpoints rather than
+counting in the browser, because `GET /jobs` caps at 200 rows.
+
+---
+
 ## 2026-10-13 — Uploads up to 150 MB; the app reads the limit from the server
 
 50 MB refused real builder brochures, which pass 100 MB on photos alone. The default is

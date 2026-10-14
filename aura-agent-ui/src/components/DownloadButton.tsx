@@ -24,7 +24,7 @@ export function DownloadButton({ onDownload, label = "Download", size = "sm" }: 
     }
   }
   return (
-    <Button variant="secondary" size={size} onClick={run} disabled={pending}>
+    <Button variant="quiet" size={size} onClick={run} disabled={pending}>
       {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
       {pending ? "Downloading" : label}
     </Button>

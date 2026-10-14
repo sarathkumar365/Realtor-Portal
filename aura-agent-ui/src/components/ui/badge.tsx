@@ -3,18 +3,23 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/cn";
 
-const badgeVariants = cva("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", {
-  variants: {
-    tone: {
-      neutral: "bg-rule text-foreground",
-      info: "bg-primary/10 text-primary",
-      success: "bg-success/10 text-success",
-      warning: "bg-warning/10 text-warning",
-      danger: "bg-danger/10 text-danger",
+// Outlined and monochrome: a job's state is shown by StatusMark, so a badge only
+// carries side notes such as "Test" or "Open for more than a day".
+const badgeVariants = cva(
+  "inline-flex items-center gap-1 rounded-full border border-line px-2 py-px text-[10.5px] whitespace-nowrap",
+  {
+    variants: {
+      tone: {
+        neutral: "text-fg-2",
+        info: "text-fg-2",
+        success: "text-fg-2",
+        warning: "text-foreground",
+        danger: "border-danger/40 text-danger",
+      },
     },
+    defaultVariants: { tone: "neutral" },
   },
-  defaultVariants: { tone: "neutral" },
-});
+);
 
 export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
 

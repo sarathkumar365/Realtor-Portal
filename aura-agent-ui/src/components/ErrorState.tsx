@@ -13,12 +13,12 @@ export function ErrorState({ error, onRetry, title = "Could not load this" }: {
   const message = error instanceof ApiError ? error.message : DEFAULT_MESSAGE.server;
   const Icon = offline ? WifiOff : AlertTriangle;
   return (
-    <div role="alert" className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-8 text-center">
+    <div role="alert" className="flex flex-col items-center gap-3 rounded-[10px] border border-line-2 bg-raise p-8 text-center">
       <Icon className="size-6 text-warning" aria-hidden />
       <p className="font-semibold">{title}</p>
-      <p className="max-w-md text-sm text-muted">{message}</p>
+      <p className="max-w-md text-fg-2">{message}</p>
       {onRetry && (
-        <Button variant="secondary" onClick={onRetry}>
+        <Button variant="quiet" onClick={onRetry}>
           Try again
         </Button>
       )}

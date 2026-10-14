@@ -17,12 +17,12 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
     <AlertDialog.Root open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-6 shadow-lg">
-          <AlertDialog.Title className="text-lg font-bold">{title}</AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-sm text-muted">{description}</AlertDialog.Description>
+        <AlertDialog.Content className="fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-[10px] border border-line bg-raise p-6">
+          <AlertDialog.Title className="text-[17px] font-semibold tracking-[-0.02em]">{title}</AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-fg-2">{description}</AlertDialog.Description>
           <div className="mt-6 flex justify-end gap-2">
             <AlertDialog.Cancel asChild>
-              <Button variant="secondary">{cancelLabel}</Button>
+              <Button variant="quiet">{cancelLabel}</Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
               <Button variant="danger" onClick={onConfirm}>{confirmLabel}</Button>

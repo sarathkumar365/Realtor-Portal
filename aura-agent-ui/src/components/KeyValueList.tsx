@@ -6,8 +6,8 @@ export function KeyValueList({ items }: { items: { label: string; value: ReactNo
     <dl className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-6 gap-y-3">
       {items.map(({ label, value }) => (
         <div key={label}>
-          <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
-          <dd className="mt-0.5 text-sm font-semibold">{value}</dd>
+          <dt className="label-caps">{label}</dt>
+          <dd className="mt-1">{value}</dd>
         </div>
       ))}
     </dl>

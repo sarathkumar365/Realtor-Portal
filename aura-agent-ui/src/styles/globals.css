@@ -1,25 +1,75 @@
 @import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "./tokens.css";
 
 @theme inline {
-  --color-background: var(--ak-paper);
-  --color-surface: #ffffff;
-  --color-foreground: var(--ak-text);
-  --color-muted: var(--ak-muted);
-  --color-placeholder: var(--ak-placeholder);
-  --color-border: var(--ak-border);
-  --color-rule: var(--ak-rule);
-  --color-primary: var(--ak-blue);
-  --color-primary-hover: var(--ak-blue-hover);
-  --color-primary-active: var(--ak-blue-active);
-  --color-primary-foreground: #ffffff;
-  --color-accent: var(--ak-gold);
-  --color-sidebar: var(--ak-ink);
-  --color-sidebar-foreground: var(--ak-paper);
-  --color-success: var(--ak-pine);
-  --color-warning: var(--ak-ochre);
+  --color-background: var(--ak-void);
+  --color-raise: var(--ak-raise);
+  --color-raise-2: var(--ak-raise-2);
+  --color-foreground: var(--ak-fg);
+  --color-fg-2: var(--ak-fg-2);
+  --color-fg-3: var(--ak-fg-3);
+  --color-line: var(--ak-line);
+  --color-line-2: var(--ak-line-2);
+  --color-gold: var(--ak-gold);
+  --color-gold-text: var(--ak-gold-text);
   --color-danger: var(--ak-danger);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Older names, kept so screens not yet redesigned still read the new palette. */
+  --color-surface: var(--ak-raise);
+  --color-muted: var(--ak-fg-2);
+  --color-placeholder: var(--ak-fg-3);
+  --color-border: var(--ak-line);
+  --color-rule: var(--ak-raise-2);
+  --color-primary: var(--ak-fg);
+  --color-primary-hover: var(--ak-fg);
+  --color-primary-active: var(--ak-fg-2);
+  --color-primary-foreground: var(--ak-void);
+  --color-accent: var(--ak-gold);
+  --color-sidebar: var(--ak-void);
+  --color-sidebar-foreground: var(--ak-fg);
+  --color-success: var(--ak-fg-2);
+  --color-warning: var(--ak-fg);
+
+  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The three type sizes in DESIGN.md: label, body (the default), reading. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ak-fg-3);
+}
+
+@utility reading {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility paper-dim {
+  opacity: var(--ak-paper-dim);
+  transition: opacity 0.4s var(--ease-spring);
 }
 
 @layer base {
@@ -30,9 +80,31 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
   :focus-visible {
-    outline: 2px solid var(--ak-blue);
-    outline-offset: 2px;
+    outline: 1px solid var(--ak-fg);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }

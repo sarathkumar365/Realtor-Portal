@@ -1,6 +1,6 @@
 import type { JobDocument } from "@/api/jobs";
 
-import { isStale, pairPages, removals, wholeFileFindings } from "./model";
+import { changeCount, changesByPage, firstKeptPage, isStale, pairPages, progress, removals, wholeFileFindings } from "./model";
 
 const document: JobDocument = {
   id: "d1", job_id: "j1", position: 1, filename: "prices.pdf", sha256: "", page_count: 3, status: "VERIFIED",
@@ -35,4 +35,24 @@ test("an open job older than a day is stale; an ended one never is", () => {
   expect(isStale("RECEIVED", "2026-10-12T11:00:00Z", now)).toBe(true);
   expect(isStale("RECEIVED", "2026-10-13T11:00:00Z", now)).toBe(false);
   expect(isStale("FAILED", "2026-10-01T11:00:00Z", now)).toBe(false);
+});
+
+test("changes count per page; names removed across the file belong to no page", () => {
+  expect(changeCount(document)).toBe(2);
+  expect([...changesByPage(document)]).toEqual([[2, 1]]);
+});
+
+test("a document is shown by its first page that survived", () => {
+  expect(firstKeptPage({ ...document, page_map: { 1: null, 2: null, 3: 1 } })).toBe(3);
+  expect(firstKeptPage({ ...document, page_map: { 1: null } , page_count: 1 })).toBe(1);
+});
+
+test("progress names the document being unbranded and counts those done", () => {
+  const job = { status: "UNBRANDING" as const, documents: [
+    { ...document, status: "VERIFIED" as const },
+    { ...document, position: 2, doc_type: "floor_plan" as const, status: "UNBRANDING" as const },
+    { ...document, position: 3, status: "PENDING" as const },
+  ] };
+  expect(progress(job)).toEqual({ stage: "Unbranding", done: 1, total: 3, current: "Document 2 of 3 · Floor plan" });
+  expect(progress({ status: "RECEIVED", documents: [{ ...document, status: "PENDING" }] }).stage).toBe("Waiting");
 });

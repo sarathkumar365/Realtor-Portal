@@ -4,18 +4,19 @@ import { ENDED, fileJob, getJob, getLimits, type JobStatus, listJobs } from "@/a
 
 export const jobKeys = {
   all: ["jobs"] as const,
-  list: (status: JobStatus | null) => ["jobs", "list", status] as const,
+  list: (statuses: JobStatus[], documents: boolean) => ["jobs", "list", statuses.join(","), documents] as const,
   one: (jobId: string) => ["jobs", "one", jobId] as const,
 };
 
 const POLL_MS = 5_000;
 const POLL_AFTER_ERROR_MS = 30_000;
 
-export function useJobs(status: JobStatus | null) {
+/** Jobs in any of `statuses`, polled: faster while they are still moving. */
+export function useJobs(statuses: JobStatus[], { documents = false, pollMs = 15_000 } = {}) {
   return useQuery({
-    queryKey: jobKeys.list(status),
-    queryFn: ({ signal }) => listJobs(status, signal),
-    refetchInterval: (query) => (query.state.status === "error" ? POLL_AFTER_ERROR_MS : 15_000),
+    queryKey: jobKeys.list(statuses, documents),
+    queryFn: ({ signal }) => listJobs(statuses, { documents }, signal),
+    refetchInterval: (query) => (query.state.status === "error" ? POLL_AFTER_ERROR_MS : pollMs),
   });
 }
 

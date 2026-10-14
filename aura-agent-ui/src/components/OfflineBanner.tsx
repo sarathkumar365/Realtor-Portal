@@ -15,7 +15,7 @@ export function OfflineBanner() {
   const online = useSyncExternalStore(subscribe, () => navigator.onLine);
   if (online) return null;
   return (
-    <div role="status" className="flex items-center justify-center gap-2 bg-warning px-4 py-2 text-sm font-semibold text-white">
+    <div role="status" className="flex items-center justify-center gap-2 border-b border-line bg-raise-2 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground">
       <WifiOff className="size-4" aria-hidden />
       You are offline. Changes will not reach Aura until you are back.
     </div>

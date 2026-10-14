@@ -2,9 +2,11 @@ import { Navigate, type RouteObject } from "react-router";
 
 import { RequireAdmin } from "@/features/auth/RequireAdmin";
 import { SignInPage } from "@/features/auth/SignInPage";
+import { HomePage } from "@/features/home/HomePage";
 import { JobDetailPage } from "@/features/jobs/JobDetailPage";
 import { JobListPage } from "@/features/jobs/JobListPage";
 import { UploadPage } from "@/features/jobs/UploadPage";
+import { MarkPage } from "@/features/organization/MarkPage";
 import { OrganizationPage } from "@/features/organization/OrganizationPage";
 
 import { AppShell } from "./layout/AppShell";
@@ -25,12 +27,13 @@ export const routes: RouteObject[] = [
       {
         errorElement: <RouteError />,
         children: [
-          { index: true, element: <Navigate to="/jobs" replace /> },
+          { index: true, element: <HomePage /> },
           { path: "/jobs", element: <JobListPage /> },
           { path: "/jobs/new", element: <UploadPage /> },
           { path: "/jobs/:jobId", element: <JobDetailPage /> },
           { path: "/organization", element: <OrganizationPage /> },
-          { path: "*", element: <Navigate to="/jobs" replace /> },
+          { path: "/organization/mark", element: <MarkPage /> },
+          { path: "*", element: <Navigate to="/" replace /> },
         ],
       },
     ],

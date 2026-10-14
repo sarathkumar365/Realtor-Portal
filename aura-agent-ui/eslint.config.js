@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 // The folder rules in AGENTS.md, enforced rather than remembered.
-const FEATURES = ["auth", "jobs", "organization"];
+const FEATURES = ["auth", "home", "jobs", "organization"];
 const NETWORK = {
   selector: "CallExpression[callee.name='fetch'], NewExpression[callee.name='XMLHttpRequest']",
   message: "Only src/api/ talks to the network. Add a function there and call it.",

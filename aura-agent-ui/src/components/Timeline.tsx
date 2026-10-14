@@ -14,11 +14,11 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
       {items.map((item) => (
         <li key={item.id} className="relative">
           <span className="absolute top-1.5 -left-[21px] size-2 rounded-full bg-primary" aria-hidden />
-          <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-semibold">{item.title}</span>
-            <span className="text-xs text-muted">{item.when}</span>
+            <span className="label-caps">{item.when}</span>
           </div>
-          {item.detail && <div className="text-sm text-muted">{item.detail}</div>}
+          {item.detail && <div className="text-[13px] text-fg-2">{item.detail}</div>}
         </li>
       ))}
     </ol>

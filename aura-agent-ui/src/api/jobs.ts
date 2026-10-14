@@ -21,9 +21,21 @@ export function getLimits(signal?: AbortSignal): Promise<UploadLimits> {
  * a person (or an agent) to ask for filing. */
 export const ENDED: ReadonlySet<JobStatus> = new Set(["UNBRANDED", "FILED_PRIVATE", "FAILED"]);
 
-export async function listJobs(status: JobStatus | null, signal?: AbortSignal): Promise<JobSummary[]> {
-  const query = status ? `?status=${status}` : "";
-  return (await request<{ jobs: JobSummary[] }>(`/admin/unbrander/jobs${query}`, { signal })).jobs;
+export interface JobListing {
+  jobs: JobSummary[];
+  /** Each job's documents by job id, when asked for. */
+  documents: Record<string, JobDocument[]>;
+}
+
+/** Newest first, in any of `statuses` (every status when empty); with
+ * `documents`, each job's documents come in the same response. */
+export async function listJobs(statuses: JobStatus[], { documents = false } = {},
+                               signal?: AbortSignal): Promise<JobListing> {
+  const query = new URLSearchParams(statuses.map((status) => ["status", status]));
+  if (documents) query.set("documents", "true");
+  const listed = await request<{ jobs: JobSummary[]; documents?: Record<string, JobDocument[]> | null }>(
+    `/admin/unbrander/jobs${query.size ? `?${query}` : ""}`, { signal });
+  return { jobs: listed.jobs, documents: listed.documents ?? {} };
 }
 
 export function getJob(jobId: string, signal?: AbortSignal): Promise<Job> {

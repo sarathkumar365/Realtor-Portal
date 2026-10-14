@@ -9,20 +9,20 @@ A test (`src/components/registry.test.ts`) fails when a file in `src/components/
 
 ## Primitives — `src/components/ui/`
 
-shadcn-style wrappers over Radix and Tailwind, themed with the brand tokens. No
+shadcn-style wrappers over Radix and Tailwind, styled per [DESIGN.md](DESIGN.md). No
 app logic. Import from `@/components/ui/<name>`.
 
 | Primitive | Use |
 |---|---|
-| `Button` | Every clickable action. `variant`: primary (default), secondary, ghost, danger. `size`: sm, md, lg, icon. `asChild` to style a link as a button. Defaults to `type="button"`; pass `type="submit"` in forms. |
+| `Button` | Every clickable action. `variant`: primary (default, solid; one per screen), quiet (outlined), bare (text only), danger (destructive confirms only). `size`: sm, md, lg, icon. `asChild` to style a link as a button. Defaults to `type="button"`; pass `type="submit"` in forms. |
 | `Input` | Single-line text. Shows the danger border when `aria-invalid` is set (FormField sets it). |
 | `Label` | A form label. Prefer `FormField`, which wires it up. |
-| `Card` | A white panel with a border: a form, a summary block. |
-| `Badge` | A short status or tag. `tone`: neutral, info, success, warning, danger. Map a domain status to a tone in the feature (see `features/jobs/model.ts`), not here. |
+| `Card` | A raised panel with a hairline border and no shadow: a form, a clickable item. |
+| `Badge` | An outlined side note ("Test", "Open for more than a day"). `tone`: neutral, info, success, warning, danger; all monochrome except danger. Not for a job's state: use `StatusMark`. |
 | `Table` (+ `TableHead`, `TableBody`, `TableRow`, `TableHeader`, `TableCell`) | A list people scan by column. Wraps itself in a scrolling bordered box. |
 | `Tabs` (+ `TabsList`, `TabsTrigger`, `TabsContent`) | Switching between views or filters of one list. Radix handles arrow keys. |
-| `Progress` | A bar for work with a known share done (an upload). Requires a `label` for screen readers. |
-| `Skeleton` | A grey placeholder where content will appear. |
+| `Progress` | A 2px meter for work with a known share done (an upload). Requires a `label` for screen readers. |
+| `Skeleton` | A placeholder where content will appear. |
 | `Textarea` | Multi-line text, styled like `Input`. |
 | `Toaster` | Mounted once in `App`. Call `toast.error(...)` / `toast.success(...)` from `sonner` for results that need no place on the page (a download failed, a profile saved). |
 
@@ -32,7 +32,9 @@ app logic. Import from `@/components/ui/<name>`.
 An image that needs the bearer token: `load(signal)` returns a `Blob` (a function
 from `api/`), `queryKey` caches it. Loads when scrolled within 400px, at most 4 at
 once across the page; skeleton, then the image, or a placeholder with Retry.
-Revokes its object URL when it goes. Use it for every image Aura serves.
+Revokes its object URL when it goes. Use it for every image Aura serves. `compact`
+for a thumbnail, often inside a link: no minimum height, and a failure is an icon
+with the reason as its tooltip, with no button.
 
 ### BrandMark
 The gold Aura Key monogram as inline SVG. Decorative (`aria-hidden`): always put
@@ -62,12 +64,6 @@ Pass the error from a query as is; it reads `ApiError.message` and shows the
 offline icon for `offline` and `timeout`. Use it for every query's error branch:
 `if (query.isError) return <ErrorState error={query.error} onRetry={query.refetch} />`.
 
-### FileDropzone
-Drop or pick files; lists them with size, a remove button, and a problem per file
-from `problems` (by index). It does not check files: the caller does (for PDFs,
-`lib/pdfCheck.ts`) and passes the problems back. Rejected drops are kept in the
-list so the caller can say why, never dropped silently.
-
 ### FormField
 A label, exactly one control and its error or hint. Gives the control its `id`,
 `aria-invalid` and `aria-describedby`. Use it for every field in every form:
@@ -84,8 +80,25 @@ button (a pending button changes its own label).
 Mounted once in the shell. Shows while the browser reports it is offline.
 
 ### PageHeader
-The title row of every screen: `title`, optional `description`, `actions` on
-the right (buttons). Every routed page starts with one.
+The title row of every screen: optional `eyebrow` (a label above the title, such as
+"Capabilities") or `trail` (the screens above this one as links, for a way back), `title`, optional `description`, `actions` on the right (buttons). Every routed page starts with one.
+
+### Readings
+A summary as numbers: `<Readings>` holding `<Reading label value unit />` cells,
+divided by 1px hairlines rather than drawn as separate cards. A number goes in
+`value` (set in mono); a `StatusMark` or a name goes in as children. `marked`
+turns the number gold: only for a count of changes waiting to be checked. Use it
+for screen summaries, run details and organization facts.
+
+### Section
+A part of a screen under a hairline: `title`, an optional `aside` on the right (a
+count or a small action), then the content. Use it instead of a card around a
+group of cards.
+
+### StatusMark
+A state as a glyph and a word. `kind`: review (gold, waiting for an admin), working
+(spinning ring), done, failed, idle, live. Map a domain status to a kind in the
+feature, not here. Gold appears only for `review`.
 
 ### Timeline
 What happened, oldest first: `items` of `{ id, when, title, detail? }`. The caller

@@ -1,22 +1,25 @@
 import { type DocumentStatus, ENDED, type Finding, type JobDocument, type JobStatus, type Outcome } from "@/api/jobs";
+import type { StatusKind } from "@/components/StatusMark";
 import type { BadgeTone } from "@/components/ui/badge";
 
-export const JOB_STATUS: Record<JobStatus, { label: string; tone: BadgeTone }> = {
-  RECEIVED: { label: "Waiting", tone: "neutral" },
-  UNBRANDING: { label: "Unbranding", tone: "info" },
-  UNBRANDED: { label: "Ready", tone: "success" },
-  FILING: { label: "Filing", tone: "info" },
-  FILED_PRIVATE: { label: "Filed (private)", tone: "success" },
-  FAILED: { label: "Failed", tone: "danger" },
+// A state is a glyph and a word (DESIGN.md). Gold, "review", is only for a job
+// cleaned and waiting for an admin.
+export const JOB_STATUS: Record<JobStatus, { label: string; kind: StatusKind }> = {
+  RECEIVED: { label: "Waiting", kind: "idle" },
+  UNBRANDING: { label: "Working", kind: "working" },
+  UNBRANDED: { label: "Needs review", kind: "review" },
+  FILING: { label: "Filing", kind: "working" },
+  FILED_PRIVATE: { label: "Filed in Drive", kind: "done" },
+  FAILED: { label: "Failed", kind: "failed" },
 };
 
-export const DOCUMENT_STATUS: Record<DocumentStatus, { label: string; tone: BadgeTone }> = {
-  PENDING: { label: "Waiting", tone: "neutral" },
-  UNBRANDING: { label: "Unbranding", tone: "info" },
-  VERIFIED: { label: "Passed checks", tone: "success" },
-  BLOCKED: { label: "Blocked", tone: "danger" },
-  FILED: { label: "Filed", tone: "success" },
-  FAILED: { label: "Failed", tone: "danger" },
+export const DOCUMENT_STATUS: Record<DocumentStatus, { label: string; kind: StatusKind }> = {
+  PENDING: { label: "Waiting", kind: "idle" },
+  UNBRANDING: { label: "Working", kind: "working" },
+  VERIFIED: { label: "Passed", kind: "done" },
+  BLOCKED: { label: "Blocked", kind: "failed" },
+  FILED: { label: "Filed", kind: "done" },
+  FAILED: { label: "Failed", kind: "failed" },
 };
 
 export const SEVERITY: Record<Finding["severity"], { label: string; tone: BadgeTone }> = {
@@ -94,6 +97,20 @@ export function removals(document: JobDocument): Outcome[] {
   return (document.removed_items ?? []).filter((item) => item.action.tool !== "drop_page");
 }
 
+/** A removal as the viewer lists it beside its page, so without the page number. */
+export function removalKind(item: Outcome): string {
+  switch (item.action.tool) {
+    case "redact_rect":
+      return "Area cleared";
+    case "remove_element":
+      return "Element removed";
+    case "drop_page":
+      return "Page dropped";
+    default:
+      return describeRemoval(item);
+  }
+}
+
 export function describeRemoval(item: Outcome): string {
   const action = item.action;
   switch (action.tool) {
@@ -108,4 +125,68 @@ export function describeRemoval(item: Outcome): string {
     case "add_mark":
       return "Mark added";
   }
+}
+
+/** What a document is called on screen: its sorted type, or its place in the upload. */
+export function documentName(document: JobDocument): string {
+  return document.doc_type ? (DOC_TYPE[document.doc_type] ?? document.doc_type) : `Document ${document.position}`;
+}
+
+/** Everything the agent changed in a document, dropped pages included. */
+export function changeCount(document: JobDocument): number {
+  return (document.removed_items ?? []).length;
+}
+
+/** Changes per source page. Names removed across the file (redact_terms) belong
+ * to no page, so they are not here. */
+export function changesByPage(document: JobDocument): Map<number, number> {
+  const pages = new Map<number, number>();
+  for (const item of document.removed_items ?? []) {
+    if ("page" in item.action && typeof item.action.page === "number") {
+      pages.set(item.action.page, (pages.get(item.action.page) ?? 0) + 1);
+    }
+  }
+  return pages;
+}
+
+/** The first source page that survived, to stand for the document; 1 if none did. */
+export function firstKeptPage(document: JobDocument): number {
+  for (let page = 1; page <= document.page_count; page += 1) {
+    if (document.page_map[String(page)] != null) return page;
+  }
+  return 1;
+}
+
+export function keptPages(document: JobDocument): number {
+  return document.page_count - (document.dropped_pages?.length ?? 0);
+}
+
+export interface Progress {
+  stage: "Waiting" | "Unbranding" | "Filing";
+  done: number;
+  total: number;
+  /** The document being unbranded now, as "Document 2 of 3 · Price list". */
+  current: string | null;
+}
+
+/** How far an open job has got, from its documents' statuses: the worker reports
+ * no finer progress than that. */
+export function progress(job: { status: JobStatus; documents?: JobDocument[] }): Progress {
+  const documents = job.documents ?? [];
+  const total = documents.length;
+  if (job.status === "FILING") {
+    return { stage: "Filing", done: documents.filter((document) => document.status === "FILED").length, total, current: null };
+  }
+  const done = documents.filter((document) => document.status !== "PENDING" && document.status !== "UNBRANDING").length;
+  const working = documents.find((document) => document.status === "UNBRANDING");
+  if (job.status === "RECEIVED" && !working) return { stage: "Waiting", done, total, current: null };
+  return {
+    stage: "Unbranding", done, total,
+    current: working ? `Document ${working.position} of ${total} · ${documentName(working)}` : null,
+  };
+}
+
+/** Documents that came through the final check clean. */
+export function passedCount(documents: JobDocument[]): number {
+  return documents.filter((document) => document.status === "VERIFIED" || document.status === "FILED").length;
 }

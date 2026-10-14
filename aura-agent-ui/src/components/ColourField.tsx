@@ -20,7 +20,7 @@ export function ColourField({ value, onChange, onBlur, name, ...aria }: {
         tabIndex={-1}
         value={HEX.test(value) ? value : "#000000"}
         onChange={(event) => onChange(event.target.value.toUpperCase())}
-        className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-border bg-surface p-1"
+        className="size-[38px] shrink-0 cursor-pointer rounded-[4px] border border-line bg-raise p-1"
       />
       <Input name={name} value={value} onBlur={onBlur} spellCheck={false} maxLength={7} className="font-mono"
         onChange={(event) => onChange(event.target.value)} {...aria} />

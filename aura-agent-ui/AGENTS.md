@@ -13,6 +13,9 @@ Railway URL of `aura-chat`. That URL is also in `netlify.toml`'s CSP
 `connect-src`; when it moves, change both, and add the site's origin to
 aura-chat's `ALLOWED_ORIGINS`.
 
+Before building or changing a screen, read [DESIGN.md](DESIGN.md): the colours,
+type, surfaces and copy rules every screen follows.
+
 ## Commands
 
 ```bash

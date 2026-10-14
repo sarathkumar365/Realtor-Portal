@@ -9,11 +9,11 @@ async function signInAs(user: ReturnType<typeof renderApp>["user"], id: string, 
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 }
 
-test("an admin signs in and lands on jobs", async () => {
+test("an admin signs in and lands on Home", async () => {
   const { user, router } = renderApp("/sign-in", { signedIn: false });
   await signInAs(user, "admin");
-  expect(await screen.findByRole("heading", { name: "Unbrander jobs" })).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/jobs");
+  expect(await screen.findByRole("heading", { name: /^Good (morning|afternoon|evening)$/ })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/");
   expect(getSession()).toMatchObject({ user: "admin", name: "Sudhanshu" });
 });
 
@@ -48,7 +48,7 @@ test("a signed-out visitor is sent to sign-in and back to the page they asked fo
 
 test("a session that ends mid-use goes to sign-in with the reason", async () => {
   renderApp("/jobs");
-  expect(await screen.findByRole("heading", { name: "Unbrander jobs" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Unbranding" })).toBeInTheDocument();
   act(() => endSession("Your session ended. Sign in again."));
   expect(await screen.findByRole("status")).toHaveTextContent("Your session ended");
 });

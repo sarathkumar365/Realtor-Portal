@@ -29,7 +29,7 @@ export function SignInPage() {
   const session = useSession();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/jobs";
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
   const [notice] = useState(getEndReason);
   const form = useForm<Credentials>({ resolver: zodResolver(schema), defaultValues: { user: "", password: "" } });
 

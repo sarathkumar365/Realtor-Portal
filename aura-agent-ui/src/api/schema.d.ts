@@ -178,6 +178,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/chat/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat Summary
+         * @description How many people held a conversation in the last ACTIVE_DAYS. Admin only:
+         *     it counts every realtor, not the caller.
+         */
+        get: operations["chat_summary_admin_chat_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations": {
         parameters: {
             query?: never;
@@ -239,6 +260,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/unbrander/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summary
+         * @description Jobs waiting for review and running now, and jobs and cleaned pages since
+         *     `since`. Admin only.
+         */
+        get: operations["summary_admin_unbrander_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/unbrander/jobs": {
         parameters: {
             query?: never;
@@ -248,7 +290,8 @@ export interface paths {
         };
         /**
          * List Jobs
-         * @description Jobs, newest first, without documents. Admin only.
+         * @description Jobs, newest first, in any of the given statuses (repeat `status`), without
+         *     documents unless `documents=true`. Admin only.
          */
         get: operations["list_jobs_admin_unbrander_jobs_get"];
         put?: never;
@@ -480,6 +523,13 @@ export interface components {
          * @enum {string}
          */
         ChatMode: "realtor" | "client";
+        /** ChatSummary */
+        ChatSummary: {
+            /** Active Users */
+            active_users: number;
+            /** Days */
+            days: number;
+        };
         /**
          * Check
          * @enum {string}
@@ -568,6 +618,20 @@ export interface components {
             /** Job Id */
             job_id: string;
             status: components["schemas"]["JobStatus"];
+        };
+        /**
+         * JobCounts
+         * @description What an admin's home screen shows: what waits, what runs, what got done.
+         */
+        JobCounts: {
+            /** To Review */
+            to_review: number;
+            /** Working */
+            working: number;
+            /** Jobs Since */
+            jobs_since: number;
+            /** Pages Cleaned Since */
+            pages_cleaned_since: number;
         };
         /** JobDetail */
         JobDetail: {
@@ -686,6 +750,10 @@ export interface components {
         JobList: {
             /** Jobs */
             jobs: components["schemas"]["JobSummary"][];
+            /** Documents */
+            documents?: {
+                [key: string]: components["schemas"]["JobDocument"][];
+            } | null;
         };
         /**
          * JobStatus
@@ -1334,6 +1402,37 @@ export interface operations {
             };
         };
     };
+    chat_summary_admin_chat_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_conversations_conversations_get: {
         parameters: {
             query?: {
@@ -1435,11 +1534,45 @@ export interface operations {
             };
         };
     };
+    summary_admin_unbrander_summary_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCounts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_jobs_admin_unbrander_jobs_get: {
         parameters: {
             query?: {
-                status?: components["schemas"]["JobStatus"] | null;
+                status?: components["schemas"]["JobStatus"][];
                 limit?: number;
+                documents?: boolean;
             };
             header?: {
                 authorization?: string | null;

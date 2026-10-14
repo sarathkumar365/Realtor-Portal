@@ -1,19 +1,52 @@
-/* Aura Key brand tokens, from design_handoff_aura_key/README.md (Design Tokens).
-   Components use the semantic names in globals.css, never these directly. */
+/* Raw palette, from DESIGN.md. Monochrome; gold marks what the agent changed and
+   nothing else. Components use the semantic names in globals.css, never these. */
 :root {
-  --ak-ink: #0e1a22;
-  --ak-paper: #e9edee;
-  --ak-blue: #1f4e6b;
-  --ak-blue-hover: #26597a;
-  --ak-blue-active: #163a50;
-  --ak-pine: #0f6349;
-  --ak-ochre: #9a6104;
-  --ak-gold: #d3ae60;
-  --ak-gold-light: #e0c387;
-  --ak-text: #17364b;
-  --ak-muted: #5b7284;
-  --ak-placeholder: #93a6b3;
-  --ak-border: #d4dce2;
-  --ak-rule: #e2e8ed;
-  --ak-danger: #b42318;
+  --ak-void: #09090b;
+  --ak-raise: #0f1013;
+  --ak-raise-2: #16171b;
+  --ak-fg: #f4f4f5;
+  --ak-fg-2: #8c8c95;
+  --ak-fg-3: #55555e;
+  --ak-line: rgb(255 255 255 / 9%);
+  --ak-line-2: rgb(255 255 255 / 4.5%);
+  --ak-gold: #c9a227;
+  --ak-gold-text: #d9b648;
+  /* The one hue besides gold: errors and destructive confirms only. */
+  --ak-danger: #e5484d;
+  /* White PDF pages sit dimmed on a dark screen until hovered. */
+  --ak-paper-dim: 0.82;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ak-void: #fafafa;
+    --ak-raise: #ffffff;
+    --ak-raise-2: #f2f2f3;
+    --ak-fg: #0b0b0d;
+    --ak-fg-2: #66666f;
+    --ak-fg-3: #a3a3ab;
+    --ak-line: rgb(0 0 0 / 10%);
+    --ak-line-2: rgb(0 0 0 / 5.5%);
+    --ak-gold-text: #8c6d0e;
+    --ak-danger: #c62f2f;
+    --ak-paper-dim: 1;
+    color-scheme: light;
+  }
+}
+
+/* The review viewer is dark in either theme, so the pages are the only light. */
+.surface-dark {
+  --ak-void: #060607;
+  --ak-raise: #0f1013;
+  --ak-raise-2: #16171b;
+  --ak-fg: #f4f4f5;
+  --ak-fg-2: #8c8c95;
+  --ak-fg-3: #55555e;
+  --ak-line: rgb(255 255 255 / 9%);
+  --ak-line-2: rgb(255 255 255 / 5%);
+  --ak-gold-text: #d9b648;
+  --ak-danger: #e5484d;
+  --ak-paper-dim: 1;
+  color-scheme: dark;
 }

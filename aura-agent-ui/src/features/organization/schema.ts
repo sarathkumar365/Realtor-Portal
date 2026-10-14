@@ -30,3 +30,7 @@ export const organizationSchema = z.object({
 
 export type OrganizationForm = z.infer<typeof organizationSchema>;
 export type BrandForm = z.infer<typeof brandSchema>;
+
+// The two screens edit one profile in two parts: the brokerage's details, and its mark.
+export const detailsSchema = organizationSchema.omit({ brand: true });
+export type DetailsForm = z.infer<typeof detailsSchema>;

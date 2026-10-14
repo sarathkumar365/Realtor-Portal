@@ -13,13 +13,13 @@ export function FormField({ label, error, hint, children }: {
   const id = useId();
   const described = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-[7px]">
       <Label htmlFor={id}>{label}</Label>
       {cloneElement(children, { id, "aria-invalid": error ? true : undefined, "aria-describedby": described })}
       {error ? (
-        <p id={`${id}-error`} className="text-sm text-danger">{error}</p>
+        <p id={`${id}-error`} className="text-[12px] text-danger">{error}</p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-sm text-muted">{hint}</p>
+        <p id={`${id}-hint`} className="text-[12px] text-fg-3">{hint}</p>
       ) : null}
     </div>
   );

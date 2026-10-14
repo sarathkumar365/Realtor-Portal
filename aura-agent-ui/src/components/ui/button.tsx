@@ -5,21 +5,22 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold whitespace-nowrap " +
-    "transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 rounded-[4px] font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] whitespace-nowrap " +
+    "transition-[color,background-color,border-color,opacity,transform] duration-300 ease-spring " +
+    "disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-active",
-        secondary: "border border-border bg-surface text-foreground hover:bg-rule",
-        ghost: "text-foreground hover:bg-rule",
+        primary: "bg-foreground text-background hover:-translate-y-px",
+        quiet: "border border-line text-fg-2 hover:text-foreground",
+        bare: "text-fg-3 hover:text-foreground",
         danger: "bg-danger text-white hover:opacity-90",
       },
       size: {
-        sm: "h-8 px-3",
-        md: "h-10 px-4",
-        lg: "h-12 px-5 text-base",
-        icon: "size-9",
+        sm: "h-7 px-2.5",
+        md: "h-[34px] px-3.5",
+        lg: "h-10 px-5",
+        icon: "size-8 tracking-normal",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

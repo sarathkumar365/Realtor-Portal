@@ -32,8 +32,8 @@ ideas were borrowed; no code was copied.
 | `raise` | `#0F1013` | `#FFFFFF` | Cards, inputs |
 | `raise-2` | `#16171B` | `#F2F2F3` | Active nav item, selected tab |
 | `fg` | `#F4F4F5` | `#0B0B0D` | Text, primary button fill |
-| `fg-2` | `#8C8C95` | `#66666F` | Secondary text |
-| `fg-3` | `#55555E` | `#A3A3AB` | Labels, hints, disabled |
+| `fg-2` | `#A1A1AA` | `#4D4D55` | Secondary text |
+| `fg-3` | `#82828B` | `#6C6C74` | Labels, hints, disabled. At least 4.5:1 on every background: labels are 10px, so this is the floor, not a target |
 | `line` | white 9% | black 10% | Borders you should notice |
 | `line-2` | white 4.5% | black 5.5% | Hairlines, dividers |
 | `gold` | `#C9A227` | `#C9A227` | Change markers (fills) |

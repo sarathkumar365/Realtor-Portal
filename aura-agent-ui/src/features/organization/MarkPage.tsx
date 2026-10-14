@@ -79,7 +79,7 @@ function MarkForm({ saved }: { saved: Organization }) {
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,340px)] items-start gap-7 max-[820px]:grid-cols-1">
         <figure className="m-0 flex flex-col gap-2.5 rounded-[10px] border border-line-2 bg-raise p-8" aria-label="Preview">
-          <figcaption className="label-caps">Preview · bottom of a page</figcaption>
+          <figcaption className="label-caps">Preview · corner of a page</figcaption>
           <div className="overflow-hidden rounded-[2px] bg-white">
             <MarkPreview brand={preview} />
           </div>

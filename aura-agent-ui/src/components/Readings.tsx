@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 /** Cells divided by 1px of the hairline colour: the gap shows the background. */
 export function Readings({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <dl className={cn("grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-px border border-line-2 bg-line-2", className)}>
+    <dl className={cn("grid grid-cols-[repeat(auto-fit,minmax(min(180px,calc(50%_-_1px)),1fr))] gap-px border border-line-2 bg-line-2", className)}>
       {children}
     </dl>
   );

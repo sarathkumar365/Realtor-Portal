@@ -306,3 +306,16 @@ def test_a_whole_image_beside_part_of_a_transparent_one_is_refused_untouched():
         session.redact_area(1, (250, 140, 360, 180))
     with pymupdf.open(stream=session.save(drop=[], mark=None, brand=BRAND)) as doc:
         assert len(doc[0].get_images()) == 2
+
+
+def test_the_mark_preview_is_the_corner_and_grows_with_the_mark():
+    """The whole page width made the mark a few pixels tall on a phone."""
+    def size(brand: Brand) -> tuple[int, int]:
+        pixmap = pymupdf.Pixmap(PyMuPdfEditor().preview_mark(brand))
+        return pixmap.width, pixmap.height
+
+    short = Brand(mark_words=[MarkWord(text="AURA", colour="#0E1A24")])
+    long = Brand(mark_words=[MarkWord(text="AURA", colour="#0E1A24"), MarkWord(text="KEYREALTY", colour="#0E1A24")])
+    full_page_width = round(612 * 200 / 72)
+    assert size(short)[0] < size(long)[0] < full_page_width / 2
+    assert size(short)[1] == size(long)[1]

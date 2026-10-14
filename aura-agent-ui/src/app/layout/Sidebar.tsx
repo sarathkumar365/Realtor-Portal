@@ -76,10 +76,10 @@ export function Sidebar() {
       <Group>Settings</Group>
       {link("/organization", "Organization", Building2)}
       <div className="mt-auto flex flex-col gap-0.5 border-t border-line-2 pt-2.5">
-        <button type="button" className={cn(item, "max-[820px]:hidden")} onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}>
+        <button type="button" className={cn(item, "w-auto self-start max-[820px]:hidden")} onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           <PanelLeft className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span className={LABEL}>Collapse</span>
         </button>
         <button type="button" className={item} onClick={() => endSession()} aria-label="Sign out" title="Sign out">
           <LogOut className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />

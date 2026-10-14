@@ -273,8 +273,9 @@ document downloads too, for review. Each download is an audit log line.
 
 ### `POST /admin/unbrander/mark-preview` — admin only
 
-Body: a `Brand` (the `brand` of the organization profile). Returns the bottom of
-a blank Letter page with the mark at the bottom right, drawn by the same code
+Body: a `Brand` (the `brand` of the organization profile). Returns the bottom-right
+corner of a blank Letter page with the mark in it (the margin stays in view; the
+width follows the mark), drawn by the same code
 that marks every cleaned PDF. 422 with field errors for an invalid brand. Needs
 no database.
 

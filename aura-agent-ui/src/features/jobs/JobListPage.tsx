@@ -68,7 +68,7 @@ export function JobListPage() {
 
 /** A section of the page, left out when it has no jobs. */
 const LAYOUT = {
-  cards: "grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5",
+  cards: "grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-3.5",
   stack: "flex flex-col gap-3",
   rows: "flex flex-col",
 };

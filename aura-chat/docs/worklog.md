@@ -13,6 +13,31 @@ formatting.
 
 ---
 
+## 2026-10-14 — Admin app on a phone, and labels you can read
+
+Checked at 375px and in light mode after the redesign.
+
+- **Grey text meets 4.5:1.** The small uppercase labels (`fg-3`) measured 2.4:1 on the
+  light background and about 2.6:1 on the dark one. At 10px that is unreadable for
+  many people. `fg-3` is now `#82828B` / `#6C6C74`, at least 4.5:1 on every surface;
+  `fg-2` moved up with it (`#A1A1AA` / `#4D4D55`) so the two greys still read as two
+  steps. Rejected: keeping the faint grey and raising the label size, which would
+  have broken the three-size type scale.
+- **Grids never exceed their column.** `minmax(300px,1fr)` forced cards wider than a
+  phone's 283px column. Each minimum is now `min(Npx,100%)`; summary cells use
+  `min(180px,50%)` so a phone shows two columns, not four rows.
+- **The viewer shows a page's changes on a phone.** They were hidden under 820px,
+  which left a phone able to turn pages but not see what was removed: the point of
+  the review. They now sit above the arrows, capped at about two rows and scrolling
+  inside that strip only, with the whole-document line under them; a select
+  replaces the document tabs. The page keys ignore a focused select, which uses the
+  arrows itself.
+- **The mark preview is the page's corner, not its full width.** Across 612pt the
+  mark was 30px tall on a phone. The server now clips from the mark's left edge
+  (plus 48pt) to the page edge; the margin stays in view so its slider still shows.
+  Done on the server because only there is the mark's width known exactly; a
+  client-side crop by a fixed share would cut a long or large mark.
+
 ## 2026-10-14 — The jobs list asks by status, and can bring documents
 
 The redesigned Unbranding page first loaded the 50 newest jobs and split them into

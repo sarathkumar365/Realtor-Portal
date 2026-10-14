@@ -48,7 +48,7 @@ export function OrganizationPage() {
         <>
           <PageHeader eyebrow="Settings" title="Organization" description={DESCRIPTION}
             actions={<Button variant="quiet" onClick={() => setEditing(true)}>Edit</Button>} />
-          <Readings className="-mt-2 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+          <Readings className="-mt-2 grid-cols-[repeat(auto-fit,minmax(min(220px,calc(50%_-_1px)),1fr))]">
             <Fact label="Name" value={saved.name} />
             <Fact label="Short name" value={saved.short_name} />
             <Fact label="Assistant" value={saved.assistant_name} />

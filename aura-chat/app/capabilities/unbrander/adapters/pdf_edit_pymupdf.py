@@ -39,6 +39,7 @@ LABEL_SIZE = 26  # pixels; Pillow's default 10 is unreadable on a 2300-pixel-wid
 LETTER = (612, 792)
 PREVIEW_DPI = 200
 PREVIEW_ABOVE_MARK = 48  # points shown above the mark's baseline
+PREVIEW_LEFT_OF_MARK = 48  # points shown left of the mark's first letter
 
 # The brand's font family as PyMuPDF names its base-14 regular face.
 BASE14 = {"Times": "times-roman", "Helvetica": "helvetica", "Courier": "courier"}
@@ -53,8 +54,11 @@ class PyMuPdfEditor:
         try:
             page = doc.new_page(width=LETTER[0], height=LETTER[1])
             _wordmark(page, MarkPosition.BOTTOM_RIGHT, brand)
+            # The corner only: across a whole page width the mark is a few pixels
+            # tall on a phone. The margin stays in view, so its slider still shows.
             top = max(page.rect.height - brand.margin - PREVIEW_ABOVE_MARK, 0)
-            clip = pymupdf.Rect(0, top, page.rect.width, page.rect.height)
+            left = max(page.rect.width - brand.margin - _mark_width(brand) - PREVIEW_LEFT_OF_MARK, 0)
+            clip = pymupdf.Rect(left, top, page.rect.width, page.rect.height)
             pixmap = page.get_pixmap(dpi=PREVIEW_DPI, clip=clip, alpha=False)
             return pixmap.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
         finally:
@@ -268,13 +272,11 @@ def _wordmark(page: "pymupdf.Page", position: MarkPosition, brand: Brand) -> Non
     insert_text works in unrotated space, so each point is derotated and the
     letters are turned with the page to read upright."""
     font, size, tracking = BASE14[brand.font], brand.size, brand.tracking
-    words = brand.mark_words
-    width = sum(pymupdf.get_text_length(ch, font, size) + tracking
-                for word in words for ch in word.text) + size * 0.5 * (len(words) - 1)
+    width = _mark_width(brand)
     left = (page.rect.width - brand.margin - width if position is MarkPosition.BOTTOM_RIGHT
             else (page.rect.width - width) / 2)
     baseline = page.rect.height - brand.margin
-    for word in words:
+    for word in brand.mark_words:
         color = _rgb(word.colour)
         for ch in word.text:
             page.insert_text(pymupdf.Point(left, baseline) * page.derotation_matrix, ch,
@@ -282,6 +284,13 @@ def _wordmark(page: "pymupdf.Page", position: MarkPosition, brand: Brand) -> Non
                              fill_opacity=brand.opacity, rotate=page.rotation)
             left += pymupdf.get_text_length(ch, font, size) + tracking
         left += size * 0.5
+
+
+def _mark_width(brand: Brand) -> float:
+    font, size, tracking = BASE14[brand.font], brand.size, brand.tracking
+    words = brand.mark_words
+    return sum(pymupdf.get_text_length(ch, font, size) + tracking
+               for word in words for ch in word.text) + size * 0.5 * (len(words) - 1)
 
 
 def _strip_object_metadata(doc: "pymupdf.Document") -> None:

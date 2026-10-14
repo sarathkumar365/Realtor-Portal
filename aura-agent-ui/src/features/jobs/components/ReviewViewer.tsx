@@ -4,7 +4,7 @@ import { Dialog } from "radix-ui";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import { download } from "@/api/download";
-import { type Job, type JobDocument, outputPdfPath, pageImage, type PageVersion } from "@/api/jobs";
+import { type Job, outputPdfPath, pageImage, type PageVersion } from "@/api/jobs";
 import { AuthImage } from "@/components/AuthImage";
 import { DownloadButton } from "@/components/DownloadButton";
 import { StatusMark } from "@/components/StatusMark";
@@ -47,6 +47,10 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
   }, [current]);
   useEffect(() => {
     function turn(event: KeyboardEvent) {
+      // A focused select or field uses the arrows itself: the document select
+      // would change document and page on one key press.
+      if (event.target instanceof HTMLSelectElement || event.target instanceof HTMLInputElement
+        || event.target instanceof HTMLTextAreaElement) return;
       const at = shown.current;
       const next = event.key === "ArrowRight" ? at + 1 : event.key === "ArrowLeft" ? at - 1 : at;
       if (next === at || next < 1 || next > last) return;
@@ -78,6 +82,8 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
   // Dropped pages included: a drop is a change on that page too.
   const onPageChanges = (document.removed_items ?? []).filter((item) => "page" in item.action && item.action.page === current);
   const acrossDocument = removals(document).filter((item) => !("page" in item.action));
+  const wholeFindings = wholeFileFindings(document);
+  const hasWholeDocument = acrossDocument.length > 0 || wholeFindings.length > 0;
   const pagesWithChanges = changesByPage(document);
   const status = DOCUMENT_STATUS[document.status];
   const image = (version: PageVersion, alt: string) => (
@@ -110,6 +116,16 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
                   </button>
                 ))}
               </nav>
+            )}
+            {documents.length > 1 && (
+              // The tabs do not fit a phone's width; the same choice as a list.
+              <select aria-label="Document" value={document.position} onChange={(event) => onDocument(Number(event.target.value))}
+                className="order-last hidden h-[34px] basis-full rounded-[4px] border border-line bg-raise px-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground
+                  focus:border-foreground focus:outline-none max-[820px]:block">
+                {documents.map((other) => (
+                  <option key={other.id} value={other.position}>{documentName(other)} · {other.page_count}</option>
+                ))}
+              </select>
             )}
             <div className="ml-auto flex items-center gap-3">
               <StatusMark kind={status.kind}>{status.label}</StatusMark>
@@ -153,7 +169,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
           </div>
 
           <footer className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-[18px] border-t border-line-2 px-5 py-3.5 max-[820px]:grid-cols-1">
-            <section aria-label="Changes on this page" className="flex min-w-0 flex-wrap gap-1.5 max-[820px]:hidden">
+            <section aria-label="Changes on this page" className="flex min-w-0 flex-wrap gap-1.5 max-[820px]:max-h-[76px] max-[820px]:overflow-y-auto">
               {onPageChanges.map((item, index) => (
                 <Pill key={index} number={index + 1} title={item.action.why}>{`${removalKind(item)} · ${item.action.why}`}</Pill>
               ))}
@@ -169,7 +185,7 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
               )}
             </section>
 
-            <div className="justify-self-center">
+            <div className="justify-self-center max-[820px]:order-3">
               <div className="flex items-center gap-[18px]">
                 <Arrow label="Previous page" disabled={current <= 1} onClick={() => onPage(current - 1)}>
                   <ArrowLeft className="size-5" aria-hidden />
@@ -193,9 +209,11 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
               )}
             </div>
 
-            <div className="flex w-full min-w-0 flex-col items-end gap-1.5 max-[820px]:hidden">
-              <WholeDocument document={document} names={acrossDocument.map(describeRemoval)} />
-              <span className="flex items-center gap-1.5">
+            {/* On a phone only the whole-document line stays, under the page's changes. */}
+            <div className={cn("flex w-full min-w-0 flex-col items-end gap-1.5 max-[820px]:order-2 max-[820px]:items-start",
+              !hasWholeDocument && "max-[820px]:hidden")}>
+              <WholeDocument names={acrossDocument.map(describeRemoval)} findings={wholeFindings} />
+              <span className="flex items-center gap-1.5 max-[820px]:hidden">
                 <Key>←</Key><Key>→</Key><span className="label-caps">Pages</span>
                 <Key>Esc</Key><span className="label-caps">Close</span>
               </span>
@@ -208,11 +226,10 @@ export function ReviewViewer({ job, position, page, onPage, onDocument, onClose 
 }
 
 /** What applies to every page: names removed across the file, findings about the file. */
-function WholeDocument({ document, names }: { document: JobDocument; names: string[] }) {
-  const findings = wholeFileFindings(document);
+function WholeDocument({ names, findings }: { names: string[]; findings: ReturnType<typeof wholeFileFindings> }) {
   if (names.length === 0 && findings.length === 0) return null;
   return (
-    <span className="block max-w-full truncate text-right text-[12px] text-fg-2"
+    <span className="block max-w-full truncate text-right text-[12px] text-fg-2 max-[820px]:text-left"
       title={[...names, ...findings.map((finding) => `${CHECK[finding.check]}: ${finding.detail}`)].join("\n")}>
       <span className="label-caps mr-2">Whole document</span>
       {[...names, ...findings.map((finding) => CHECK[finding.check])].join(" · ")}

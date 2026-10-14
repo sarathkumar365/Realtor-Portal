@@ -86,7 +86,7 @@ export function JobDetailPage() {
       </Readings>
 
       <Section title="Documents" aside={cleaned.length > 0 ? "Open one to compare" : undefined}>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3.5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-3.5">
           {documents.map((document) => (
             <DocumentCard key={document.id} jobId={data.id} document={document} events={data.events} />
           ))}
